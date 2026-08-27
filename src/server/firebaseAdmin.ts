@@ -11,7 +11,7 @@ export function getFirebaseAdmin(): App {
       adminApp = apps[0]!;
     } else {
       adminApp = initializeApp({
-        projectId: config.projectId,
+        projectId: process.env.FIREBASE_PROJECT_ID || config.projectId,
       });
     }
   }
@@ -22,3 +22,4 @@ export async function verifyFirebaseIdToken(idToken: string): Promise<DecodedIdT
   const app = getFirebaseAdmin();
   return await getAuth(app).verifyIdToken(idToken);
 }
+
