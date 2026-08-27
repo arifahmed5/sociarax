@@ -63,10 +63,17 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
       }
     } catch (err: any) {
       console.error('Google sign-in error:', err);
-      if (err.code === 'auth/popup-closed-by-user') {
-        setErrorMessage('Google popup was closed before completing sign-in.');
+      if (err.code === 'auth/unauthorized-domain') {
+        const currentDomain = window.location.hostname;
+        setErrorMessage(`Domain Unauthorized: "${currentDomain}" is not added in Firebase Authorized Domains. In Firebase Console > Authentication > Settings > Authorized domains, add "${currentDomain}".`);
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setErrorMessage('Google sign-in popup was closed before completing authentication.');
+      } else if (err.code === 'auth/popup-blocked') {
+        setErrorMessage('Popup blocked by your browser. Please allow popups for this site, or use Email & Password below.');
       } else if (err.code === 'auth/cancelled-popup-request') {
-        // popup request ignored
+        // popup request cancelled
+      } else if (err.code === 'auth/network-request-failed') {
+        setErrorMessage('Network error while connecting to Google. Please check your internet connection.');
       } else {
         setErrorMessage(err.message || 'Failed to sign in with Google. Please use email & password.');
       }

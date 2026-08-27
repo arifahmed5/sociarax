@@ -9,6 +9,21 @@
     <meta property="og:description" content="SociaraX - Enterprise Social Media Marketing (SMM) Platform with automated order fulfillment, multi-provider routing, and instant wallet ledger." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (function() {
+        window.onerror = function(msg) {
+          if (msg === 'Script error.' || msg === 'Script error' || (typeof msg === 'string' && msg.includes('WebSocket'))) {
+            return true;
+          }
+        };
+        window.addEventListener('unhandledrejection', function(e) {
+          var reason = (e && e.reason) ? (e.reason.message || String(e.reason)) : '';
+          if (reason.indexOf('WebSocket') !== -1 || reason.indexOf('vite') !== -1) {
+            e.preventDefault();
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

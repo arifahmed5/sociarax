@@ -164,6 +164,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, password })
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return { success: false, error: `Server returned non-JSON response (${res.status}). If on Render, please wait 30 seconds for the free service to spin up.` };
+      }
       const data = await res.json();
       if (data.success && data.token) {
         localStorage.setItem('sociarax_user_token', data.token);
@@ -196,6 +200,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken, email, displayName })
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return { success: false, error: `Server returned non-JSON response (${res.status})` };
+      }
       const data = await res.json();
       if (data.success && data.token) {
         localStorage.setItem('sociarax_user_token', data.token);
@@ -228,6 +236,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password, phone })
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return { success: false, error: `Server returned non-JSON response (${res.status}). If on Render, please wait 30 seconds for the free service to spin up.` };
+      }
       const data = await res.json();
       if (data.success && data.token) {
         localStorage.setItem('sociarax_user_token', data.token);
