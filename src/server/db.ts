@@ -1135,11 +1135,20 @@ function executeFallbackQuery(text: string, params: any[] = []): { rows: any[]; 
   // 2. Services
   if (lowerSql.includes('from services') && !lowerSql.includes('insert') && !lowerSql.includes('update') && !lowerSql.includes('delete')) {
     let rows = [...fallbackStore.services];
+    // Attach provider_name if joined
+    rows = rows.map(s => {
+      const prov = fallbackStore.api_providers.find(p => p.id === s.provider_id);
+      return {
+        ...s,
+        provider_name: prov?.name || (s.provider_id === 1 ? 'LuvSMM v2 Main' : 'Manual / None')
+      };
+    });
+
     // Category distinct check
     if (lowerSql.includes('select distinct category_name, platform') || lowerSql.includes('select distinct s.category_name, s.platform')) {
       const distinctRows: any[] = [];
       const seen = new Set();
-      for (const s of fallbackStore.services.filter(s => s.status === 'active')) {
+      for (const s of rows.filter(s => s.status === 'active')) {
         const key = `${s.category_name}_${s.platform}`;
         if (!seen.has(key)) {
           seen.add(key);
@@ -1191,8 +1200,9 @@ function executeFallbackQuery(text: string, params: any[] = []): { rows: any[]; 
             rows = rows.filter(r => 
               r.name.toLowerCase().includes(term) || 
               r.category_name.toLowerCase().includes(term) || 
-              r.description.toLowerCase().includes(term) ||
-              String(r.id) === term
+              (r.description && r.description.toLowerCase().includes(term)) ||
+              String(r.id) === term ||
+              String(r.provider_service_id) === term
             );
           }
           break;
@@ -1201,8 +1211,26 @@ function executeFallbackQuery(text: string, params: any[] = []): { rows: any[]; 
     }
 
     // Status filter
-    if (lowerSql.includes('status = \'active\'') || lowerSql.includes('s.status = \'active\'')) {
-      rows = rows.filter(r => r.status === 'active');
+    if (lowerSql.includes('status = \'active\'') || lowerSql.includes('s.status = \'active\'') || lowerSql.includes('s.status = $')) {
+      for (const p of params) {
+        if (p === 'active' || p === 'inactive') {
+          rows = rows.filter(r => r.status === p);
+          break;
+        }
+      }
+      if (lowerSql.includes("status = 'active'") || lowerSql.includes("s.status = 'active'")) {
+        rows = rows.filter(r => r.status === 'active');
+      }
+    }
+
+    // Provider ID filter
+    if (lowerSql.includes('s.provider_id = $') || lowerSql.includes('provider_id = $')) {
+      for (const p of params) {
+        if (typeof p === 'number' && p > 0) {
+          rows = rows.filter(r => r.provider_id === p);
+          break;
+        }
+      }
     }
 
     return { rows, rowCount: rows.length };

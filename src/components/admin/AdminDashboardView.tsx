@@ -182,15 +182,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
             <div className="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight flex items-baseline gap-1.5">
               <span>
                 {liveBalanceData 
-                  ? (liveBalanceData.rawPrimaryCurrency === 'INR' ? `₹${liveBalanceData.rawPrimaryBalance.toFixed(2)}` : `$${liveBalanceData.rawPrimaryBalance.toFixed(2)}`)
-                  : (adminProviders.length > 0 ? `$${Number(adminProviders[0].balance || 0).toFixed(2)}` : '$0.00')}
+                  ? (liveBalanceData.rawPrimaryCurrency === 'INR' 
+                      ? `₹${(Number(liveBalanceData.rawPrimaryBalance) || 0).toFixed(2)}` 
+                      : `$${(Number(liveBalanceData.rawPrimaryBalance) || 0).toFixed(2)}`)
+                  : (adminProviders.length > 0 
+                      ? `$${(Number(adminProviders[0]?.balance) || 0).toFixed(2)}` 
+                      : '$0.00')}
               </span>
               <span className="text-xs font-bold text-emerald-300">
-                {liveBalanceData ? liveBalanceData.rawPrimaryCurrency : 'USD'}
+                {liveBalanceData?.rawPrimaryCurrency || 'USD'}
               </span>
             </div>
             <div className="text-[11px] text-indigo-300 font-mono font-medium mt-0.5">
-              ≈ {liveBalanceData ? formatCurrency(liveBalanceData.totalInr) : '₹0.00'} INR (Rate: ₹{liveBalanceData?.exchangeRate || 88}/$)
+              ≈ {liveBalanceData ? formatCurrency(liveBalanceData.totalInr || 0) : '₹0.00'} INR (Rate: ₹{liveBalanceData?.exchangeRate || 88}/$)
             </div>
           </div>
 

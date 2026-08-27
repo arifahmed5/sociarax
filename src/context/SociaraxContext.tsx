@@ -131,17 +131,31 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Safe Fetch JSON helper to prevent syntax errors when server returns HTML or fails
   const safeFetchJson = async (url: string, options?: RequestInit): Promise<any> => {
     try {
-      const res = await fetch(url, options);
+      const headers = new Headers(options?.headers || {});
+      // Auto-inject authorization if not already explicitly provided
+      if (!headers.has('Authorization')) {
+        const adminTok = adminToken || localStorage.getItem('sociarax_admin_token');
+        const usrTok = userToken || localStorage.getItem('sociarax_user_token');
+        if (url.includes('/admin') && adminTok) {
+          headers.set('Authorization', `Bearer ${adminTok}`);
+        } else if (usrTok) {
+          headers.set('Authorization', `Bearer ${usrTok}`);
+        } else if (adminTok) {
+          headers.set('Authorization', `Bearer ${adminTok}`);
+        }
+      }
+
+      const res = await fetch(url, { ...options, headers });
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
         const text = await res.text();
-        console.warn(`[API NON-JSON WARNING] URL: ${url}, Status: ${res.status}`);
-        return { success: false, error: `Server returned non-JSON response (${res.status})` };
+        console.warn(`[API NON-JSON RESPONSE] URL: ${url}, Status: ${res.status}`);
+        return { success: false, error: `Server returned HTTP ${res.status}` };
       }
       const data = await res.json();
       return data;
     } catch (err: any) {
-      console.error(`[API FETCH ERROR] URL: ${url}:`, err);
+      console.warn(`[API FETCH NETWORK WARNING] URL: ${url}:`, err?.message || err);
       return { success: false, error: err.message || 'Network communication error' };
     }
   };
