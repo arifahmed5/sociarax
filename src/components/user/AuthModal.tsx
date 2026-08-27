@@ -42,8 +42,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
     } catch (err: any) {
       console.error('Google modal sign-in error:', err);
       if (err.code === 'auth/unauthorized-domain') {
-        const currentDomain = window.location.hostname;
-        setErrorMessage(`Domain Unauthorized: "${currentDomain}" is not in Firebase Authorized Domains. In Firebase Console > Authentication > Settings > Authorized domains, add "${currentDomain}", or login with email/password.`);
+        setErrorMessage('Google Sign-In is unavailable on this domain. Please sign in with your email or password.');
       } else if (err.code === 'auth/popup-closed-by-user') {
         setErrorMessage('Google popup was closed before completing sign-in.');
       } else if (err.code === 'auth/popup-blocked') {
