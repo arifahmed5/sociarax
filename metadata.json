@@ -1,0 +1,6 @@
+{
+  "name": "SociaraX",
+  "description": "Enterprise Social Media Marketing (SMM) Panel featuring Neon PostgreSQL database, Google Authenticator 2FA for Admin, multi-provider API system with Luvsmm integration, real wallet ledger, manual UTR payment approval, and mobile-first dashboard.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
