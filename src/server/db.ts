@@ -29,6 +29,7 @@ interface FallbackData {
   ticket_messages: Array<any>;
   audit_logs: Array<any>;
   notifications: Array<any>;
+  password_resets: Array<any>;
 }
 
 const initialPasswordHash = bcrypt.hashSync(process.env.ADMIN_INITIAL_PASSWORD || 'AdminSecure2026!SociaraX', 10);
@@ -1101,7 +1102,8 @@ const fallbackStore: FallbackData = {
     }
   ],
   audit_logs: [],
-  notifications: []
+  notifications: [],
+  password_resets: []
 };
 
 let nextIds = {
@@ -1112,7 +1114,8 @@ let nextIds = {
   payment_requests: 3,
   api_providers: 2,
   support_tickets: 2,
-  ticket_messages: 2
+  ticket_messages: 2,
+  password_resets: 1
 };
 
 // Fallback Query Executor
@@ -2103,6 +2106,22 @@ export async function initializeDatabaseSchema(): Promise<void> {
           target_id VARCHAR(100),
           details JSONB,
           ip_address VARCHAR(45),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
+      // 13. Password Resets (Secure Verified OTPs)
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS password_resets (
+          id SERIAL PRIMARY KEY,
+          user_id INT NOT NULL,
+          identifier VARCHAR(255) NOT NULL,
+          otp_code VARCHAR(10) NOT NULL,
+          channel VARCHAR(20) NOT NULL,
+          destination VARCHAR(255) NOT NULL,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          verified BOOLEAN DEFAULT FALSE,
+          attempts INT DEFAULT 0,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
       `);

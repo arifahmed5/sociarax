@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import { 
   Zap, 
@@ -21,7 +21,11 @@ import {
   Youtube, 
   Ghost,
   Twitter,
-  Music
+  Music,
+  KeyRound,
+  X,
+  RefreshCw,
+  HelpCircle
 } from 'lucide-react';
 
 interface AuthGateProps {
@@ -29,23 +33,84 @@ interface AuthGateProps {
 }
 
 export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
-  const { loginUser, loginWithGoogle, registerUser } = useAuth();
+  const { 
+    loginUser, 
+    loginWithGoogle, 
+    registerUser, 
+    checkAccountForOtp, 
+    requestPasswordResetOtp, 
+    verifyOtpAndResetPassword 
+  } = useAuth();
   
-  const [mode, setMode] = useState<'register' | 'login'>('register');
+  // Tabs: ONLY 'register' and 'login'
+  const [mode, setMode] = useState<'register' | 'login'>('login');
+  
+  // Register fields
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [identifier, setIdentifier] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
   
+  // Login fields
+  const [identifier, setIdentifier] = useState('arifahmed56');
+  
+  // Global UI states
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // ==========================================
+  // Secure OTP Forgot Password Modal State
+  // ==========================================
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'identify' | 'verify_otp'>('identify');
+  const [forgotIdentifier, setForgotIdentifier] = useState('');
+  const [forgotChannels, setForgotChannels] = useState<Array<{ id: 'email' | 'phone'; label: string; masked: string }>>([]);
+  const [selectedChannel, setSelectedChannel] = useState<'email' | 'phone'>('email');
+  
+  const [otpCode, setOtpCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Timer countdown for resend OTP
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (resendCooldown > 0) {
+      timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
+  const openForgotPassword = () => {
+    setForgotIdentifier(identifier || '');
+    setForgotStep('identify');
+    setForgotChannels([]);
+    setSelectedChannel('email');
+    setOtpCode('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setForgotError('');
+    setForgotSuccess('');
+    setIsForgotModalOpen(true);
+  };
+
+  const closeForgotPassword = () => {
+    setIsForgotModalOpen(false);
+    setForgotError('');
+    setForgotSuccess('');
+  };
+
+  // Google OAuth Sign In
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     setErrorMessage('');
@@ -57,31 +122,30 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
       
       const res = await loginWithGoogle(idToken, fbUser.email || undefined, fbUser.displayName || undefined);
       if (res.success) {
-        setSuccessMessage('Successfully authenticated with Google! Entering portal...');
+        setSuccessMessage('Successfully authenticated with Google! Entering SociaraX...');
       } else {
-        setErrorMessage(res.error || 'Google sign-in failed. Please try again.');
+        setErrorMessage(res.error || 'Google sign-in failed. Please sign in with username & password.');
       }
     } catch (err: any) {
       console.error('Google sign-in error:', err);
       if (err.code === 'auth/unauthorized-domain') {
         const currentDomain = window.location.hostname;
-        setErrorMessage(`Domain Unauthorized: "${currentDomain}" is not added in Firebase Authorized Domains. In Firebase Console > Authentication > Settings > Authorized domains, add "${currentDomain}".`);
+        setErrorMessage(`Domain Unauthorized: "${currentDomain}" is not in Firebase Authorized Domains. In Firebase Console > Authentication > Settings > Authorized domains, add "${currentDomain}", or simply login with username & password below.`);
       } else if (err.code === 'auth/popup-closed-by-user') {
         setErrorMessage('Google sign-in popup was closed before completing authentication.');
       } else if (err.code === 'auth/popup-blocked') {
-        setErrorMessage('Popup blocked by your browser. Please allow popups for this site, or use Email & Password below.');
-      } else if (err.code === 'auth/cancelled-popup-request') {
-        // popup request cancelled
+        setErrorMessage('Popup was blocked by your browser. Please allow popups or use Email & Password below.');
       } else if (err.code === 'auth/network-request-failed') {
         setErrorMessage('Network error while connecting to Google. Please check your internet connection.');
       } else {
-        setErrorMessage(err.message || 'Failed to sign in with Google. Please use email & password.');
+        setErrorMessage(err.message || 'Failed to sign in with Google. You can login with username and password below.');
       }
     } finally {
       setIsGoogleLoading(false);
     }
   };
 
+  // User Registration
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -92,7 +156,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
       return;
     }
 
-    if (username.length < 3) {
+    if (username.trim().length < 3) {
       setErrorMessage('Username must be at least 3 characters.');
       return;
     }
@@ -123,6 +187,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
     }
   };
 
+  // Direct User Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -138,107 +203,214 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
     setIsLoading(false);
 
     if (!res.success) {
-      setErrorMessage(res.error || 'Invalid username or password. If you are new, please register first.');
+      setErrorMessage(res.error || 'Invalid username or password. Click "Forgot Password?" below to verify with OTP.');
+    }
+  };
+
+  // Step 1: Check account and request OTP
+  const handleCheckAccountAndRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotSuccess('');
+
+    if (!forgotIdentifier.trim()) {
+      setForgotError('Please enter your username or registered email address.');
+      return;
+    }
+
+    setForgotLoading(true);
+
+    // If channels haven't been fetched yet, check account first
+    if (forgotChannels.length === 0) {
+      const checkRes = await checkAccountForOtp(forgotIdentifier.trim());
+      if (!checkRes.success) {
+        setForgotLoading(false);
+        setForgotError(checkRes.error || 'Account not found. Please verify spelling.');
+        return;
+      }
+
+      if (checkRes.channels && checkRes.channels.length > 0) {
+        setForgotChannels(checkRes.channels);
+        setSelectedChannel(checkRes.channels[0].id);
+      }
+    }
+
+    // Request OTP to selected channel
+    const otpRes = await requestPasswordResetOtp(forgotIdentifier.trim(), selectedChannel);
+    setForgotLoading(false);
+
+    if (otpRes.success) {
+      setForgotSuccess(otpRes.message || 'OTP verification code sent successfully!');
+      setForgotStep('verify_otp');
+      setResendCooldown(60); // 60s cooldown
+    } else {
+      setForgotError(otpRes.error || 'Failed to dispatch OTP code. Please try again.');
+    }
+  };
+
+  // Resend OTP
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    setForgotError('');
+    setForgotSuccess('');
+    setForgotLoading(true);
+
+    const otpRes = await requestPasswordResetOtp(forgotIdentifier.trim(), selectedChannel);
+    setForgotLoading(false);
+
+    if (otpRes.success) {
+      setForgotSuccess('New OTP verification code sent successfully!');
+      setResendCooldown(60);
+    } else {
+      setForgotError(otpRes.error || 'Failed to resend OTP.');
+    }
+  };
+
+  // Step 2: Verify OTP and Reset Password
+  const handleVerifyOtpAndReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotSuccess('');
+
+    if (!otpCode.trim()) {
+      setForgotError('Please enter the 6-digit OTP code received.');
+      return;
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      setForgotError('New password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setForgotError('New password and confirmation do not match.');
+      return;
+    }
+
+    setForgotLoading(true);
+    const res = await verifyOtpAndResetPassword(
+      forgotIdentifier.trim(),
+      otpCode.trim(),
+      newPassword,
+      confirmNewPassword
+    );
+    setForgotLoading(false);
+
+    if (res.success) {
+      setForgotSuccess('Identity verified & Password updated successfully! Entering dashboard...');
+      setTimeout(() => {
+        setIsForgotModalOpen(false);
+      }, 1200);
+    } else {
+      setForgotError(res.error || 'Invalid or expired OTP code.');
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+    <div id="authgate-root" className="w-full max-w-[100vw] min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white overflow-x-hidden">
+      
       {/* Top Header */}
-      <header className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-600/30">
+      <header className="w-full border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 sm:h-20 flex items-center justify-between gap-2 overflow-hidden">
+          
+          {/* Brand Logo & Name */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-600/30 shrink-0">
               <Zap className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-xl text-white tracking-tight">SociaraX</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold text-lg sm:text-xl text-white tracking-tight truncate">SociaraX</span>
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
                   SMM
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-medium">Enterprise Social Growth Portal</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium truncate hidden xs:block">Enterprise Growth Portal</p>
             </div>
           </div>
 
           {/* Quick Support Links in Header */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <a
+              id="auth-telegram-link"
               href="https://t.me/arifahmed5_6"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 transition-colors"
+              title="Telegram Support: @arifahmed5_6"
+              className="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 transition-colors"
             >
               <Send className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Telegram:</span>
-              <span>@arifahmed5_6</span>
+              <span className="hidden md:inline">Telegram:</span>
+              <span className="text-[11px] sm:text-xs">@arifahmed5_6</span>
             </a>
 
             <a
+              id="auth-whatsapp-link"
               href="https://wa.me/916001768808?text=Hello%20SociaraX%20Support%20@arifahmed56"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 transition-colors"
+              title="WhatsApp Support: @arifahmed56"
+              className="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 transition-colors"
             >
               <MessageCircle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">WhatsApp:</span>
-              <span>@arifahmed56</span>
+              <span className="hidden md:inline">WhatsApp:</span>
+              <span className="text-[11px] sm:text-xs">@arifahmed56</span>
             </a>
           </div>
         </div>
       </header>
 
       {/* Main Hero & Auth Section */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 flex items-center justify-center">
-        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-10 flex-1 flex items-center justify-center overflow-x-hidden">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           
-          {/* Left Column: Welcome Greeting & Platform Intro */}
+          {/* Left Column: Platform Features & Support Card */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Automated SMM Infrastructure & Instant API Engine</span>
+            <div className="space-y-3 sm:space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-semibold max-w-full">
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Automated SMM Infrastructure & Instant API Engine</span>
               </div>
               
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
+              <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
                 Welcome to <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">SociaraX</span>.
               </h1>
               
-              <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
-                Please register or sign in below to unlock instant non-drop social media growth services, real-time automated order delivery, and wallet balance management.
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
+                Non-drop social media growth services, real-time automated order fulfillment, multi-gateway INR payments, and direct owner WhatsApp/Telegram support.
               </p>
             </div>
 
             {/* Supported Networks Showcase */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-3">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Instant Automated Delivery Available For:
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Zap className="w-4 h-4 text-indigo-400" />
+                <span>Active Automated Fulfillment Networks</span>
               </div>
               <div className="flex flex-wrap gap-2 text-xs">
-                <span className="px-3 py-1.5 rounded-xl bg-pink-500/10 border border-pink-500/30 text-pink-400 font-semibold flex items-center gap-1.5">
-                  <Instagram className="w-3.5 h-3.5" /> Instagram Followers & Likes
+                <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-pink-500/10 border border-pink-500/30 text-pink-400 font-semibold flex items-center gap-1.5">
+                  <Instagram className="w-3.5 h-3.5" /> Instagram Followers & Reels
                 </span>
-                <span className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 font-semibold flex items-center gap-1.5">
-                  <Youtube className="w-3.5 h-3.5" /> YouTube Views & Subscribers
+                <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 font-semibold flex items-center gap-1.5">
+                  <Youtube className="w-3.5 h-3.5" /> YouTube Watch Time & Subs
                 </span>
-                <span className="px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-semibold flex items-center gap-1.5">
+                <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-semibold flex items-center gap-1.5">
                   <Send className="w-3.5 h-3.5" /> Telegram Channel Members
                 </span>
-                <span className="px-3 py-1.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-semibold flex items-center gap-1.5">
-                  <Ghost className="w-3.5 h-3.5" /> Snapchat Spotlight & Followers
+                <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-semibold flex items-center gap-1.5">
+                  <Ghost className="w-3.5 h-3.5" /> Snapchat Spotlight & Views
                 </span>
-                <span className="px-3 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 font-semibold flex items-center gap-1.5">
-                  <Twitter className="w-3.5 h-3.5" /> Twitter / X Retweets & Boosts
+                <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 font-semibold flex items-center gap-1.5">
+                  <Twitter className="w-3.5 h-3.5" /> Twitter / X Retweets
                 </span>
-                <span className="px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 font-semibold flex items-center gap-1.5">
+                <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 font-semibold flex items-center gap-1.5">
                   <Music className="w-3.5 h-3.5" /> TikTok & Spotify
                 </span>
               </div>
             </div>
 
             {/* Official Support Team Contacts Card */}
-            <div className="bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 space-y-3">
+            <div className="bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-500/30 rounded-2xl p-4 sm:p-5 space-y-3">
               <div className="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span>24/7 Official Support Helpdesk</span>
@@ -250,16 +422,16 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                   rel="noreferrer"
                   className="flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-sky-500/50 transition-colors group"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center text-sky-400">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center text-sky-400 shrink-0">
                       <Send className="w-4 h-4" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-slate-400 text-[10px]">Telegram Support</div>
-                      <div className="text-white font-bold group-hover:text-sky-400 transition-colors">@arifahmed5_6</div>
+                      <div className="text-white font-bold group-hover:text-sky-400 transition-colors truncate">@arifahmed5_6</div>
                     </div>
                   </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-sky-400" />
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-sky-400 shrink-0 ml-2" />
                 </a>
 
                 <a
@@ -268,54 +440,40 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                   rel="noreferrer"
                   className="flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-emerald-500/50 transition-colors group"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
                       <MessageCircle className="w-4 h-4" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-slate-400 text-[10px]">WhatsApp Support</div>
-                      <div className="text-white font-bold group-hover:text-emerald-400 transition-colors">@arifahmed56</div>
+                      <div className="text-white font-bold group-hover:text-emerald-400 transition-colors truncate">@arifahmed56</div>
                     </div>
                   </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-emerald-400" />
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-emerald-400 shrink-0 ml-2" />
                 </a>
               </div>
             </div>
           </div>
 
-          {/* Right Column: Register / Login Card */}
+          {/* Right Column: Register / Sign In Card (Strictly 2 tabs, No public set password) */}
           <div className="lg:col-span-5 w-full">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 shadow-2xl relative overflow-hidden">
               
               {/* Glow Accent */}
               <div className="absolute -top-24 -right-24 w-52 h-52 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
 
-              {/* Mode Switcher */}
-              <div className="space-y-4 mb-6">
-                <div className="flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+              {/* Mode Switcher: Register or Sign In */}
+              <div className="space-y-4 mb-5">
+                <div className="grid grid-cols-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 gap-1.5">
                   <button
-                    type="button"
-                    onClick={() => {
-                      setMode('register');
-                      setErrorMessage('');
-                      setSuccessMessage('');
-                    }}
-                    className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer ${
-                      mode === 'register'
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    Register Account
-                  </button>
-                  <button
+                    id="tab-btn-login"
                     type="button"
                     onClick={() => {
                       setMode('login');
                       setErrorMessage('');
                       setSuccessMessage('');
                     }}
-                    className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer ${
+                    className={`py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer truncate ${
                       mode === 'login'
                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                         : 'text-slate-400 hover:text-slate-200'
@@ -323,15 +481,31 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                   >
                     Sign In
                   </button>
+                  <button
+                    id="tab-btn-register"
+                    type="button"
+                    onClick={() => {
+                      setMode('register');
+                      setErrorMessage('');
+                      setSuccessMessage('');
+                    }}
+                    className={`py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer truncate ${
+                      mode === 'register'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Register Account
+                  </button>
                 </div>
 
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                  <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
                     {mode === 'register' ? 'Create Your Account' : 'Welcome Back'}
                   </h2>
                   <p className="text-xs text-slate-400 mt-1">
-                    {mode === 'register'
-                      ? 'Register in seconds to access services, wallet balance, and order tracking.'
+                    {mode === 'register' 
+                      ? 'Register in seconds to access services, wallet balance, and order tracking.' 
                       : 'Enter your username or email address and password to sign in.'}
                   </p>
                 </div>
@@ -339,32 +513,33 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
 
               {/* Alerts */}
               {errorMessage && (
-                <div className="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5">
+                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
-                  <span>{errorMessage}</span>
+                  <span className="leading-relaxed">{errorMessage}</span>
                 </div>
               )}
 
               {successMessage && (
-                <div className="mb-5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2.5">
+                <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2.5">
                   <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
-                  <span>{successMessage}</span>
+                  <span className="leading-relaxed">{successMessage}</span>
                 </div>
               )}
 
-              {/* Google OAuth Quick Button */}
-              <div className="mb-5">
+              {/* Google OAuth Button */}
+              <div className="mb-4">
                 <button
+                  id="btn-google-auth"
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={isGoogleLoading || isLoading}
-                  className="w-full py-3 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-3 transition-all cursor-pointer disabled:opacity-50 border border-slate-200"
+                  className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2.5 transition-all cursor-pointer disabled:opacity-50 border border-slate-200"
                 >
                   {isGoogleLoading ? (
                     <div className="w-4 h-4 border-2 border-slate-800/30 border-t-slate-800 rounded-full animate-spin" />
                   ) : (
                     <>
-                      <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                         <path
                           fill="#4285F4"
                           d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -387,62 +562,65 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                   )}
                 </button>
 
-                <div className="relative my-4">
+                <div className="relative my-3.5">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-slate-800" />
                   </div>
                   <div className="relative flex justify-center text-[10px] uppercase">
                     <span className="bg-slate-900 px-2.5 text-slate-500 font-semibold tracking-wider">
-                      Or with email & password
+                      Or with username & password
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Registration Form */}
-              {mode === 'register' ? (
-                <form onSubmit={handleRegister} className="space-y-4">
+              {/* 1. Registration Form */}
+              {mode === 'register' && (
+                <form onSubmit={handleRegister} className="space-y-3.5">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
                       Username <span className="text-rose-400">*</span>
                     </label>
                     <div className="relative">
-                      <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                      <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                       <input
+                        id="register-username"
                         type="text"
                         required
                         value={username}
                         onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
-                        placeholder="e.g. arif_smm"
+                        placeholder="e.g. arifahmed56"
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
                       Email Address <span className="text-rose-400">*</span>
                     </label>
                     <div className="relative">
-                      <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                      <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                       <input
+                        id="register-email"
                         type="email"
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@example.com"
+                        placeholder="arifahmed87204@gmail.com"
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      WhatsApp No. <span className="text-slate-500 font-normal">(Optional for notifications)</span>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      WhatsApp / Mobile No. <span className="text-slate-500 font-normal">(Optional for OTP & Support)</span>
                     </label>
                     <div className="relative">
-                      <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                      <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                       <input
+                        id="register-phone"
                         type="tel"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
@@ -454,12 +632,13 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Password <span className="text-rose-400">*</span>
                       </label>
                       <div className="relative">
-                        <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                        <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                         <input
+                          id="register-password"
                           type={showPassword ? 'text' : 'password'}
                           required
                           value={password}
@@ -471,12 +650,13 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Confirm Password <span className="text-rose-400">*</span>
                       </label>
                       <div className="relative">
-                        <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                        <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                         <input
+                          id="register-confirm-password"
                           type={showPassword ? 'text' : 'password'}
                           required
                           value={confirmPassword}
@@ -497,14 +677,14 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                         className="rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                       />
                       <span className="text-xs text-slate-400">
-                        I agree to Terms & Conditions
+                        I agree to Terms of Service
                       </span>
                     </label>
 
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1"
+                      className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       <span>{showPassword ? 'Hide' : 'Show'}</span>
@@ -512,9 +692,10 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                   </div>
 
                   <button
+                    id="btn-submit-register"
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -526,43 +707,47 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                     )}
                   </button>
                 </form>
-              ) : (
-                /* Login Form */
-                <form onSubmit={handleLogin} className="space-y-4">
+              )}
+
+              {/* 2. Login Form */}
+              {mode === 'login' && (
+                <form onSubmit={handleLogin} className="space-y-3.5">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
                       Username or Email Address
                     </label>
                     <div className="relative">
-                      <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                      <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                       <input
+                        id="login-identifier"
                         type="text"
                         required
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
-                        placeholder="Enter username or email"
+                        placeholder="arifahmed56 or email"
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-semibold text-slate-300">
                         Password
                       </label>
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1"
+                        className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
                       >
                         {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                         <span>{showPassword ? 'Hide' : 'Show'}</span>
                       </button>
                     </div>
                     <div className="relative">
-                      <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                      <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                       <input
+                        id="login-password"
                         type={showPassword ? 'text' : 'password'}
                         required
                         value={password}
@@ -573,10 +758,24 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                     </div>
                   </div>
 
+                  {/* Forgot Password trigger */}
+                  <div className="flex items-center justify-between pt-0.5">
+                    <button
+                      id="btn-forgot-password"
+                      type="button"
+                      onClick={openForgotPassword}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer flex items-center gap-1"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Forgot Password? (OTP Verification)</span>
+                    </button>
+                  </div>
+
                   <button
+                    id="btn-submit-login"
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 mt-2"
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 mt-2"
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -591,7 +790,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
               )}
 
               {/* Secure guarantee */}
-              <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
+              <div className="mt-5 pt-3.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
                 <div className="flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                   <span>256-Bit Encrypted Portal</span>
@@ -604,9 +803,258 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
         </div>
       </main>
 
+      {/* ========================================================================= */}
+      {/* SECURE OTP FORGOT PASSWORD MODAL */}
+      {/* ========================================================================= */}
+      {isForgotModalOpen && (
+        <div id="forgot-password-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 shadow-2xl max-w-md w-full relative overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Reset Password with Real OTP</h3>
+                  <p className="text-[11px] text-slate-400">
+                    {forgotStep === 'identify' 
+                      ? 'Step 1: Choose delivery channel for 6-digit code' 
+                      : 'Step 2: Enter 6-digit code & choose new password'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                id="btn-close-forgot-modal"
+                type="button"
+                onClick={closeForgotPassword}
+                className="w-8 h-8 rounded-xl bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Error & Success banners */}
+            {forgotError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <span className="leading-relaxed">{forgotError}</span>
+              </div>
+            )}
+
+            {forgotSuccess && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                <span className="leading-relaxed">{forgotSuccess}</span>
+              </div>
+            )}
+
+            {/* Step 1: Identify Account & Select Channel */}
+            {forgotStep === 'identify' && (
+              <form onSubmit={handleCheckAccountAndRequestOtp} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Registered Username or Email Address <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    <input
+                      id="forgot-identifier-input"
+                      type="text"
+                      required
+                      value={forgotIdentifier}
+                      onChange={(e) => setForgotIdentifier(e.target.value)}
+                      placeholder="e.g. arifahmed56 or email"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Channel selection if already discovered */}
+                {forgotChannels.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <label className="block text-xs font-semibold text-indigo-300">
+                      Select Delivery Method for 6-Digit OTP Code:
+                    </label>
+                    <div className="space-y-2">
+                      {forgotChannels.map((ch) => (
+                        <label
+                          key={ch.id}
+                          className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                            selectedChannel === ch.id
+                              ? 'bg-indigo-600/15 border-indigo-500 text-white shadow-sm'
+                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="radio"
+                              name="otp_channel"
+                              checked={selectedChannel === ch.id}
+                              onChange={() => setSelectedChannel(ch.id)}
+                              className="text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <div>
+                              <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                                {ch.id === 'email' ? <Mail className="w-3.5 h-3.5 text-indigo-400" /> : <Phone className="w-3.5 h-3.5 text-emerald-400" />}
+                                <span>{ch.label}</span>
+                              </div>
+                              <div className="text-[11px] text-slate-400 font-mono mt-0.5">{ch.masked}</div>
+                            </div>
+                          </div>
+                          <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                            {ch.id === 'email' ? 'Email OTP' : 'WhatsApp/SMS'}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-2 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={closeForgotPassword}
+                    className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    id="btn-send-otp"
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {forgotLoading ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <span>Send 6-Digit OTP</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Step 2: Verify OTP & Enter New Password */}
+            {forgotStep === 'verify_otp' && (
+              <form onSubmit={handleVerifyOtpAndReset} className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Enter 6-Digit OTP Code <span className="text-rose-400">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      disabled={resendCooldown > 0 || forgotLoading}
+                      onClick={handleResendOtp}
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>{resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <ShieldCheck className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    <input
+                      id="otp-code-input"
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="e.g. 849201"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-base font-mono tracking-widest text-center text-white placeholder-slate-600 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      New Password <span className="text-rose-400">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
+                    >
+                      {showNewPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      <span>{showNewPassword ? 'Hide' : 'Show'}</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    <input
+                      id="otp-new-password"
+                      type={showNewPassword ? 'text' : 'password'}
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Minimum 6 characters"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Confirm New Password <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    <input
+                      id="otp-confirm-password"
+                      type={showNewPassword ? 'text' : 'password'}
+                      required
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      placeholder="Repeat new password"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setForgotStep('identify')}
+                    className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Back
+                  </button>
+
+                  <button
+                    id="btn-verify-otp-submit"
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {forgotLoading ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Verify OTP & Set Password</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-6 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <footer className="w-full border-t border-slate-900 bg-slate-950 py-5 text-xs text-slate-500 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
           <div>
             © {new Date().getFullYear()} SociaraX. All rights reserved. Automated SMM provider engine.
           </div>

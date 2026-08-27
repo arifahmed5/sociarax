@@ -17,6 +17,31 @@ interface AuthContextType {
   registerUser: (username: string, email: string, password: string, phone?: string) => Promise<{ success: boolean; error?: string; user?: UserProfile; admin?: AdminProfile }>;
   updateUserProfile: (data: { email?: string; phone?: string; username?: string }) => Promise<{ success: boolean; error?: string; user?: UserProfile }>;
   changeUserPassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  checkAccountForOtp: (identifier: string) => Promise<{
+    success: boolean;
+    error?: string;
+    username?: string;
+    channels?: Array<{ id: 'email' | 'phone'; label: string; masked: string }>;
+  }>;
+  requestPasswordResetOtp: (identifier: string, channel: 'email' | 'phone') => Promise<{
+    success: boolean;
+    error?: string;
+    message?: string;
+    channel?: string;
+    maskedDestination?: string;
+  }>;
+  verifyOtpAndResetPassword: (
+    identifier: string,
+    otpCode: string,
+    newPassword: string,
+    confirmPassword?: string
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    message?: string;
+    user?: UserProfile;
+    admin?: AdminProfile;
+  }>;
   logoutUser: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateLocalWalletBalance: (newBalance: number) => void;
@@ -309,6 +334,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Check account for OTP channels
+  const checkAccountForOtp = async (identifier: string) => {
+    try {
+      const res = await fetch('/api/auth/forgot-password/check-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier })
+      });
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error checking account' };
+    }
+  };
+
+  // Request 6-digit OTP code to registered email or phone
+  const requestPasswordResetOtp = async (identifier: string, channel: 'email' | 'phone') => {
+    try {
+      const res = await fetch('/api/auth/forgot-password/request-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, channel })
+      });
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error requesting OTP' };
+    }
+  };
+
+  // Verify OTP and Reset Password securely
+  const verifyOtpAndResetPassword = async (
+    identifier: string,
+    otpCode: string,
+    newPassword: string,
+    confirmPassword?: string
+  ) => {
+    try {
+      const res = await fetch('/api/auth/forgot-password/verify-and-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, otpCode, newPassword, confirmPassword })
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        localStorage.setItem('sociarax_user_token', data.token);
+        setUserToken(data.token);
+        setUser(data.user);
+
+        if (data.adminToken && data.admin) {
+          localStorage.setItem('sociarax_admin_token', data.adminToken);
+          setAdminToken(data.adminToken);
+          setAdmin(data.admin);
+        }
+
+        return { 
+          success: true, 
+          message: data.message,
+          user: data.user, 
+          admin: data.admin 
+        };
+      }
+      return { success: false, error: data.error || 'Failed to verify OTP' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error verifying OTP' };
+    }
+  };
+
   // User Logout
   const logoutUser = async () => {
     try {
@@ -404,6 +497,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         registerUser,
         updateUserProfile,
         changeUserPassword,
+        checkAccountForOtp,
+        requestPasswordResetOtp,
+        verifyOtpAndResetPassword,
         logoutUser,
         refreshUser,
         updateLocalWalletBalance,
