@@ -19,7 +19,8 @@ import {
   X,
   ChevronRight,
   TrendingUp,
-  LayoutDashboard
+  LayoutDashboard,
+  Activity
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -72,6 +73,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'admin_providers', label: 'API Providers', icon: Server },
     { id: 'admin_users', label: 'Users', icon: Users },
     { id: 'admin_reports', label: 'Reports', icon: BarChart3 },
+    { id: 'admin_monitoring', label: '24/7 Health & Monitor', icon: Activity },
     { id: 'admin_settings', label: 'Settings', icon: Settings },
   ];
 

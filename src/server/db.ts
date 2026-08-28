@@ -33,7 +33,6 @@ interface FallbackData {
 }
 
 const initialPasswordHash = bcrypt.hashSync(process.env.ADMIN_INITIAL_PASSWORD || 'AdminSecure2026!SociaraX', 10);
-const demoUserPasswordHash = bcrypt.hashSync('UserPass2026!', 10);
 
 const fallbackStore: FallbackData = {
   system_settings: new Map([
@@ -51,21 +50,7 @@ const fallbackStore: FallbackData = {
     ['whatsapp_support', { key: 'whatsapp_support', value: '@arifahmed56', updated_at: new Date().toISOString() }],
     ['announcement', { key: 'announcement', value: 'Welcome to SociaraX! Real-time automated delivery active across Instagram, YouTube, Telegram, Snapchat, Facebook & X with 100% Non-Drop Refill Guarantee.', updated_at: new Date().toISOString() }]
   ]),
-  users: [
-    {
-      id: 1,
-      username: 'demo_user',
-      email: 'demo@sociarax.com',
-      password_hash: demoUserPasswordHash,
-      role: 'user',
-      wallet_balance: '1250.0000',
-      currency: 'INR',
-      status: 'active',
-      custom_discount_pct: '0.00',
-      created_at: new Date(Date.now() - 7 * 86400000).toISOString(),
-      updated_at: new Date().toISOString()
-    }
-  ],
+  users: [],
   admin_security: [
     {
       id: 1,
@@ -956,165 +941,25 @@ const fallbackStore: FallbackData = {
       updated_at: new Date().toISOString()
     }
   ],
-  orders: [
-    {
-      id: 1001,
-      user_id: 1,
-      service_id: 1,
-      service_name: 'Instagram Followers HQ [30 Days Auto-Refill] [Fast Speed - 10k/Day]',
-      platform: 'instagram',
-      link: 'https://instagram.com/tech_creator_official',
-      quantity: 1000,
-      charge: '85.0000',
-      provider_cost: '45.0000',
-      profit: '40.0000',
-      currency: 'INR',
-      provider_id: 1,
-      provider_order_id: '884920',
-      provider_status: 'Completed',
-      provider_error: null,
-      status: 'completed',
-      start_count: 1420,
-      remains: 0,
-      created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
-      updated_at: new Date(Date.now() - 3600000 * 3).toISOString()
-    },
-    {
-      id: 1002,
-      user_id: 1,
-      service_id: 3,
-      service_name: 'Instagram 4K Reels Views + Reach & Impressions [Viral Booster]',
-      platform: 'instagram',
-      link: 'https://instagram.com/reel/C8_demo_reel_link',
-      quantity: 5000,
-      charge: '60.0000',
-      provider_cost: '25.0000',
-      profit: '35.0000',
-      currency: 'INR',
-      provider_id: 1,
-      provider_order_id: '885104',
-      provider_status: 'In progress',
-      provider_error: null,
-      status: 'processing',
-      start_count: 350,
-      remains: 1200,
-      created_at: new Date(Date.now() - 3600000).toISOString(),
-      updated_at: new Date().toISOString()
-    }
-  ],
-  wallet_transactions: [
-    {
-      id: 1,
-      user_id: 1,
-      type: 'DEPOSIT_APPROVED',
-      amount: '1500.0000',
-      balance_before: '0.0000',
-      balance_after: '1500.0000',
-      currency: 'INR',
-      reference_type: 'payment_request',
-      reference_id: '1',
-      description: 'Initial Wallet Balance Deposit (UPI UTR: 419823481029)',
-      admin_id: 1,
-      created_at: new Date(Date.now() - 7 * 86400000).toISOString()
-    },
-    {
-      id: 2,
-      user_id: 1,
-      type: 'ORDER_PAYMENT',
-      amount: '-85.0000',
-      balance_before: '1500.0000',
-      balance_after: '1415.0000',
-      currency: 'INR',
-      reference_type: 'order',
-      reference_id: '1001',
-      description: 'Order #1001 - Instagram Followers HQ (1000 qty)',
-      admin_id: null,
-      created_at: new Date(Date.now() - 3600000 * 5).toISOString()
-    },
-    {
-      id: 3,
-      user_id: 1,
-      type: 'ORDER_PAYMENT',
-      amount: '-60.0000',
-      balance_before: '1415.0000',
-      balance_after: '1355.0000',
-      currency: 'INR',
-      reference_type: 'order',
-      reference_id: '1002',
-      description: 'Order #1002 - Instagram 4K Reels Views (5000 qty)',
-      admin_id: null,
-      created_at: new Date(Date.now() - 3600000).toISOString()
-    }
-  ],
-  payment_requests: [
-    {
-      id: 1,
-      user_id: 1,
-      amount: '1500.0000',
-      currency: 'INR',
-      payment_method: 'UPI',
-      utr_number: '419823481029',
-      payer_vpa_or_account: 'demo@okhdfcbank',
-      status: 'approved',
-      rejection_reason: null,
-      approved_by_admin_id: 1,
-      approved_at: new Date(Date.now() - 7 * 86400000).toISOString(),
-      created_at: new Date(Date.now() - 7 * 86400000).toISOString(),
-      updated_at: new Date(Date.now() - 7 * 86400000).toISOString()
-    },
-    {
-      id: 2,
-      user_id: 1,
-      amount: '500.0000',
-      currency: 'INR',
-      payment_method: 'UPI',
-      utr_number: '420198471203',
-      payer_vpa_or_account: 'demo@paytm',
-      status: 'pending',
-      rejection_reason: null,
-      approved_by_admin_id: null,
-      approved_at: null,
-      created_at: new Date(Date.now() - 1800000).toISOString(),
-      updated_at: new Date(Date.now() - 1800000).toISOString()
-    }
-  ],
-  support_tickets: [
-    {
-      id: 1,
-      user_id: 1,
-      order_id: 1001,
-      subject: 'Refill speed inquiry for order #1001',
-      category: 'order',
-      status: 'open',
-      priority: 'medium',
-      created_at: new Date(Date.now() - 7200000).toISOString(),
-      updated_at: new Date(Date.now() - 7200000).toISOString()
-    }
-  ],
-  ticket_messages: [
-    {
-      id: 1,
-      ticket_id: 1,
-      sender_role: 'user',
-      sender_id: 1,
-      message: 'Hi SociaraX team, followers delivered very quickly! Just checking if the 30-day refill will trigger automatically if any drop happens?',
-      created_at: new Date(Date.now() - 7200000).toISOString()
-    }
-  ],
+  orders: [],
+  wallet_transactions: [],
+  payment_requests: [],
+  support_tickets: [],
+  ticket_messages: [],
   audit_logs: [],
   notifications: [],
   password_resets: []
 };
 
 let nextIds = {
-  users: 2,
+  users: 1,
   services: 10,
-  orders: 1003,
-  wallet_transactions: 4,
-  payment_requests: 3,
+  orders: 1001,
+  wallet_transactions: 1,
+  payment_requests: 1,
   api_providers: 2,
-  support_tickets: 2,
-  ticket_messages: 2,
+  support_tickets: 1,
+  ticket_messages: 1,
   password_resets: 1
 };
 
@@ -1394,9 +1239,13 @@ function executeFallbackQuery(text: string, params: any[] = []): { rows: any[]; 
 
   // 4. Users
   if (lowerSql.includes('from users')) {
-    if (lowerSql.includes('username = $1 or email = $2') || lowerSql.includes('username = $1 or email = $1')) {
-      const identifier = String(params[0]).toLowerCase();
-      const match = fallbackStore.users.find(u => u.username.toLowerCase() === identifier || u.email.toLowerCase() === identifier);
+    if (lowerSql.includes('username') || lowerSql.includes('email')) {
+      const identifier = params[0] ? String(params[0]).toLowerCase().trim() : '';
+      const secondId = params[1] ? String(params[1]).toLowerCase().trim() : identifier;
+      const match = fallbackStore.users.find(u => 
+        (identifier && (u.username.toLowerCase() === identifier || u.email.toLowerCase() === identifier)) ||
+        (secondId && (u.username.toLowerCase() === secondId || u.email.toLowerCase() === secondId))
+      );
       return { rows: match ? [match] : [], rowCount: match ? 1 : 0 };
     }
     if (lowerSql.includes('where id = $1') || lowerSql.includes('where u.id = $1')) {
@@ -1409,16 +1258,26 @@ function executeFallbackQuery(text: string, params: any[] = []): { rows: any[]; 
 
   if (lowerSql.includes('insert into users')) {
     const id = nextIds.users++;
+    // Extract parameters flexibly
+    const username = params[0];
+    const email = params[1];
+    const phone = params.length >= 6 ? params[2] : null;
+    const passwordHash = params.find((p: any) => typeof p === 'string' && (p.startsWith('$2') || p.length > 20)) || params[2] || '';
+    const role = params.includes('admin') ? 'admin' : 'user';
+
     const newUser = {
       id,
-      username: params[0],
-      email: params[1],
-      password_hash: params[2],
-      role: 'user',
+      username,
+      email,
+      phone,
+      password_hash: passwordHash,
+      role,
       wallet_balance: '0.0000',
       currency: 'INR',
       status: 'active',
-      created_at: new Date().toISOString()
+      custom_discount_pct: '0.00',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
     fallbackStore.users.push(newUser);
     return { rows: [newUser], rowCount: 1 };
@@ -1744,6 +1603,40 @@ export function startNeonKeepAliveHeartbeat(): void {
   // Initial immediate warm-up ping
   setTimeout(runHeartbeat, 5000);
   console.log('[SOCIARAX] Neon Database Keep-Alive Heartbeat Daemon initialized (150s interval).');
+}
+
+export async function reconnectDatabasePool(): Promise<boolean> {
+  if (!process.env.DATABASE_URL) return false;
+  try {
+    if (pool) {
+      try {
+        await pool.end();
+      } catch (_) {}
+      pool = null;
+    }
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false
+      },
+      max: 15,
+      idleTimeoutMillis: 180000,
+      connectionTimeoutMillis: 10000,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000
+    });
+    pool.on('error', (err) => {
+      console.warn('[DATABASE WARNING] Transient connection reset caught on idle client:', err.message);
+    });
+    const client = await pool.connect();
+    client.release();
+    isConnected = true;
+    isUsingFallback = false;
+    return true;
+  } catch (err) {
+    console.warn('[DATABASE RECONNECT FAILED]:', err);
+    return false;
+  }
 }
 
 export function getDbPool(): pg.Pool | any {

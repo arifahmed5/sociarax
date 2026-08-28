@@ -17,6 +17,11 @@ import { userRouter } from './src/server/routes/userRoutes';
 import { ticketRouter } from './src/server/routes/ticketRoutes';
 import { reportRouter } from './src/server/routes/reportRoutes';
 import { settingsRouter } from './src/server/routes/settingsRoutes';
+import { monitoringRouter } from './src/server/routes/monitoringRoutes';
+import { metricsTracker } from './src/server/monitoring/metricsTracker';
+import { selfHealingEngine } from './src/server/monitoring/selfHealingEngine';
+import { logEvent } from './src/server/monitoring/logger';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -91,11 +96,49 @@ async function startServer() {
     next();
   });
 
+  // Request correlation ID & Performance Metrics tracking middleware
+  app.use((req, res, next) => {
+    const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    res.setHeader('X-Request-Id', requestId);
+    (req as any).requestId = requestId;
+
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      metricsTracker.recordRequest(res.statusCode, duration);
+      if (res.statusCode >= 500) {
+        logEvent('ERROR', 'HTTP_SERVER', `Internal error on ${req.method} ${req.path}`, {
+          requestId,
+          path: req.path,
+          method: req.method,
+          statusCode: res.statusCode,
+          durationMs: duration
+        });
+      }
+    });
+    next();
+  });
+
   // Apply general API Rate Limiting (180 requests/min per IP)
   app.use('/api', rateLimiter(180, 60000));
   // Strict rate limit for auth endpoints (45 requests/min per IP) to prevent brute force
   app.use('/api/auth/login', rateLimiter(45, 60000));
   app.use('/api/auth/register', rateLimiter(45, 60000));
+
+  // Public lightweight Health check endpoints
+  const healthHandler = (_req: Request, res: Response) => {
+    res.json({
+      status: 'ok',
+      service: 'SociaraX Enterprise SMM Backend',
+      selfHealing: 'active',
+      version: '3.4.0-enterprise',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  app.get('/health', healthHandler);
+  app.get('/api/health', healthHandler);
 
   // Database status inspection endpoint
   app.get('/api/db-status', async (req, res) => {
@@ -118,27 +161,21 @@ async function startServer() {
   app.use('/api/tickets', ticketRouter);
   app.use('/api/admin/reports', reportRouter);
   app.use('/api/settings', settingsRouter);
-
-  // Health check endpoint
-  app.get('/api/health', (req, res) => {
-    res.json({
-      status: 'ok',
-      service: 'SociaraX Enterprise SMM Backend',
-      selfHealing: 'active',
-      timestamp: new Date().toISOString()
-    });
-  });
+  app.use('/api/monitoring', monitoringRouter);
 
   // Global API Error Handler (Never let an API route throw an unhandled 500 error)
   app.use('/api', (err: any, req: Request, res: Response, next: NextFunction) => {
-    console.warn(`[API RECOVERY MIDDLEWARE] Caught error on ${req.method} ${req.path}:`, err?.message || err);
+    selfHealingEngine.reportError('EXPRESS_ROUTER', err, req, 'ERROR');
     if (!res.headersSent) {
       res.status(500).json({
         success: false,
-        error: err?.message || 'A temporary server error occurred. Self-healing system has recovered the service.'
+        error: 'A temporary server issue was handled and recovered by the self-healing system. Please retry shortly.'
       });
     }
   });
+
+  // Initialize 24/7 Self-Healing Monitor Engine
+  selfHealingEngine.start();
 
   // Initialize Database and Defaults in the background with keepalive
   try {
