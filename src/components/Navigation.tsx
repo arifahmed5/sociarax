@@ -20,7 +20,8 @@ import {
   ChevronRight,
   TrendingUp,
   LayoutDashboard,
-  Activity
+  Activity,
+  Bot
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -74,6 +75,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'admin_users', label: 'Users', icon: Users },
     { id: 'admin_reports', label: 'Reports', icon: BarChart3 },
     { id: 'admin_monitoring', label: '24/7 Health & Monitor', icon: Activity },
+    { id: 'admin_maintenance', label: 'AI Website Control', icon: Bot },
     { id: 'admin_settings', label: 'Settings', icon: Settings },
   ];
 

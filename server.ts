@@ -18,6 +18,8 @@ import { ticketRouter } from './src/server/routes/ticketRoutes';
 import { reportRouter } from './src/server/routes/reportRoutes';
 import { settingsRouter } from './src/server/routes/settingsRoutes';
 import { monitoringRouter } from './src/server/routes/monitoringRoutes';
+import { maintenanceRouter } from './src/server/routes/maintenanceRoutes';
+import { loadConfigFromDatabase } from './src/server/maintenance/maintenanceEngine';
 import { metricsTracker } from './src/server/monitoring/metricsTracker';
 import { selfHealingEngine } from './src/server/monitoring/selfHealingEngine';
 import { logEvent } from './src/server/monitoring/logger';
@@ -162,6 +164,8 @@ async function startServer() {
   app.use('/api/admin/reports', reportRouter);
   app.use('/api/settings', settingsRouter);
   app.use('/api/monitoring', monitoringRouter);
+  app.use('/api/admin/maintenance', maintenanceRouter);
+  app.use('/api/maintenance', maintenanceRouter);
 
   // Global API Error Handler (Never let an API route throw an unhandled 500 error)
   app.use('/api', (err: any, req: Request, res: Response, next: NextFunction) => {
@@ -186,6 +190,7 @@ async function startServer() {
       await initializeDatabaseSchema();
       await ensureDefaultAdmin();
       await providerRegistry.ensureDefaultProvider();
+      await loadConfigFromDatabase();
     } else {
       console.warn('[SOCIARAX] Database running in resilient local mode:', conn.message);
     }

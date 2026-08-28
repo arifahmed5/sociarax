@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSociarax } from '../context/SociaraxContext';
 import { 
   Zap, 
   ShieldCheck, 
@@ -38,6 +39,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
     requestPasswordResetOtp, 
     verifyOtpAndResetPassword 
   } = useAuth();
+  const { settings } = useSociarax();
   
   // Tabs: ONLY 'register' and 'login'
   const [mode, setMode] = useState<'register' | 'login'>('login');
@@ -410,7 +412,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                       required
                       value={username}
                       onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
-                      placeholder="e.g. arifahmed56"
+                      placeholder="Choose a username"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                     />
                   </div>
@@ -428,7 +430,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="arifahmed87204@gmail.com"
+                      placeholder="name@example.com"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                     />
                   </div>
@@ -445,7 +447,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+91 6001768808"
+                      placeholder="+1 234 567 8900"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                     />
                   </div>
@@ -545,7 +547,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                       required
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="arifahmed56 or email"
+                      placeholder="Username or email address"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                     />
                   </div>
@@ -674,7 +676,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <a
-                href="https://t.me/arifahmed5_6"
+                href={settings?.telegram_support?.startsWith('http') ? settings.telegram_support : `https://t.me/${(settings?.telegram_support || 'SociaraXSupport').replace('@', '')}`}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-sky-500/50 transition-colors group"
@@ -685,14 +687,16 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                   </div>
                   <div className="min-w-0">
                     <div className="text-slate-400 text-[10px]">Telegram Support</div>
-                    <div className="text-white font-bold group-hover:text-sky-400 transition-colors truncate">@arifahmed5_6</div>
+                    <div className="text-white font-bold group-hover:text-sky-400 transition-colors truncate">
+                      {settings?.telegram_support || '@SociaraXSupport'}
+                    </div>
                   </div>
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-sky-400 shrink-0 ml-2" />
               </a>
 
               <a
-                href="https://wa.me/916001768808?text=Hello%20SociaraX%20Support%20@arifahmed56"
+                href={settings?.whatsapp_support?.startsWith('http') ? settings.whatsapp_support : `https://wa.me/${(settings?.whatsapp_support || '').replace(/[^0-9]/g, '') || '919876543210'}?text=Hello%20SociaraX%20Support`}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-emerald-500/50 transition-colors group"
@@ -703,7 +707,9 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                   </div>
                   <div className="min-w-0">
                     <div className="text-slate-400 text-[10px]">WhatsApp Support</div>
-                    <div className="text-white font-bold group-hover:text-emerald-400 transition-colors truncate">@arifahmed56</div>
+                    <div className="text-white font-bold group-hover:text-emerald-400 transition-colors truncate">
+                      {settings?.whatsapp_support || '@SociaraXDirect'}
+                    </div>
                   </div>
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-emerald-400 shrink-0 ml-2" />
@@ -777,7 +783,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                       required
                       value={forgotIdentifier}
                       onChange={(e) => setForgotIdentifier(e.target.value)}
-                      placeholder="e.g. arifahmed56 or email"
+                      placeholder="Username or email address"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                     />
                   </div>

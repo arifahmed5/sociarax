@@ -25,6 +25,7 @@ import { AdminUsersView } from './components/admin/AdminUsersView';
 import { AdminReportsView } from './components/admin/AdminReportsView';
 import { AdminSettingsView } from './components/admin/AdminSettingsView';
 import { AdminMonitoringView } from './components/admin/AdminMonitoringView';
+import { AdminMaintenanceView } from './components/admin/AdminMaintenanceView';
 import { AuthGate } from './components/AuthGate';
 
 import { ShieldCheck, Zap, Lock, Mail, Send, Heart } from 'lucide-react';
@@ -160,6 +161,10 @@ const MainLayout: React.FC = () => {
 
         {currentTab === 'admin_monitoring' && (admin || isOwnerOrAdmin) && (
           <AdminMonitoringView />
+        )}
+
+        {currentTab === 'admin_maintenance' && (admin || isOwnerOrAdmin) && (
+          <AdminMaintenanceView />
         )}
       </main>
 
