@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSociarax } from '../../context/SociaraxContext';
+import { getTheme, getButtonRadius } from '../../utils/theme';
 import { StatusBadge, PlatformBadge } from '../Badges';
 import { 
   Wallet, 
@@ -15,7 +16,9 @@ import {
   ShieldCheck,
   Megaphone,
   LogOut,
-  User
+  User,
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 
 interface UserDashboardProps {
@@ -25,7 +28,10 @@ interface UserDashboardProps {
 
 export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpenAuthModal }) => {
   const { user, logoutUser } = useAuth();
-  const { userOrders, formatCurrency, settings, services } = useSociarax();
+  const { userOrders, formatCurrency, settings, services, maintenanceConfig } = useSociarax();
+
+  const theme = getTheme(maintenanceConfig);
+  const buttonRadius = getButtonRadius(maintenanceConfig);
 
   // Metrics from real order data
   const totalOrders = userOrders.length;
@@ -39,26 +45,30 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpen
     user?.username?.toLowerCase() === 'arifahmed56'
   );
 
+  const activeAnnouncement = (maintenanceConfig.announcementBannerActive && maintenanceConfig.announcementBannerText) 
+    ? maintenanceConfig.announcementBannerText 
+    : settings.announcement;
+
   return (
     <div className="space-y-6">
       {/* Super Admin Quick-Access Banner */}
       {isOwnerOrAdmin && (
         <div className="bg-gradient-to-r from-rose-950/80 via-slate-900 to-indigo-950/80 border-2 border-rose-500/50 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl shadow-rose-950/30 animate-pulse-slow">
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
             <div className="w-11 h-11 rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-lg shadow-rose-600/40 shrink-0">
               <ShieldCheck className="w-6 h-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
                   Super Administrator Mode
                 </span>
                 <span className="text-xs text-slate-400">Account: <strong className="text-white font-mono">{user?.username}</strong></span>
               </div>
-              <h2 className="text-base sm:text-lg font-bold text-white mt-0.5">
+              <h2 className="text-base sm:text-lg font-bold text-white mt-0.5 truncate">
                 Full Management Access to SociaraX Backend
               </h2>
-              <p className="text-xs text-slate-300">
+              <p className="text-xs text-slate-300 truncate">
                 LuvSMM API Active • 2,680 Services • Provider Dispatch & Catalog Control
               </p>
             </div>
@@ -67,7 +77,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpen
           <div className="flex items-center gap-2.5 shrink-0">
             <button
               onClick={() => onNavigate('admin_dashboard')}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 via-rose-500 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-rose-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              className={`w-full sm:w-auto px-5 py-2.5 ${buttonRadius} bg-gradient-to-r from-rose-600 via-rose-500 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-rose-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap`}
             >
               <ShieldCheck className="w-4 h-4" />
               <span>Open Admin Panel</span>
@@ -78,34 +88,33 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpen
       )}
 
       {/* Announcement Banner */}
-      {settings.announcement && (
-        <div className="bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-slate-900 border border-indigo-500/30 rounded-2xl p-4 flex items-center gap-3 shadow-lg shadow-indigo-950/40">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0 text-indigo-400">
+      {activeAnnouncement && (
+        <div className={`bg-gradient-to-r ${theme.brandGradient.replace('from-', 'from-slate-900 via-').replace('to-', 'to-slate-900')} border ${theme.cardBorder} rounded-2xl p-4 flex items-center gap-3 shadow-lg`}>
+          <div className={`w-9 h-9 rounded-xl ${theme.badgeBg} border ${theme.badgeBorder} flex items-center justify-center shrink-0 ${theme.badgeText}`}>
             <Megaphone className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold text-indigo-300 uppercase tracking-wider">Announcement</div>
-            <div className="text-xs sm:text-sm text-slate-200 truncate">{settings.announcement}</div>
+            <div className={`text-xs font-semibold ${theme.activeTabText} uppercase tracking-wider`}>Announcement</div>
+            <div className="text-xs sm:text-sm text-slate-200 truncate">{activeAnnouncement}</div>
           </div>
         </div>
       )}
 
       {/* Hero Welcome / Balance Bar */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/60 border border-slate-800 p-6 sm:p-8 shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-10 -left-10 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 p-5 sm:p-7 lg:p-8 shadow-2xl">
+        <div className={`absolute top-0 right-0 w-96 h-96 ${theme.primaryGlow} rounded-full blur-3xl pointer-events-none`} />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
+        <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-medium">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>SociaraX Enterprise SMM Infrastructure</span>
+              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${theme.badgeBg} border ${theme.badgeBorder} ${theme.badgeText} text-xs font-medium`}>
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{maintenanceConfig.customBadgeText || 'SociaraX Enterprise SMM Infrastructure'}</span>
               </div>
               {user && (
                 <button
                   onClick={logoutUser}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/80 hover:bg-rose-500/20 border border-slate-800 hover:border-rose-500/30 text-slate-400 hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/80 hover:bg-rose-500/20 border border-slate-800 hover:border-rose-500/30 text-slate-400 hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer shrink-0"
                   title="Sign out of account"
                 >
                   <LogOut className="w-3 h-3" />
@@ -113,48 +122,48 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpen
                 </button>
               )}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              {user ? `Welcome back, ${user.username}!` : 'Power Your Social Media Growth'}
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+              {user ? `Welcome back, ${user.username}!` : (maintenanceConfig.heroHeadline || 'Power Your Social Media Growth')}
             </h1>
-            <p className="text-sm text-slate-400 mt-1 max-w-xl">
-              High-speed, high-retention social media marketing services with real-time server delivery and 100% transparent pricing.
+            <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
+              {maintenanceConfig.heroSubtitle || 'High-speed, high-retention social media marketing services with real-time server delivery and 100% transparent pricing.'}
             </p>
           </div>
 
           {/* Wallet Action Box */}
-          <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0 shadow-inner">
-            <div>
+          <div className="w-full xl:w-auto bg-slate-950/80 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between sm:justify-start gap-4 shrink-0 shadow-inner">
+            <div className="shrink-0">
               <div className="text-xs text-slate-400 font-medium">Available Balance</div>
               <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono tracking-tight">
                 {user ? formatCurrency(user.walletBalance) : '₹0.00'}
               </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
               {user ? (
                 <>
                   <button
                     onClick={() => onNavigate('wallet')}
-                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="flex-1 sm:flex-none whitespace-nowrap px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
-                    <PlusCircle className="w-4 h-4" />
+                    <PlusCircle className="w-4 h-4 shrink-0" />
                     <span>Add Funds</span>
                   </button>
                   <button
                     onClick={() => onNavigate('new_order')}
-                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="flex-1 sm:flex-none whitespace-nowrap px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
-                    <Zap className="w-4 h-4" />
+                    <Zap className="w-4 h-4 shrink-0" />
                     <span>New Order</span>
                   </button>
                 </>
               ) : (
                 <button
                   onClick={onOpenAuthModal}
-                  className="w-full px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 text-white text-sm font-semibold shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 text-white text-sm font-semibold shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap"
                 >
                   <span>Sign In / Register</span>
-                  <ArrowUpRight className="w-4 h-4" />
+                  <ArrowUpRight className="w-4 h-4 shrink-0" />
                 </button>
               )}
             </div>

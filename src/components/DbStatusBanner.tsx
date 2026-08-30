@@ -19,9 +19,9 @@ export const DbStatusBanner: React.FC = () => {
     return (
       <div className="bg-amber-950/80 border-b border-amber-500/30 text-amber-200 px-4 py-2.5 text-xs sm:text-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>
+            <span className="truncate">
               <strong className="font-semibold text-amber-300">Database Setup Required:</strong> {dbStatus.message}
             </span>
           </div>

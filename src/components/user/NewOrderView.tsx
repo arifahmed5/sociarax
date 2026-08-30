@@ -42,41 +42,114 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [successOrder, setSuccessOrder] = useState<any | null>(null);
 
-  // Available unique categories filtered by platform
-  const availableCategories = useMemo(() => {
-    let list = services;
-    if (selectedPlatform !== 'all') {
-      list = list.filter(s => s.platform.toLowerCase() === selectedPlatform.toLowerCase());
-    }
-    return Array.from(new Set(list.map(s => s.category))).filter(Boolean);
+  // Bulletproof platform matching engine: category has priority over secondary mention tags
+  const isServiceMatchingPlatform = (s: any, plat: string) => {
+    if (!plat || plat === 'all') return true;
+    const cat = (s.category || '').toLowerCase();
+    const name = (s.name || '').toLowerCase();
+    const p = (s.platform || '').toLowerCase();
+    const target = plat.trim().toLowerCase();
+
+    // 1. Strict YouTube check
+    const isYt = (cat.includes('youtube') || cat.includes('yt ')) || 
+                 (name.includes('youtube') && !cat.includes('facebook') && !cat.includes('instagram'));
+    if (target === 'youtube') return isYt;
+    if (isYt) return false; // Never leak YouTube services to other platforms
+
+    // 2. Strict Instagram check
+    const isInsta = (cat.includes('instagram') || cat.includes('ig ') || cat.includes('insta') || cat.includes('reels') || cat.includes('threads')) ||
+                    (name.includes('instagram') && !cat.includes('facebook'));
+    if (target === 'instagram') return isInsta;
+    if (isInsta) return false; // Never leak Instagram services to other platforms
+
+    // 3. Strict Telegram check
+    const isTg = (cat.includes('telegram') || cat.includes('tg ')) || name.includes('telegram');
+    if (target === 'telegram') return isTg;
+    if (isTg) return false;
+
+    // 4. Strict Facebook check
+    const isFb = (cat.includes('facebook') || cat.includes('fb ') || cat.includes('page likes') || name.includes('facebook page') || name.includes('facebook likes') || name.includes('facebook followers') || p === 'facebook');
+    if (target === 'facebook') return isFb;
+    if (isFb) return false;
+
+    // 5. Strict Twitter / X check
+    const isTw = (cat.includes('twitter') || cat.includes('tweet') || cat.includes(' x ') || name.includes('twitter') || p === 'twitter');
+    if (target === 'twitter') return isTw;
+    if (isTw) return false;
+
+    // 6. Strict Spotify check
+    const isSp = (cat.includes('spotify') || name.includes('spotify') || p === 'spotify');
+    if (target === 'spotify') return isSp;
+    if (isSp) return false;
+
+    // 7. Strict TikTok check
+    const isTt = (cat.includes('tiktok') || name.includes('tiktok') || p === 'tiktok');
+    if (target === 'tiktok') return isTt;
+    if (isTt) return false;
+
+    // 8. Strict Snapchat check
+    const isSc = (cat.includes('snapchat') || cat.includes('snap ') || name.includes('snapchat') || p === 'snapchat');
+    if (target === 'snapchat') return isSc;
+    if (isSc) return false;
+
+    // 9. Strict Discord check
+    const isDc = (cat.includes('discord') || name.includes('discord') || p === 'discord');
+    if (target === 'discord') return isDc;
+    if (isDc) return false;
+
+    // 10. Strict Traffic check
+    const isTraffic = (cat.includes('traffic') || cat.includes('website') || cat.includes('seo') || name.includes('traffic') || p === 'traffic');
+    if (target === 'traffic') return isTraffic;
+    if (isTraffic) return false;
+
+    return p === target;
+  };
+
+  // 1. Services strictly matching the selected platform
+  const platformFilteredServices = useMemo(() => {
+    if (selectedPlatform === 'all') return services;
+    return services.filter(s => isServiceMatchingPlatform(s, selectedPlatform));
   }, [services, selectedPlatform]);
 
-  // Set default category when availableCategories change
+  // 2. Available unique categories strictly matching the selected platform
+  const availableCategories = useMemo(() => {
+    return Array.from(new Set(platformFilteredServices.map(s => s.category))).filter(Boolean);
+  }, [platformFilteredServices]);
+
+  // 3. Set default category when availableCategories change
   useEffect(() => {
-    if (availableCategories.length > 0 && (!selectedCategory || !availableCategories.includes(selectedCategory))) {
-      setSelectedCategory(availableCategories[0]);
+    if (availableCategories.length > 0) {
+      if (!selectedCategory || !availableCategories.includes(selectedCategory)) {
+        setSelectedCategory(availableCategories[0]);
+      }
+    } else {
+      setSelectedCategory('');
     }
   }, [availableCategories, selectedCategory]);
 
-  // Available services filtered by category
+  // 4. Available services filtered by category and selected platform
   const availableServices = useMemo(() => {
-    if (!selectedCategory) return [];
-    return services.filter(s => s.category === selectedCategory);
-  }, [services, selectedCategory]);
+    if (!selectedCategory) return platformFilteredServices;
+    return platformFilteredServices.filter(s => s.category === selectedCategory);
+  }, [platformFilteredServices, selectedCategory]);
 
-  // Set default service
+  // 5. Set default service when category or services change
   useEffect(() => {
     if (preselectedServiceId) {
       const match = services.find(s => s.id === preselectedServiceId);
       if (match) {
-        setSelectedPlatform(match.platform);
+        setSelectedPlatform(match.platform || 'all');
         setSelectedCategory(match.category);
         setSelectedServiceId(match.id);
         return;
       }
     }
-    if (availableServices.length > 0 && (!selectedServiceId || !availableServices.some(s => s.id === selectedServiceId))) {
-      setSelectedServiceId(availableServices[0].id);
+    if (availableServices.length > 0) {
+      if (!selectedServiceId || !availableServices.some(s => s.id === selectedServiceId)) {
+        setSelectedServiceId(availableServices[0].id);
+      }
+    } else {
+      setSelectedServiceId('');
     }
   }, [availableServices, selectedServiceId, preselectedServiceId, services]);
 
@@ -221,15 +294,23 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
               { id: 'all', label: 'All Platforms' },
               { id: 'instagram', label: 'Instagram' },
               { id: 'youtube', label: 'YouTube' },
-              { id: 'facebook', label: 'Facebook' },
               { id: 'telegram', label: 'Telegram' },
-              { id: 'tiktok', label: 'TikTok' },
+              { id: 'snapchat', label: 'Snapchat' },
+              { id: 'facebook', label: 'Facebook' },
               { id: 'twitter', label: 'X / Twitter' },
+              { id: 'spotify', label: 'Spotify' },
+              { id: 'tiktok', label: 'TikTok' },
+              { id: 'discord', label: 'Discord' },
+              { id: 'traffic', label: 'Website Traffic' },
             ].map(p => (
               <button
                 key={p.id}
                 type="button"
-                onClick={() => { setSelectedPlatform(p.id); setSelectedServiceId(''); }}
+                onClick={() => { 
+                  setSelectedPlatform(p.id); 
+                  setSelectedCategory(''); 
+                  setSelectedServiceId(''); 
+                }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                   selectedPlatform === p.id
                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-semibold'

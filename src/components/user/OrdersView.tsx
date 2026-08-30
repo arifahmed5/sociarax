@@ -172,6 +172,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthMo
                       <th className="py-3.5 px-4">Charge</th>
                       <th className="py-3.5 px-4">Start / Remains</th>
                       <th className="py-3.5 px-4">Status</th>
+                      <th className="py-3.5 px-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
@@ -215,6 +216,15 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthMo
                         </td>
                         <td className="py-3.5 px-4">
                           <StatusBadge status={ord.status} />
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => onNavigate('new_order')}
+                            className="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition-colors cursor-pointer"
+                            title="Reorder this service"
+                          >
+                            Reorder
+                          </button>
                         </td>
                       </tr>
                     ))}

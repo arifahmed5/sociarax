@@ -191,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
-        return { success: false, error: `Server returned non-JSON response (${res.status}). If on Render, please wait 30 seconds for the free service to spin up.` };
+        return { success: false, error: `Server returned non-JSON response (${res.status}). Server initializing, please wait a moment.` };
       }
       const data = await res.json();
       if (data.success && data.token) {
@@ -263,7 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
-        return { success: false, error: `Server returned non-JSON response (${res.status}). If on Render, please wait 30 seconds for the free service to spin up.` };
+        return { success: false, error: `Server returned non-JSON response (${res.status}). Server initializing, please wait a moment.` };
       }
       const data = await res.json();
       if (data.success && data.token) {

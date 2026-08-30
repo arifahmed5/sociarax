@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useSociarax } from '../../context/SociaraxContext';
 import { X, Lock, Mail, User, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 
 interface AuthModalProps {
@@ -10,6 +11,7 @@ interface AuthModalProps {
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'login' }) => {
   const { loginUser, registerUser } = useAuth();
+  const { maintenanceConfig } = useSociarax();
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   
   const [username, setUsername] = useState('');
@@ -66,10 +68,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             <ShieldCheck className="w-6 h-6 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">
-            {mode === 'login' ? 'Welcome to SociaraX' : 'Create Your SociaraX Account'}
+            {mode === 'login' 
+              ? (maintenanceConfig?.loginHeadline || 'Welcome to SociaraX') 
+              : (maintenanceConfig?.registerHeadline || 'Create Your SociaraX Account')}
           </h2>
           <p className="text-sm text-slate-400 mt-1">
-            {mode === 'login' ? 'Enter your credentials to access your dashboard' : 'Join thousands of creators & marketers boosting their reach'}
+            {mode === 'login' 
+              ? (maintenanceConfig?.loginSubtitle || 'Enter your credentials to access your dashboard') 
+              : 'Join thousands of creators & marketers boosting their reach'}
           </p>
         </div>
 

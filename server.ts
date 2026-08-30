@@ -17,6 +17,7 @@ import { userRouter } from './src/server/routes/userRoutes';
 import { ticketRouter } from './src/server/routes/ticketRoutes';
 import { reportRouter } from './src/server/routes/reportRoutes';
 import { settingsRouter } from './src/server/routes/settingsRoutes';
+import { referralRouter } from './src/server/routes/referralRoutes';
 import { monitoringRouter } from './src/server/routes/monitoringRoutes';
 import { maintenanceRouter } from './src/server/routes/maintenanceRoutes';
 import { loadConfigFromDatabase } from './src/server/maintenance/maintenanceEngine';
@@ -94,6 +95,7 @@ async function startServer() {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     next();
   });
@@ -163,6 +165,8 @@ async function startServer() {
   app.use('/api/tickets', ticketRouter);
   app.use('/api/admin/reports', reportRouter);
   app.use('/api/settings', settingsRouter);
+  app.use('/api/referrals', referralRouter);
+  app.use('/api/admin/referrals', referralRouter);
   app.use('/api/monitoring', monitoringRouter);
   app.use('/api/admin/maintenance', maintenanceRouter);
   app.use('/api/maintenance', maintenanceRouter);

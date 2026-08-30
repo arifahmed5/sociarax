@@ -292,33 +292,11 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
             </div>
           </div>
 
-          {/* Quick Support Links in Header */}
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            <a
-              id="auth-telegram-link"
-              href="https://t.me/arifahmed5_6"
-              target="_blank"
-              rel="noreferrer"
-              title="Telegram Support: @arifahmed5_6"
-              className="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 transition-colors"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Telegram:</span>
-              <span className="text-[11px] sm:text-xs">@arifahmed5_6</span>
-            </a>
-
-            <a
-              id="auth-whatsapp-link"
-              href="https://wa.me/916001768808?text=Hello%20SociaraX%20Support%20@arifahmed56"
-              target="_blank"
-              rel="noreferrer"
-              title="WhatsApp Support: @arifahmed56"
-              className="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 transition-colors"
-            >
-              <MessageCircle className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">WhatsApp:</span>
-              <span className="text-[11px] sm:text-xs">@arifahmed56</span>
-            </a>
+          {/* Top Right Label */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span id="auth-header-label" className="text-xs sm:text-sm font-bold text-slate-300 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800 tracking-wide">
+              SociaraX
+            </span>
           </div>
         </div>
       </header>

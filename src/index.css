@@ -25,3 +25,12 @@ html, body {
   display: flex;
   flex-direction: column;
 }
+
+/* Hide scrollbars for smooth responsive navigation tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

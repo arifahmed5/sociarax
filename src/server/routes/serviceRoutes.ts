@@ -525,19 +525,23 @@ serviceRouter.post('/admin/sync', requireAdminAuth, async (req: Request, res: Re
         const sellingPrice = provRateInr > 0 ? Number((provRateInr * (1 + markupPct / 100)).toFixed(4)) : 10;
         const categoryName = item.category || 'General Services';
         
-        // Detect platform from category or service name
+        // Detect platform from category or service name with exhaustive aliases
         const lowerName = `${item.name} ${categoryName}`.toLowerCase();
         let platform = 'other';
-        if (lowerName.includes('instagram') || lowerName.includes('ig')) platform = 'instagram';
-        else if (lowerName.includes('youtube') || lowerName.includes('yt')) platform = 'youtube';
-        else if (lowerName.includes('facebook') || lowerName.includes('fb')) platform = 'facebook';
-        else if (lowerName.includes('telegram') || lowerName.includes('tg')) platform = 'telegram';
-        else if (lowerName.includes('tiktok') || lowerName.includes('tt')) platform = 'tiktok';
-        else if (lowerName.includes('twitter') || lowerName.includes('x.com')) platform = 'twitter';
-        else if (lowerName.includes('spotify')) platform = 'spotify';
+        if (lowerName.includes('instagram') || lowerName.includes('ig ') || lowerName.includes('ig_') || lowerName.includes('insta') || lowerName.includes('threads')) platform = 'instagram';
+        else if (lowerName.includes('youtube') || lowerName.includes('yt ') || lowerName.includes('yt_') || lowerName.includes('shorts')) platform = 'youtube';
+        else if (lowerName.includes('facebook') || lowerName.includes('fb ') || lowerName.includes('fb_')) platform = 'facebook';
+        else if (lowerName.includes('telegram') || lowerName.includes('tg ') || lowerName.includes('tg_')) platform = 'telegram';
+        else if (lowerName.includes('tiktok') || lowerName.includes('tik tok') || lowerName.includes('tt ')) platform = 'tiktok';
+        else if (lowerName.includes('twitter') || lowerName.includes('tweet') || lowerName.includes('x.com') || lowerName.includes(' x ') || lowerName.includes('x post') || lowerName.includes('x follower')) platform = 'twitter';
+        else if (lowerName.includes('snapchat') || lowerName.includes('snap ') || lowerName.includes('snap score') || lowerName.includes('spotlight')) platform = 'snapchat';
+        else if (lowerName.includes('spotify') || lowerName.includes('podcast')) platform = 'spotify';
         else if (lowerName.includes('discord')) platform = 'discord';
-        else if (lowerName.includes('threads')) platform = 'threads';
         else if (lowerName.includes('linkedin')) platform = 'linkedin';
+        else if (lowerName.includes('pinterest')) platform = 'pinterest';
+        else if (lowerName.includes('twitch')) platform = 'twitch';
+        else if (lowerName.includes('traffic') || lowerName.includes('website visitor')) platform = 'traffic';
+        else if (lowerName.includes('google') || lowerName.includes('review') || lowerName.includes('play store')) platform = 'google';
 
         // Check if service already exists with this provider_service_id
         const existing = await client.query(

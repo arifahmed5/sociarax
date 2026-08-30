@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Bot, 
   Sparkles, 
@@ -6,45 +6,31 @@ import {
   ShieldAlert, 
   CheckCircle2, 
   AlertTriangle, 
-  RotateCcw, 
   Send, 
-  Layers, 
-  Palette, 
   Sliders, 
   History, 
   Eye, 
   Check, 
   RefreshCw, 
-  Cpu, 
   Lock, 
   Terminal,
-  Activity,
   Zap,
-  Globe,
-  SlidersHorizontal,
-  ChevronRight
+  Palette,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Trash2,
+  User,
+  ArrowRight,
+  RotateCcw,
+  Undo2,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-
-export interface WebsiteMaintenanceConfig {
-  themeColor: 'indigo' | 'purple' | 'blue' | 'emerald' | 'rose' | 'amber' | 'cyan' | 'violet';
-  siteTitle: string;
-  heroHeadline: string;
-  heroSubtitle: string;
-  announcementBannerText: string;
-  announcementBannerActive: boolean;
-  announcementBannerType: 'info' | 'warning' | 'success' | 'alert';
-  buttonStyle: 'rounded-xl' | 'rounded-2xl' | 'rounded-lg' | 'rounded-full';
-  telegramSupport: string;
-  whatsappSupport: string;
-  maintenanceModeActive: boolean;
-  maintenanceMessage: string;
-  enableGlowEffects: boolean;
-  compactMobileLayout: boolean;
-  customBadgeText: string;
-  quickSupportPhone: string;
-  accentGradient: string;
-}
+import { useSociarax } from '../../context/SociaraxContext';
+import { getTheme, getButtonRadius } from '../../utils/theme';
+import { WebsiteMaintenanceConfig } from '../../types';
 
 interface SafetyCheck {
   code: string;
@@ -67,18 +53,51 @@ interface MaintenanceLog {
   previousConfig: WebsiteMaintenanceConfig;
 }
 
+interface ChatMessage {
+  id: string;
+  sender: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
+  actionType?: 'CUSTOMIZE' | 'DIAGNOSTIC' | 'CONVERSATION' | 'BLOCKED';
+  appliedDiff?: Partial<WebsiteMaintenanceConfig>;
+  safetyScore?: number;
+  verified?: boolean;
+}
+
 export const AdminMaintenanceView: React.FC = () => {
   const { adminToken, userToken } = useAuth();
+  const { maintenanceConfig, refreshMaintenanceConfig, updateMaintenanceConfigLocally, loadSettings } = useSociarax();
   const token = adminToken || userToken;
   
-  const [config, setConfig] = useState<WebsiteMaintenanceConfig | null>(null);
+  const [config, setConfig] = useState<WebsiteMaintenanceConfig | null>(maintenanceConfig);
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatBackup, setChatBackup] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem('sociarax_chat_backup');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
   const [command, setCommand] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'console' | 'customizer' | 'logs' | 'security'>('console');
+  const [activeTab, setActiveTab] = useState<'chat' | 'customizer' | 'logs' | 'security'>('chat');
   
-  // Last execution / preview response
+  // Voice input state (Web Speech API)
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [isVoiceResponseEnabled, setIsVoiceResponseEnabled] = useState(true);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
+  const recognitionRef = useRef<any>(null);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  const theme = getTheme(config || maintenanceConfig);
+  const buttonRadius = getButtonRadius(config || maintenanceConfig);
+  
   const [lastResult, setLastResult] = useState<{
     success: boolean;
     safetyScore: number;
@@ -93,15 +112,149 @@ export const AdminMaintenanceView: React.FC = () => {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const quickPrompts = [
-    { label: 'Theme to Ocean Blue', prompt: 'Change website theme color to Ocean Blue with blue accent gradient' },
-    { label: 'Theme to Emerald Green', prompt: 'Website ka theme color Emerald Green karo' },
-    { label: 'Theme to Royal Purple', prompt: 'Website ka color purple karo aur modern styling do' },
-    { label: 'Theme to Cyber Cyan', prompt: 'Change portal theme to Cyber Cyan' },
-    { label: 'Update Announcement', prompt: 'Update announcement banner text to "Special 20% Instant Bonus on all UPI deposits today!" and turn it ON' },
-    { label: 'Switch Pill Buttons', prompt: 'Switch UI buttons style to rounded pill buttons' },
-    { label: 'Toggle Compact Mobile', prompt: 'Enable compact high-density mobile layout' },
-    { label: 'Emergency Maintenance ON', prompt: 'Enable emergency maintenance mode with message' }
+    { label: 'Referral ON Karo (Enable)', prompt: 'Referral system enable karo' },
+    { label: 'Referral OFF Karo (Disable)', prompt: 'Referral system off kardo' },
+    { label: 'Referral Bonus ₹50 karo', prompt: 'Referral bonus 50 rupaye kardo' },
+    { label: 'Referral Live Status', prompt: 'Referral system ka live status batao' },
+    { label: 'Replace TG/WA with SociaraX Label', prompt: 'Only change the top header: replace the Telegram/WhatsApp contact buttons with a simple “SociaraX” label. Do not change anything else.' },
+    { label: 'Show TG & WA Contact Buttons', prompt: 'Show Telegram and WhatsApp support contact buttons in the top header' },
+    { label: 'Emerald Green Theme', prompt: 'Website ka theme color Emerald Green kardo' },
+    { label: 'Royal Purple Theme', prompt: 'Website ka color purple kardo aur modern styling do' },
+    { label: 'Ocean Blue Theme', prompt: 'Change website theme color to Ocean Blue with blue accent gradient' },
+    { label: 'Switch to Rounded Pill Buttons', prompt: 'Switch UI buttons style to rounded pill buttons' },
+    { label: 'Login Modal Headline', prompt: 'Login page ka headline change karke "Welcome to SociaraX Pro" kardo' },
+    { label: 'Website Status / Health Check', prompt: 'Website me koi problem ya error hai kya? Health status batao' }
   ];
+
+  // Initialize Speech Recognition & Voice List
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        setSpeechSupported(true);
+        const recog = new SpeechRecognition();
+        recog.continuous = false;
+        recog.interimResults = false;
+        recog.lang = 'hi-IN,en-IN,en-US';
+
+        recog.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          if (transcript) {
+            setCommand(transcript);
+          }
+          setIsListening(false);
+        };
+
+        recog.onerror = (e: any) => {
+          console.warn('Speech recognition error:', e);
+          setIsListening(false);
+        };
+
+        recog.onend = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = recog;
+      }
+
+      // Populate Web Speech Synthesis voices
+      if (window.speechSynthesis) {
+        const updateVoices = () => {
+          const voices = window.speechSynthesis.getVoices();
+          setAvailableVoices(voices);
+        };
+        updateVoices();
+        window.speechSynthesis.onvoiceschanged = updateVoices;
+      }
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      alert('Speech recognition is not supported in this browser. Please use Chrome, Edge, or text input.');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (err) {
+        console.warn('Could not start recognition:', err);
+      }
+    }
+  };
+
+  const getBestIndianVoice = (): SpeechSynthesisVoice | null => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return null;
+    const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    if (selectedVoiceName) {
+      const found = voices.find(v => v.name === selectedVoiceName);
+      if (found) return found;
+    }
+
+    // 1. Direct Hindi voice (hi-IN, Google हिन्दी, Swara, Madhur, Kalpana, Lekha)
+    const hindiVoice = voices.find(v => 
+      v.lang === 'hi-IN' || 
+      v.lang === 'hi_IN' || 
+      v.lang.toLowerCase().startsWith('hi') ||
+      v.name.toLowerCase().includes('hindi') || 
+      v.name.includes('हिन्दी')
+    );
+    if (hindiVoice) return hindiVoice;
+
+    // 2. Indian English voice (en-IN, India, Neerja, Ravi, Heera, Swara, Madhur, Veena)
+    const indianEnglishVoice = voices.find(v => 
+      v.lang === 'en-IN' || 
+      v.lang === 'en_IN' || 
+      v.name.toLowerCase().includes('india') ||
+      v.name.toLowerCase().includes('neerja') ||
+      v.name.toLowerCase().includes('ravi') ||
+      v.name.toLowerCase().includes('heera') ||
+      v.name.toLowerCase().includes('veena')
+    );
+    if (indianEnglishVoice) return indianEnglishVoice;
+
+    return voices[0] || null;
+  };
+
+  const speakText = (text: string) => {
+    if (!isVoiceResponseEnabled || typeof window === 'undefined' || !window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel();
+      
+      // Clean text for natural speech (remove markdown symbols, emojis, URLs, bullets)
+      const cleanText = text
+        .replace(/[*_#`~>]/g, '')
+        .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+        .replace(/^[•\-\d+\.]\s+/gm, '')
+        .replace(/\bhttps?:\/\/\S+/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (!cleanText) return;
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      const voice = getBestIndianVoice();
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang || 'hi-IN';
+      } else {
+        utterance.lang = 'hi-IN';
+      }
+
+      utterance.rate = 0.95; // Natural pace for Hindi & Hinglish articulation
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn('Speech synthesis error:', e);
+    }
+  };
 
   const fetchConfig = async () => {
     try {
@@ -131,17 +284,48 @@ export const AdminMaintenanceView: React.FC = () => {
     }
   };
 
+  const fetchChatHistory = async () => {
+    try {
+      const res = await fetch('/api/admin/maintenance/chat/history', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.history)) {
+        setMessages(data.history);
+      }
+    } catch (err) {
+      console.error('Failed to load chat history:', err);
+    }
+  };
+
   useEffect(() => {
     fetchConfig();
     fetchLogs();
+    fetchChatHistory();
   }, [token]);
 
-  const handleExecute = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!command.trim()) return;
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, activeTab]);
 
+  const handleExecute = async (e?: React.FormEvent, customPrompt?: string) => {
+    if (e) e.preventDefault();
+    const promptToSend = customPrompt || command;
+    if (!promptToSend.trim()) return;
+
+    const userMsg: ChatMessage = {
+      id: `usr_${Date.now()}`,
+      sender: 'user',
+      text: promptToSend.trim(),
+      timestamp: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, userMsg]);
+    setCommand('');
     setIsLoading(true);
     setNotification(null);
+
     try {
       const res = await fetch('/api/admin/maintenance/execute', {
         method: 'POST',
@@ -149,23 +333,88 @@ export const AdminMaintenanceView: React.FC = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ command: command.trim() })
+        body: JSON.stringify({ command: promptToSend.trim() })
       });
       const data = await res.json();
       setLastResult(data);
 
+      const assistantMsg: ChatMessage = {
+        id: `asst_${Date.now()}`,
+        sender: 'assistant',
+        text: data.explanation || (data.success ? 'Aapka task complete ho gaya hai!' : (data.error || 'Request reject hui.')),
+        timestamp: new Date().toISOString(),
+        actionType: data.actionType || (data.success ? 'CUSTOMIZE' : 'BLOCKED'),
+        appliedDiff: data.appliedDiff,
+        safetyScore: data.safetyScore,
+        verified: data.success
+      };
+
+      setMessages(prev => [...prev, assistantMsg]);
+
       if (data.success) {
-        setConfig(data.currentConfig);
-        setNotification({ type: 'success', message: 'Maintenance update applied safely!' });
-        setCommand('');
+        if (data.currentConfig) {
+          setConfig(data.currentConfig);
+          updateMaintenanceConfigLocally(data.currentConfig);
+        }
+        await refreshMaintenanceConfig();
+        await loadSettings();
         fetchLogs();
+        speakText(assistantMsg.text);
       } else {
-        setNotification({ type: 'error', message: data.error || 'Operation rejected by security gate.' });
+        setNotification({ type: 'error', message: data.error || data.explanation || 'Operation rejected by security policy.' });
       }
     } catch (err: any) {
-      setNotification({ type: 'error', message: 'Server connection error during maintenance execution.' });
+      const errMsg: ChatMessage = {
+        id: `err_${Date.now()}`,
+        sender: 'assistant',
+        text: 'Server connection me temporary issue aaya. Please dobara try karein.',
+        timestamp: new Date().toISOString(),
+        actionType: 'BLOCKED'
+      };
+      setMessages(prev => [...prev, errMsg]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleClearChatClick = () => {
+    if (messages.length === 0) return;
+    setShowClearConfirmModal(true);
+  };
+
+  const handleConfirmClearChat = async () => {
+    setShowClearConfirmModal(false);
+    if (messages.length > 0) {
+      setChatBackup(messages);
+      try {
+        localStorage.setItem('sociarax_chat_backup', JSON.stringify(messages));
+      } catch (e) {
+        console.warn('Chat backup save error:', e);
+      }
+    }
+
+    try {
+      const res = await fetch('/api/admin/maintenance/chat/clear', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessages([]);
+        setNotification({ type: 'success', message: 'Chat history cleared. You can restore your conversation anytime!' });
+      }
+    } catch (err) {
+      setMessages([]);
+    }
+  };
+
+  const handleRestoreChat = () => {
+    if (chatBackup && chatBackup.length > 0) {
+      setMessages(chatBackup);
+      setNotification({ type: 'success', message: 'Chat history restored successfully!' });
     }
   };
 
@@ -210,8 +459,13 @@ export const AdminMaintenanceView: React.FC = () => {
       const data = await res.json();
       if (data.success) {
         setNotification({ type: 'success', message: data.message });
-        if (data.config) setConfig(data.config);
+        if (data.config) {
+          setConfig(data.config);
+          updateMaintenanceConfigLocally(data.config);
+        }
+        refreshMaintenanceConfig();
         fetchLogs();
+        fetchChatHistory();
       } else {
         setNotification({ type: 'error', message: data.error || 'Rollback failed.' });
       }
@@ -233,8 +487,11 @@ export const AdminMaintenanceView: React.FC = () => {
       const data = await res.json();
       if (data.success && data.config) {
         setConfig(data.config);
+        updateMaintenanceConfigLocally(data.config);
+        refreshMaintenanceConfig();
         setNotification({ type: 'success', message: 'Setting updated immediately.' });
         fetchLogs();
+        fetchChatHistory();
       }
     } catch (err) {
       setNotification({ type: 'error', message: 'Direct update failed.' });
@@ -242,28 +499,28 @@ export const AdminMaintenanceView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header Banner */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 relative overflow-hidden">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 relative overflow-hidden shadow-2xl">
         <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-semibold">
               <Bot className="w-3.5 h-3.5" />
-              <span>Admin AI Autonomous Website Controller</span>
+              <span>Autonomous AI Assistant & Website Controller</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Website Maintenance & UI Engine
+              AI Website Control & Conversational Assistant
             </h2>
             <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
-              Execute live website modifications using natural language (English / Hindi / Hinglish) with guaranteed multi-layer security audits, zero credential exposure, and instant rollback.
+              Talk directly to your AI Assistant via voice or chat to customize website theme, header, login headlines, or query database health with zero downtime and instant rollback.
             </p>
           </div>
 
           <div className="flex items-center gap-2 self-start md:self-auto">
             <button
-              onClick={() => { fetchConfig(); fetchLogs(); }}
+              onClick={() => { fetchConfig(); fetchLogs(); fetchChatHistory(); }}
               className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
               title="Refresh State"
             >
@@ -271,7 +528,7 @@ export const AdminMaintenanceView: React.FC = () => {
             </button>
             <div className="px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
               <ShieldCheck className="w-4 h-4" />
-              <span>6-Layer Safety Shield Active</span>
+              <span>Multi-Layer Safety Active</span>
             </div>
           </div>
         </div>
@@ -279,15 +536,15 @@ export const AdminMaintenanceView: React.FC = () => {
         {/* Navigation Tabs */}
         <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-slate-800">
           <button
-            onClick={() => setActiveTab('console')}
+            onClick={() => setActiveTab('chat')}
             className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
-              activeTab === 'console'
+              activeTab === 'chat'
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
                 : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
-            <Terminal className="w-3.5 h-3.5" />
-            <span>AI Command Console</span>
+            <Bot className="w-3.5 h-3.5" />
+            <span>AI Conversational Chat & Voice</span>
           </button>
 
           <button
@@ -346,168 +603,218 @@ export const AdminMaintenanceView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 1: AI COMMAND CONSOLE */}
+      {/* TAB 1: CONVERSATIONAL AI CHAT & VOICE INTERFACE */}
       {/* ========================================================================= */}
-      {activeTab === 'console' && (
+      {activeTab === 'chat' && (
         <div className="space-y-6">
-          {/* Natural Language Prompt Box */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-indigo-400" />
-                <span>Tell the AI what to change on the website</span>
-              </label>
-              <span className="text-[11px] text-slate-500">Supports English, Hindi & Hinglish</span>
+          {/* Chat Container */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col h-[600px]">
+            {/* Chat Top Bar */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
+                  <Bot className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-white">SociaraX AI Assistant</h3>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  </div>
+                  <p className="text-[11px] text-slate-400">Talk in Hindi, Hinglish, or English</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {chatBackup && chatBackup.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleRestoreChat}
+                    className="p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30 hover:bg-emerald-900/50 text-emerald-400 hover:text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Restore Previous Conversation (Deleted Chat Wapas Layein)"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Restore Chat</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setIsVoiceResponseEnabled(!isVoiceResponseEnabled)}
+                  className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                    isVoiceResponseEnabled 
+                      ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300' 
+                      : 'bg-slate-950 border-slate-800 text-slate-500'
+                  }`}
+                  title={isVoiceResponseEnabled ? 'Voice Responses Enabled' : 'Voice Responses Muted'}
+                >
+                  {isVoiceResponseEnabled ? <Volume2 className="w-4 h-4 text-indigo-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
+                  <span className="hidden sm:inline">{isVoiceResponseEnabled ? 'Hindi Voice ON' : 'Voice Muted'}</span>
+                </button>
+
+                {isVoiceResponseEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => speakText('Namaste! Main SociaraX ka AI Assistant hoon. Main aapki website ko live customize aur manage karne ke liye taiyaar hoon.')}
+                    className="p-2 rounded-xl bg-slate-950 border border-slate-800 hover:bg-slate-900 text-indigo-400 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Test Indian Hindi Voice Output"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span className="hidden md:inline">Test Voice</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleClearChatClick}
+                  disabled={messages.length === 0}
+                  className="p-2 rounded-xl bg-slate-950 border border-slate-800 hover:bg-rose-950/30 hover:border-rose-800/40 text-slate-400 hover:text-rose-400 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                  title="Clear Chat (With Instant Undo Protection)"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={handleExecute} className="space-y-3">
-              <div className="relative">
-                <textarea
-                  id="admin-ai-prompt-input"
-                  rows={3}
+            {/* Chat Messages Feed */}
+            <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+              {messages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 space-y-3">
+                  <Bot className="w-12 h-12 text-slate-700 animate-pulse" />
+                  <p className="text-xs max-w-sm">
+                    Namaste! Main SociaraX ka Conversational AI Assistant hoon. Aap bolkar ya likhkar website ke header, colors, buttons, referral system ya login headlines customize kar sakte hain.
+                  </p>
+                  {chatBackup && chatBackup.length > 0 && (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={handleRestoreChat}
+                        className="px-4 py-2 rounded-xl bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600/30 text-indigo-300 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-indigo-600/10"
+                      >
+                        <RotateCcw className="w-4 h-4 text-indigo-400" />
+                        <span>Purani Chat Wapas Layein ({chatBackup.length} messages)</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex items-start gap-3 ${
+                      msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
+                    }`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold ${
+                        msg.sender === 'user'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-800 border border-slate-700 text-indigo-300'
+                      }`}
+                    >
+                      {msg.sender === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                    </div>
+
+                    <div
+                      className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 text-xs leading-relaxed ${
+                        msg.sender === 'user'
+                          ? 'bg-indigo-600 text-white rounded-tr-none'
+                          : 'bg-slate-950 border border-slate-800 text-slate-200 rounded-tl-none space-y-2'
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap">{msg.text}</p>
+
+                      {/* If AI applied parameter changes, render badge and diff */}
+                      {msg.appliedDiff && Object.keys(msg.appliedDiff).length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-slate-800/80 space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Applied & Verified in Live Portal</span>
+                          </div>
+                          <pre className="p-2 rounded-lg bg-slate-900 text-emerald-300 font-mono text-[11px] overflow-x-auto border border-slate-800">
+                            {JSON.stringify(msg.appliedDiff, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
+                        <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        {msg.safetyScore !== undefined && (
+                          <span className="text-emerald-400/80">Safety: {msg.safetyScore}/100</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {isLoading && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-indigo-300 shrink-0">
+                    <Bot className="w-4 h-4 animate-spin text-indigo-400" />
+                  </div>
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl rounded-tl-none p-3.5 text-xs text-indigo-300 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
+                    <span>Analyzing instruction & applying safety verification...</span>
+                  </div>
+                </div>
+              )}
+
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* Quick Suggestion Chips */}
+            <div className="py-2 overflow-x-auto flex gap-1.5 shrink-0 border-t border-slate-800">
+              {quickPrompts.slice(0, 4).map((qp, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleExecute(undefined, qp.prompt)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 hover:border-indigo-500/50 text-[11px] text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0"
+                >
+                  {qp.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Message Input Box */}
+            <form onSubmit={(e) => handleExecute(e)} className="pt-2 flex items-center gap-2 shrink-0">
+              <div className="relative flex-1">
+                <input
+                  type="text"
                   value={command}
                   onChange={(e) => setCommand(e.target.value)}
-                  placeholder="e.g. Website ka color emerald green karo aur announcement banner active karo..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none"
+                  placeholder={isListening ? 'Listening to your voice...' : 'Type or speak your customization prompt (e.g. Website ka color emerald green kardo)...'}
+                  className={`w-full bg-slate-950 border rounded-2xl px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 transition-all ${
+                    isListening ? 'border-rose-500 ring-2 ring-rose-500/30 animate-pulse' : 'border-slate-800'
+                  }`}
                 />
               </div>
 
-              {/* Quick suggestion chips */}
-              <div className="space-y-1.5">
-                <div className="text-[11px] font-semibold text-slate-500">Suggested Instructions:</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {quickPrompts.map((qp, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setCommand(qp.prompt)}
-                      className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 hover:border-indigo-500/50 text-[11px] text-slate-300 hover:text-white transition-colors cursor-pointer"
-                    >
-                      {qp.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Voice Input Button */}
+              <button
+                type="button"
+                onClick={toggleListening}
+                className={`p-3 rounded-2xl border font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
+                  isListening
+                    ? 'bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-600/40 animate-pulse'
+                    : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white'
+                }`}
+                title={isListening ? 'Stop listening' : 'Start speaking (Voice Input)'}
+              >
+                {isListening ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-indigo-400" />}
+              </button>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <Lock className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Auto-validated with 6-stage security gate</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={isPreviewLoading || isLoading || !command.trim()}
-                    onClick={handlePreview}
-                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    {isPreviewLoading ? (
-                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Security Scan & Preview</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    id="btn-apply-maintenance-ai"
-                    type="submit"
-                    disabled={isLoading || isPreviewLoading || !command.trim()}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    {isLoading ? (
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <Zap className="w-4 h-4" />
-                        <span>Audit & Apply Live</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
+              {/* Send Button */}
+              <button
+                type="submit"
+                disabled={isLoading || !command.trim()}
+                className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+                <span className="hidden sm:inline">Send</span>
+              </button>
             </form>
           </div>
-
-          {/* Execution / Preview Analysis Card */}
-          {lastResult && (
-            <div className={`bg-slate-900 border rounded-3xl p-5 sm:p-6 space-y-4 ${
-              lastResult.success ? 'border-indigo-500/40' : 'border-rose-500/50'
-            }`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  {lastResult.success ? (
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4" />
-                    </div>
-                  ) : (
-                    <div className="w-7 h-7 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
-                      <ShieldAlert className="w-4 h-4" />
-                    </div>
-                  )}
-                  <div>
-                    <h4 className="text-sm font-bold text-white">
-                      {lastResult.success ? 'Security Clearance: PASSED' : 'Security Clearance: BLOCKED'}
-                    </h4>
-                    <span className="text-[11px] text-slate-400">Safety Index: {lastResult.safetyScore}/100</span>
-                  </div>
-                </div>
-
-                <div className="text-xs font-mono px-2.5 py-1 rounded-lg bg-slate-950 text-slate-300 border border-slate-800">
-                  Status: {lastResult.safetyStatus}
-                </div>
-              </div>
-
-              {/* Explanation & Plan */}
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-slate-300">Analysis & Outcome:</div>
-                <p className="text-xs text-slate-300 leading-relaxed p-3 bg-slate-950/80 rounded-xl border border-slate-800/80">
-                  {lastResult.explanation}
-                </p>
-              </div>
-
-              {/* 6 Security Verification Results */}
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-slate-300">Security Gate Scan Results:</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {lastResult.safetyChecks?.map((chk, i) => (
-                    <div
-                      key={i}
-                      className={`p-2.5 rounded-xl border text-[11px] flex items-start gap-2 ${
-                        chk.status === 'PASS'
-                          ? 'bg-emerald-950/20 border-emerald-500/20 text-slate-300'
-                          : chk.status === 'BLOCK'
-                          ? 'bg-rose-950/30 border-rose-500/40 text-rose-300'
-                          : 'bg-amber-950/20 border-amber-500/30 text-amber-300'
-                      }`}
-                    >
-                      {chk.status === 'PASS' && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />}
-                      {chk.status === 'BLOCK' && <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />}
-                      {chk.status === 'WARN' && <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />}
-                      <div className="min-w-0">
-                        <div className="font-bold text-white">{chk.name}</div>
-                        <div className="text-slate-400 leading-tight mt-0.5">{chk.detail}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Applied Diff Preview */}
-              {Object.keys(lastResult.appliedDiff || {}).length > 0 && (
-                <div className="space-y-1.5 pt-2">
-                  <div className="text-xs font-semibold text-slate-300">Applied Parameter Changes:</div>
-                  <pre className="p-3 rounded-xl bg-slate-950 text-emerald-400 text-xs font-mono overflow-x-auto border border-slate-800">
-                    {JSON.stringify(lastResult.appliedDiff, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Current Live UI Parameters Overview */}
           {config && (
@@ -540,6 +847,13 @@ export const AdminMaintenanceView: React.FC = () => {
                 </div>
 
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                  <div className="text-slate-400 text-[10px]">Top Header Layout</div>
+                  <div className="text-white font-bold mt-0.5">
+                    {config.showHeaderSimpleLabelOnly ? `Simple "${config.headerSimpleLabel}" Label` : 'Contact Buttons (TG & WA)'}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
                   <div className="text-slate-400 text-[10px]">Button Style</div>
                   <div className="text-white font-bold mt-0.5">{config.buttonStyle}</div>
                 </div>
@@ -551,17 +865,6 @@ export const AdminMaintenanceView: React.FC = () => {
                       <span className="text-emerald-400">Enabled</span>
                     ) : (
                       <span className="text-slate-500">Disabled</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-                  <div className="text-slate-400 text-[10px]">Maintenance Mode</div>
-                  <div className="text-white font-bold mt-0.5">
-                    {config.maintenanceModeActive ? (
-                      <span className="text-rose-400">Emergency Active</span>
-                    ) : (
-                      <span className="text-emerald-400">Normal Active</span>
                     )}
                   </div>
                 </div>
@@ -602,166 +905,134 @@ export const AdminMaintenanceView: React.FC = () => {
                 ].map((c) => (
                   <button
                     key={c.id}
+                    type="button"
                     onClick={() => handleDirectUpdate({ themeColor: c.id as any })}
                     className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
-                      config.themeColor === c.id 
-                        ? 'border-white bg-slate-800 shadow-lg' 
-                        : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+                      config.themeColor === c.id
+                        ? 'border-indigo-500 bg-indigo-500/20 text-white font-bold'
+                        : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
                     }`}
                   >
-                    <span className={`w-5 h-5 rounded-full ${c.bg}`} />
-                    <span className="text-[11px] font-bold text-slate-200">{c.label}</span>
+                    <span className={`w-4 h-4 rounded-full ${c.bg}`} />
+                    <span className="text-[11px]">{c.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Button Style Selector */}
-            <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                Button Corner Radius
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'rounded-xl', label: 'Modern (xl)' },
-                  { id: 'rounded-2xl', label: 'Soft (2xl)' },
-                  { id: 'rounded-lg', label: 'Compact (lg)' },
-                  { id: 'rounded-full', label: 'Pill (full)' }
-                ].map((b) => (
+            {/* Header Layout & Button Style */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                  Top Header Mode
+                </label>
+                <div className="grid grid-cols-2 gap-2">
                   <button
-                    key={b.id}
-                    onClick={() => handleDirectUpdate({ buttonStyle: b.id as any })}
-                    className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                      config.buttonStyle === b.id 
-                        ? 'border-indigo-500 bg-indigo-500/10 text-white font-bold' 
-                        : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'
+                    type="button"
+                    onClick={() => handleDirectUpdate({ showHeaderSimpleLabelOnly: true, headerSimpleLabel: 'SociaraX' })}
+                    className={`p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left ${
+                      config.showHeaderSimpleLabelOnly
+                        ? 'border-indigo-500 bg-indigo-500/20 text-white'
+                        : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
                     }`}
                   >
-                    <span className="text-xs">{b.label}</span>
+                    <div>Simple "SociaraX" Label Only</div>
+                    <div className="text-[10px] text-slate-500 mt-1">Replaces TG & WA buttons with clean branding</div>
                   </button>
-                ))}
-              </div>
-            </div>
 
-            {/* Global Announcement Banner Toggle */}
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white">Announcement Banner</span>
-                <button
-                  onClick={() => handleDirectUpdate({ announcementBannerActive: !config.announcementBannerActive })}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                    config.announcementBannerActive 
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' 
-                      : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  {config.announcementBannerActive ? 'ON' : 'OFF'}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDirectUpdate({ showHeaderSimpleLabelOnly: false, showSupportInHeader: true })}
+                    className={`p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left ${
+                      !config.showHeaderSimpleLabelOnly
+                        ? 'border-indigo-500 bg-indigo-500/20 text-white'
+                        : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <div>Telegram & WhatsApp Buttons</div>
+                    <div className="text-[10px] text-slate-500 mt-1">Direct support links in header</div>
+                  </button>
+                </div>
               </div>
-              <textarea
-                rows={2}
-                value={config.announcementBannerText}
-                onChange={(e) => setConfig({ ...config, announcementBannerText: e.target.value })}
-                onBlur={() => handleDirectUpdate({ announcementBannerText: config.announcementBannerText })}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder-slate-500"
-              />
-            </div>
 
-            {/* Emergency Maintenance Mode */}
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white">Maintenance Mode Banner</span>
-                <button
-                  onClick={() => handleDirectUpdate({ maintenanceModeActive: !config.maintenanceModeActive })}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                    config.maintenanceModeActive 
-                      ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' 
-                      : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  {config.maintenanceModeActive ? 'ACTIVE' : 'OFF'}
-                </button>
+              <div>
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                  Button Corner Radius
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'rounded-xl', label: 'Modern (12px)' },
+                    { id: 'rounded-2xl', label: 'Ultra Smooth (16px)' },
+                    { id: 'rounded-lg', label: 'Sharp (8px)' },
+                    { id: 'rounded-full', label: 'Pill (Full Round)' }
+                  ].map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => handleDirectUpdate({ buttonStyle: b.id as any })}
+                      className={`p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                        config.buttonStyle === b.id
+                          ? 'border-indigo-500 bg-indigo-500/20 text-white'
+                          : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <textarea
-                rows={2}
-                value={config.maintenanceMessage}
-                onChange={(e) => setConfig({ ...config, maintenanceMessage: e.target.value })}
-                onBlur={() => handleDirectUpdate({ maintenanceMessage: config.maintenanceMessage })}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder-slate-500"
-              />
             </div>
           </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: AUDIT LOGS & ONE-CLICK ROLLBACK */}
+      {/* TAB 3: AUDIT HISTORY & INSTANT ROLLBACK */}
       {/* ========================================================================= */}
       {activeTab === 'logs' && (
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div>
-              <h3 className="text-base font-bold text-white">AI Maintenance Audit Log</h3>
-              <p className="text-xs text-slate-400">Complete historical audit trail of all natural-language and direct changes with instant rollback.</p>
+              <h3 className="text-base font-bold text-white">Maintenance Audit Trail & Rollback</h3>
+              <p className="text-xs text-slate-400">Complete immutable record of all AI and manual website customizations.</p>
             </div>
-            <button
-              onClick={fetchLogs}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh Logs</span>
-            </button>
           </div>
 
           {logs.length === 0 ? (
-            <div className="p-8 text-center text-slate-500 text-xs">
-              No maintenance actions executed yet. Use the AI Console to apply updates safely.
+            <div className="py-12 text-center text-slate-500 text-xs bg-slate-950 rounded-2xl border border-slate-800">
+              No maintenance actions recorded yet.
             </div>
           ) : (
             <div className="space-y-3">
-              {logs.map((log) => (
+              {logs.map((lg) => (
                 <div
-                  key={log.id}
-                  className="p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all space-y-2.5"
+                  key={lg.id}
+                  className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        log.status === 'APPLIED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                        log.status === 'ROLLED_BACK' ? 'bg-slate-800 text-slate-400' :
-                        'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        lg.status === 'APPLIED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
+                        lg.status === 'ROLLED_BACK' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                        'bg-rose-500/10 text-rose-400 border border-rose-500/30'
                       }`}>
-                        {log.status}
+                        {lg.status}
                       </span>
-                      <span className="text-xs font-bold text-white truncate max-w-md">{log.command}</span>
+                      <span className="text-xs font-bold text-white font-mono">{lg.command}</span>
                     </div>
-
-                    <div className="flex items-center gap-3 text-xs text-slate-400">
-                      <span>{new Date(log.timestamp).toLocaleString()}</span>
-                      {log.status === 'APPLIED' && (
-                        <button
-                          onClick={() => handleRollback(log.id)}
-                          className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-300 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          <span>Rollback</span>
-                        </button>
-                      )}
+                    <div className="text-[11px] text-slate-400">{lg.summary}</div>
+                    <div className="text-[10px] text-slate-500">
+                      Executed by {lg.adminEmail} on {new Date(lg.timestamp).toLocaleString()}
                     </div>
                   </div>
 
-                  <div className="text-xs text-slate-400 leading-relaxed">
-                    {log.summary}
-                  </div>
-
-                  {log.appliedDiff && Object.keys(log.appliedDiff).length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {Object.entries(log.appliedDiff).map(([k, v]) => (
-                        <span key={k} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono text-indigo-300">
-                          {k}: {String(v)}
-                        </span>
-                      ))}
-                    </div>
+                  {lg.status === 'APPLIED' && (
+                    <button
+                      onClick={() => handleRollback(lg.id)}
+                      className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 self-start md:self-auto"
+                    >
+                      <span>Rollback</span>
+                    </button>
                   )}
                 </div>
               ))}
@@ -771,77 +1042,106 @@ export const AdminMaintenanceView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: SECURITY RULES & SYSTEM SAFEGUARDS */}
+      {/* TAB 4: SECURITY & ISOLATION RULES */}
       {/* ========================================================================= */}
       {activeTab === 'security' && (
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-6">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
-            <ShieldCheck className="w-5 h-5 text-emerald-400" />
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div>
-              <h3 className="text-base font-bold text-white">System Security & Protection Framework</h3>
-              <p className="text-xs text-slate-400">The 6 permanent security barriers enforced on every AI maintenance operation.</p>
+              <h3 className="text-base font-bold text-white">6-Layer Security & Isolation Rules</h3>
+              <p className="text-xs text-slate-400">Strict sandboxing protecting your credentials and database integrity.</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                <Lock className="w-4 h-4" />
-                <span>1. Credential & Secret Shield</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Zero Database Destruction (SQL Injection Shield)</span>
               </div>
-              <p className="text-slate-400 leading-relaxed">
-                Blocks any prompt seeking passwords, database URLs, session tokens, TOTP private keys, or API tokens. Secrets are never exposed to LLM outputs.
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Commands attempting SQL queries, DROP tables, TRUNCATE, or data deletions are automatically blocked by deterministic filters before reaching the execution layer.
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                <Activity className="w-4 h-4" />
-                <span>2. 24/7 Self-Healing Safeguard</span>
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Credential Redaction & Secret Isolation</span>
               </div>
-              <p className="text-slate-400 leading-relaxed">
-                The core Self-Healing monitor and recovery daemon is an immutable system process. The AI cannot disable or tamper with self-healing routines.
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Requests asking to print or extract JWT secret keys, Neon PostgreSQL URLs, or provider API keys are unconditionally neutralized.
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                <Globe className="w-4 h-4" />
-                <span>3. Financial Ledger Immutability</span>
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Whitelist Parameter Schema Validation</span>
               </div>
-              <p className="text-slate-400 leading-relaxed">
-                The website maintenance AI has zero authority over user wallet balances, orders, or transactions. Financial actions must proceed via the Payments Desk.
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Only strictly defined visual theme and UI layout keys (colors, button radii, banners, headlines) can be mutated.
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                <Layers className="w-4 h-4" />
-                <span>4. Database Schema Protection</span>
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Deterministic Fallback Resilience</span>
               </div>
-              <p className="text-slate-400 leading-relaxed">
-                Prohibits DROP TABLE, ALTER, or destructive SQL commands. Only safe configuration keys inside system_settings are mutated.
+              <p className="text-xs text-slate-400 leading-relaxed">
+                If Gemini API models experience temporary demand surges (503 / 429), deterministic natural language rule trees execute seamless website customization without downtime.
               </p>
             </div>
+          </div>
+        </div>
+      )}
 
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                <ShieldCheck className="w-4 h-4" />
-                <span>5. User Privacy & Isolation</span>
+      {/* Clear Chat Confirmation Modal with Undo Safety */}
+      {showClearConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5 text-rose-400 font-bold text-sm">
+                <Trash2 className="w-5 h-5" />
+                <span>AI Chat History Delete Karein?</span>
               </div>
-              <p className="text-slate-400 leading-relaxed">
-                Strict customer privacy boundaries are enforced. Normal end-users have zero access to maintenance endpoints or logs.
-              </p>
+              <button
+                type="button"
+                onClick={() => setShowClearConfirmModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                <Cpu className="w-4 h-4" />
-                <span>6. XSS & Code Injection Filter</span>
-              </div>
-              <p className="text-slate-400 leading-relaxed">
-                All custom headlines, banners, and links are parsed through an XSS sanitizer before being rendered on the public website.
+            <div className="space-y-2 text-xs text-slate-300">
+              <p>
+                Kya aap AI Assistant ki current conversation history delete karna chahte hain?
               </p>
+              <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-indigo-300 text-[11px] flex items-center gap-2">
+                <RotateCcw className="w-4 h-4 shrink-0 text-indigo-400" />
+                <span>
+                  <strong>Suraksha Feature:</strong> Galti se delete ho jane par bhi aap kabhi bhi <strong>"Restore Chat"</strong> button se sari history wapas la sakte hain!
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowClearConfirmModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Cancel (Rakhna Hai)
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClearChat}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 cursor-pointer transition-all"
+              >
+                Yes, Delete Karein
+              </button>
             </div>
           </div>
         </div>

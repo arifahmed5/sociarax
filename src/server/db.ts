@@ -1796,14 +1796,41 @@ export async function initializeDatabaseSchema(): Promise<void> {
           currency VARCHAR(10) DEFAULT 'INR' NOT NULL,
           status VARCHAR(20) DEFAULT 'active' NOT NULL,
           api_key VARCHAR(100) UNIQUE,
+          referral_code VARCHAR(50) UNIQUE,
+          referred_by_id INT REFERENCES users(id) ON DELETE SET NULL,
           custom_discount_pct NUMERIC(5, 2) DEFAULT 0.00,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
       `);
 
-      // Migration: Ensure phone column exists
+      // Migration: Ensure phone & referral columns exist
       await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);`);
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(50);`);
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by_id INT;`);
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by VARCHAR(50);`);
+
+      // Ensure every user has a unique referral code
+      await client.query(`
+        UPDATE users 
+        SET referral_code = 'SOCX' || UPPER(SUBSTRING(MD5(id::text || email || username) FROM 1 FOR 6))
+        WHERE referral_code IS NULL OR referral_code = '';
+      `);
+
+      // 2.1 Referral Rewards Table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS referral_rewards (
+          id SERIAL PRIMARY KEY,
+          referrer_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+          referred_user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+          bonus_amount NUMERIC(14, 4) NOT NULL,
+          currency VARCHAR(10) DEFAULT 'INR' NOT NULL,
+          status VARCHAR(20) DEFAULT 'credited' NOT NULL,
+          deposit_id INT,
+          notes TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
       await client.query(`
         UPDATE users 
         SET role = 'admin' 
@@ -2119,21 +2146,79 @@ export async function initializeDatabaseSchema(): Promise<void> {
           `);
           console.log('[DATABASE] Successfully populated services from "Service" table.');
         }
-
-        // Also populate service_categories
-        await client.query(`
-          INSERT INTO service_categories (name, platform, display_order, status)
-          SELECT 
-            category_name as name,
-            MAX(platform) as platform,
-            ROW_NUMBER() OVER (ORDER BY category_name ASC) as display_order,
-            'active' as status
-          FROM services
-          GROUP BY category_name
-          ORDER BY category_name ASC
-          ON CONFLICT (name) DO NOTHING;
-        `);
       }
+
+      // 14. Seed default system_settings if missing
+      await client.query(`
+        INSERT INTO system_settings (key, value)
+        VALUES 
+          ('site_name', 'SociaraX'),
+          ('site_title', 'SociaraX - Premium SMM Provider Panel'),
+          ('currency', 'INR'),
+          ('currency_symbol', '₹'),
+          ('usd_to_inr_rate', '88.0'),
+          ('default_markup_percentage', '35.0'),
+          ('min_deposit', '10'),
+          ('referral_enabled', 'true'),
+          ('referral_bonus_amount', '25.0'),
+          ('referral_min_deposit', '100.0'),
+          ('referral_required_count', '1'),
+          ('referral_terms', 'Refer your friends to SociaraX. When they make their first verified deposit of ₹100 or more, you both receive an instant ₹25 wallet reward!'),
+          ('upi_id', '6001768808@axisbank'),
+          ('upi_merchant_name', 'ARIF UDDIN AHMED')
+        ON CONFLICT (key) DO NOTHING;
+      `);
+
+      // 15. Normalize platforms for all services in database strictly by category & name
+      await client.query(`
+        -- 1. YouTube services
+        UPDATE services SET platform = 'youtube' 
+        WHERE (LOWER(category_name) LIKE '%youtube%' OR LOWER(category_name) LIKE '%yt %' OR (LOWER(name) LIKE '%youtube%' AND LOWER(category_name) NOT LIKE '%facebook%' AND LOWER(category_name) NOT LIKE '%instagram%'));
+
+        -- 2. Instagram services
+        UPDATE services SET platform = 'instagram' 
+        WHERE (LOWER(category_name) LIKE '%instagram%' OR LOWER(category_name) LIKE '%ig %' OR LOWER(category_name) LIKE '%insta%' OR LOWER(category_name) LIKE '%reels%' OR LOWER(category_name) LIKE '%threads%' OR (LOWER(name) LIKE '%instagram%' AND LOWER(category_name) NOT LIKE '%youtube%'))
+          AND platform != 'youtube';
+
+        -- 3. Telegram services
+        UPDATE services SET platform = 'telegram' 
+        WHERE (LOWER(category_name) LIKE '%telegram%' OR LOWER(category_name) LIKE '%tg %' OR LOWER(name) LIKE '%telegram%')
+          AND platform NOT IN ('youtube', 'instagram');
+
+        -- 4. Facebook services (Exclude YouTube shares, Instagram, Telegram)
+        UPDATE services SET platform = 'facebook' 
+        WHERE (LOWER(category_name) LIKE '%facebook%' OR LOWER(category_name) LIKE '%fb %' OR LOWER(name) LIKE '%facebook%')
+          AND LOWER(category_name) NOT LIKE '%youtube%'
+          AND LOWER(category_name) NOT LIKE '%instagram%'
+          AND LOWER(category_name) NOT LIKE '%telegram%'
+          AND LOWER(name) NOT LIKE '%youtube%'
+          AND platform NOT IN ('youtube', 'instagram', 'telegram');
+
+        -- 5. Twitter / X services
+        UPDATE services SET platform = 'twitter' 
+        WHERE (LOWER(category_name) LIKE '%twitter%' OR LOWER(category_name) LIKE '%tweet%' OR LOWER(category_name) LIKE '% x %' OR LOWER(name) LIKE '%twitter%' OR LOWER(name) LIKE '%tweet%')
+          AND platform NOT IN ('youtube', 'instagram', 'telegram', 'facebook');
+
+        -- 6. Spotify services
+        UPDATE services SET platform = 'spotify' 
+        WHERE (LOWER(category_name) LIKE '%spotify%' OR LOWER(name) LIKE '%spotify%')
+          AND platform NOT IN ('youtube', 'instagram', 'telegram', 'facebook');
+
+        -- 7. TikTok services
+        UPDATE services SET platform = 'tiktok' 
+        WHERE (LOWER(category_name) LIKE '%tiktok%' OR LOWER(name) LIKE '%tiktok%')
+          AND platform NOT IN ('youtube', 'instagram', 'telegram', 'facebook');
+
+        -- 8. Snapchat services
+        UPDATE services SET platform = 'snapchat' 
+        WHERE (LOWER(category_name) LIKE '%snapchat%' OR LOWER(category_name) LIKE '%snap %' OR LOWER(name) LIKE '%snapchat%' OR LOWER(name) LIKE '%snap %')
+          AND platform NOT IN ('youtube', 'instagram', 'telegram', 'facebook');
+
+        -- 9. Discord services
+        UPDATE services SET platform = 'discord' 
+        WHERE (LOWER(category_name) LIKE '%discord%' OR LOWER(name) LIKE '%discord%')
+          AND platform NOT IN ('youtube', 'instagram', 'telegram', 'facebook');
+      `);
 
       await client.query('COMMIT');
       console.log('[DATABASE] Safe Postgres schema migration & seeding completed.');

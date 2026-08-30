@@ -170,7 +170,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     return;
   }
 
-  const { username, email, phone, password } = req.body;
+    const { username, email, phone, password, referralCode } = req.body;
   if (!username || !email || !password) {
     res.status(400).json({ success: false, error: 'Username, email, and password are required.' });
     return;
@@ -179,6 +179,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
   const cleanUsername = String(username).trim().toLowerCase();
   const cleanEmail = String(email).trim().toLowerCase();
   const cleanPhone = phone ? String(phone).trim() : null;
+  const cleanRefCode = referralCode ? String(referralCode).trim().toUpperCase() : null;
   const rawPassword = String(password);
 
   if (cleanUsername.length < 3 || cleanUsername.length > 30) {
@@ -279,12 +280,22 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     const isOwner = cleanEmail === 'arifahmed87204@gmail.com' || cleanUsername === 'arifahmed56';
     const role = isOwner ? 'admin' : 'user';
 
+    // Find referrer if referral code provided
+    let referredById: number | null = null;
+    if (cleanRefCode) {
+      const refUserCheck = await db.query('SELECT id FROM users WHERE UPPER(referral_code) = $1', [cleanRefCode]);
+      if (refUserCheck.rowCount && refUserCheck.rowCount > 0) {
+        referredById = refUserCheck.rows[0].id;
+      }
+    }
+
+    const uniqueRefCode = 'SOCX' + Math.random().toString(36).substring(2, 8).toUpperCase();
     const passwordHash = await bcrypt.hash(rawPassword, 10);
     const insertRes = await db.query(`
-      INSERT INTO users (username, email, phone, password_hash, role, wallet_balance, status)
-      VALUES ($1, $2, $3, $4, $5, 0.0000, 'active')
-      RETURNING id, username, email, phone, role, wallet_balance, status, created_at
-    `, [cleanUsername, cleanEmail, cleanPhone, passwordHash, role]);
+      INSERT INTO users (username, email, phone, password_hash, role, wallet_balance, status, referral_code, referred_by_id)
+      VALUES ($1, $2, $3, $4, $5, 0.0000, 'active', $6, $7)
+      RETURNING id, username, email, phone, role, wallet_balance, status, referral_code, created_at
+    `, [cleanUsername, cleanEmail, cleanPhone, passwordHash, role, uniqueRefCode, referredById]);
 
     const newUser = insertRes.rows[0];
 

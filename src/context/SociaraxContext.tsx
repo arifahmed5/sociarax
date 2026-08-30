@@ -11,11 +11,43 @@ import {
   AdminMetrics, 
   PlatformMetric, 
   DailyTrendMetric, 
-  SystemSettings 
+  SystemSettings,
+  WebsiteMaintenanceConfig
 } from '../types';
 import { useAuth } from './AuthContext';
 
+export const DEFAULT_MAINTENANCE_CONFIG: WebsiteMaintenanceConfig = {
+  themeColor: 'indigo',
+  siteTitle: 'SociaraX',
+  heroHeadline: 'Welcome to SociaraX.',
+  heroSubtitle: 'Non-drop social media growth services, real-time automated order fulfillment, multi-gateway INR payments, and direct owner WhatsApp/Telegram support.',
+  announcementBannerText: 'Automated instant delivery active across Instagram, YouTube, Telegram, Snapchat, Facebook & X with 100% Non-Drop Refill Guarantee.',
+  announcementBannerActive: true,
+  announcementBannerType: 'info',
+  buttonStyle: 'rounded-xl',
+  telegramSupport: '@SociaraXSupport',
+  whatsappSupport: '@SociaraXDirect',
+  maintenanceModeActive: false,
+  maintenanceMessage: 'SociaraX is currently undergoing scheduled high-speed infrastructure maintenance. Services will resume shortly.',
+  enableGlowEffects: true,
+  compactMobileLayout: false,
+  customBadgeText: 'Automated SMM Infrastructure & Instant API Engine',
+  quickSupportPhone: '+91 98765 43210',
+  accentGradient: 'from-indigo-600 via-indigo-500 to-purple-600',
+  showSupportInHeader: true,
+  showHeaderSimpleLabelOnly: false,
+  headerSimpleLabel: 'SociaraX',
+  loginHeadline: 'Welcome to SociaraX',
+  loginSubtitle: 'Enter your credentials to access your dashboard',
+  registerHeadline: 'Create Your SociaraX Account',
+  authTagline: 'Protected by SociaraX Enterprise Security & SSL Encryption'
+};
+
 interface SociaraxContextType {
+  // Website Maintenance & UI Theme Config
+  maintenanceConfig: WebsiteMaintenanceConfig;
+  refreshMaintenanceConfig: () => Promise<void>;
+  updateMaintenanceConfigLocally: (newConfig: WebsiteMaintenanceConfig) => void;
   // Services
   services: SociaraxService[];
   adminServices: AdminService[];
@@ -108,6 +140,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [adminMetrics, setAdminMetrics] = useState<AdminMetrics | null>(null);
   const [platformBreakdown, setPlatformBreakdown] = useState<PlatformMetric[]>([]);
   const [dailyTrend, setDailyTrend] = useState<DailyTrendMetric[]>([]);
+  const [maintenanceConfig, setMaintenanceConfig] = useState<WebsiteMaintenanceConfig>(DEFAULT_MAINTENANCE_CONFIG);
 
   const [settings, setSettings] = useState<SystemSettings>({
     site_name: 'SociaraX',
@@ -693,7 +726,27 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [adminToken]);
 
-  // 9. Settings
+  // 9. Website Maintenance & UI Theme Config
+  const refreshMaintenanceConfig = useCallback(async () => {
+    try {
+      const data = await safeFetchJson('/api/maintenance/public-config');
+      if (data && data.success && data.config) {
+        setMaintenanceConfig(data.config);
+      }
+      const sData = await safeFetchJson('/api/settings');
+      if (sData && sData.success && sData.settings) {
+        setSettings(sData.settings);
+      }
+    } catch (err) {
+      console.warn('[LOAD MAINTENANCE CONFIG NOTICE]:', err);
+    }
+  }, []);
+
+  const updateMaintenanceConfigLocally = useCallback((newConfig: WebsiteMaintenanceConfig) => {
+    setMaintenanceConfig(newConfig);
+  }, []);
+
+  // 10. Settings
   const loadSettings = useCallback(async () => {
     try {
       const data = await safeFetchJson('/api/settings');
@@ -727,9 +780,10 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Initialize data on mount
   useEffect(() => {
+    refreshMaintenanceConfig();
     loadSettings();
     loadServices();
-  }, [loadSettings, loadServices]);
+  }, [refreshMaintenanceConfig, loadSettings, loadServices]);
 
   useEffect(() => {
     if (userToken) {
@@ -802,6 +856,10 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         platformBreakdown,
         dailyTrend,
         loadAdminReports,
+
+        maintenanceConfig,
+        refreshMaintenanceConfig,
+        updateMaintenanceConfigLocally,
 
         settings,
         loadSettings,

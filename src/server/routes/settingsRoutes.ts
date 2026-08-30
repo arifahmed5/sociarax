@@ -33,7 +33,10 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   support_email: 'arifahmed87204@gmail.com',
   telegram_support: '@arifahmed5_6',
   whatsapp_support: '@arifahmed56',
-  announcement: 'Welcome to SociaraX! Automated instant delivery active across Instagram, YouTube, Telegram, Snapchat, Facebook & X with 100% Non-Drop Refill Guarantee.'
+  announcement: 'Welcome to SociaraX! Automated instant delivery active across Instagram, YouTube, Telegram, Snapchat, Facebook & X with 100% Non-Drop Refill Guarantee.',
+  referral_enabled: 'true',
+  referral_bonus_amount: '25.0',
+  referral_min_deposit: '100.0'
 };
 
 /**

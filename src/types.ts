@@ -24,7 +24,34 @@ export interface UserProfile {
   walletBalance: number;
   currency?: string;
   status: 'active' | 'suspended';
+  referralCode?: string;
+  referredById?: number | null;
   created_at?: string;
+}
+
+export interface ReferralReward {
+  id: number;
+  referrerId: number;
+  referredUserId: number;
+  referredUsername: string;
+  referredEmail: string;
+  bonusAmount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface ReferralStats {
+  referralCode: string;
+  referralLink: string;
+  totalReferrals: number;
+  activeReferrals: number;
+  totalEarned: number;
+  referralBonusAmount: number;
+  referralMinDeposit: number;
+  referralTerms: string;
+  referralEnabled: boolean;
+  rewards: ReferralReward[];
 }
 
 export interface AdminProfile {
@@ -247,4 +274,34 @@ export interface SystemSettings {
   whatsapp_support: string;
   announcement: string;
   [key: string]: string | undefined;
+}
+
+export type ThemeColorName = 'indigo' | 'purple' | 'blue' | 'emerald' | 'rose' | 'amber' | 'cyan' | 'violet';
+export type ButtonStyleName = 'rounded-xl' | 'rounded-2xl' | 'rounded-lg' | 'rounded-full';
+
+export interface WebsiteMaintenanceConfig {
+  themeColor: ThemeColorName;
+  siteTitle: string;
+  heroHeadline: string;
+  heroSubtitle: string;
+  announcementBannerText: string;
+  announcementBannerActive: boolean;
+  announcementBannerType: 'info' | 'warning' | 'success' | 'alert';
+  buttonStyle: ButtonStyleName;
+  telegramSupport: string;
+  whatsappSupport: string;
+  maintenanceModeActive: boolean;
+  maintenanceMessage: string;
+  enableGlowEffects: boolean;
+  compactMobileLayout: boolean;
+  customBadgeText: string;
+  quickSupportPhone: string;
+  accentGradient: string;
+  showSupportInHeader: boolean;
+  showHeaderSimpleLabelOnly: boolean;
+  headerSimpleLabel: string;
+  loginHeadline: string;
+  loginSubtitle: string;
+  registerHeadline: string;
+  authTagline: string;
 }

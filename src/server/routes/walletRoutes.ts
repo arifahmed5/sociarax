@@ -399,6 +399,89 @@ walletRouter.post('/admin/:id/approve', requireAdminAuth, async (req: Request, r
       admin.id
     ]);
 
+    // 6. Referral Reward Processing: Check if this user was referred and this is their first qualifying deposit
+    try {
+      const userRefCheck = await client.query('SELECT referred_by_id FROM users WHERE id = $1', [user.id]);
+      const referrerId = userRefCheck.rows[0]?.referred_by_id;
+
+      if (referrerId) {
+        // Check if referral reward was already given for this user
+        const existingReward = await client.query(
+          'SELECT id FROM referral_rewards WHERE referrer_id = $1 AND referred_user_id = $2',
+          [referrerId, user.id]
+        );
+
+        if (existingReward.rowCount === 0) {
+          // Check system settings for referral bonus and min deposit
+          const settingsRes = await client.query(
+            "SELECT key, value FROM system_settings WHERE key IN ('referral_enabled', 'referral_bonus_amount', 'referral_min_deposit')"
+          );
+          const refSettings: Record<string, string> = {};
+          for (const row of settingsRes.rows) {
+            refSettings[row.key] = row.value;
+          }
+
+          const isRefEnabled = refSettings.referral_enabled !== 'false';
+          const minDepositReq = parseFloat(refSettings.referral_min_deposit || '100.0');
+          const bonusAmt = parseFloat(refSettings.referral_bonus_amount || '25.0');
+
+          if (isRefEnabled && depositAmount >= minDepositReq && bonusAmt > 0) {
+            // Lock referrer and credit bonus
+            const referrerRes = await client.query(
+              'SELECT id, username, wallet_balance FROM users WHERE id = $1 FOR UPDATE',
+              [referrerId]
+            );
+
+            if (referrerRes.rowCount && referrerRes.rowCount > 0) {
+              const referrer = referrerRes.rows[0];
+              const refBalBefore = parseFloat(referrer.wallet_balance);
+              const refBalAfter = parseFloat((refBalBefore + bonusAmt).toFixed(4));
+
+              await client.query(
+                'UPDATE users SET wallet_balance = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+                [refBalAfter, referrerId]
+              );
+
+              // Record referral reward
+              await client.query(`
+                INSERT INTO referral_rewards (
+                  referrer_id, referred_user_id, bonus_amount, currency, status, deposit_id, notes
+                )
+                VALUES ($1, $2, $3, 'INR', 'credited', $4, $5)
+              `, [
+                referrerId,
+                user.id,
+                bonusAmt,
+                paymentId,
+                `Referral bonus for inviting @${user.username} (Deposit: ₹${depositAmount})`
+              ]);
+
+              // Record wallet transaction for referrer
+              await client.query(`
+                INSERT INTO wallet_transactions (
+                  user_id, type, amount, balance_before, balance_after, currency,
+                  reference_type, reference_id, description, admin_id
+                )
+                VALUES ($1, 'ADMIN_ADJUSTMENT', $2, $3, $4, 'INR', 'referral_reward', $5, $6, $7)
+              `, [
+                referrerId,
+                bonusAmt,
+                refBalBefore,
+                refBalAfter,
+                String(paymentId),
+                `Referral Reward: ₹${bonusAmt} credited for inviting @${user.username}!`,
+                admin.id
+              ]);
+
+              console.log(`[REFERRAL SYSTEM] Successfully credited ₹${bonusAmt} referral reward to user #${referrerId} (${referrer.username}) for user #${user.id}'s deposit`);
+            }
+          }
+        }
+      }
+    } catch (refErr) {
+      console.warn('[REFERRAL BONUS AUTO-CREDIT NOTICE]:', refErr);
+    }
+
     await client.query('COMMIT');
 
     res.json({

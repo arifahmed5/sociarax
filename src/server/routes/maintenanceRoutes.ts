@@ -5,10 +5,36 @@ import {
   rollbackMaintenanceAction,
   getCurrentMaintenanceConfig,
   getMaintenanceLogs,
-  updateMaintenanceConfigDirect
+  updateMaintenanceConfigDirect,
+  getConversationHistory,
+  clearConversationHistory
 } from '../maintenance/maintenanceEngine';
 
 export const maintenanceRouter = Router();
+
+/**
+ * GET /api/admin/maintenance/chat/history
+ * Get live AI chat conversation history
+ */
+maintenanceRouter.get('/chat/history', requireAdminAuth, (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    history: getConversationHistory()
+  });
+});
+
+/**
+ * POST /api/admin/maintenance/chat/clear
+ * Clear AI chat conversation history
+ */
+maintenanceRouter.post('/chat/clear', requireAdminAuth, (req: Request, res: Response) => {
+  clearConversationHistory();
+  res.json({
+    success: true,
+    message: 'Chat history cleared successfully',
+    history: getConversationHistory()
+  });
+});
 
 /**
  * GET /api/settings/maintenance-config
