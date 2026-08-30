@@ -652,15 +652,32 @@ export const AdminMaintenanceView: React.FC = () => {
                 </button>
 
                 {isVoiceResponseEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => speakText('Namaste! Main SociaraX ka AI Assistant hoon. Main aapki website ko live customize aur manage karne ke liye taiyaar hoon.')}
-                    className="p-2 rounded-xl bg-slate-950 border border-slate-800 hover:bg-slate-900 text-indigo-400 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                    title="Test Indian Hindi Voice Output"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span className="hidden md:inline">Test Voice</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {availableVoices.length > 0 && (
+                      <select
+                        value={selectedVoiceName}
+                        onChange={(e) => setSelectedVoiceName(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-xl px-2 py-1.5 focus:outline-none focus:border-indigo-500 max-w-[130px] truncate"
+                        title="Select Voice Engine / Accent"
+                      >
+                        <option value="">Auto Indian Hindi Voice</option>
+                        {availableVoices.map((v) => (
+                          <option key={v.name} value={v.name}>
+                            {v.name} ({v.lang})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => speakText('Namaste! Main SociaraX ka AI Assistant hoon. Website customization ke liye main live taiyaar hoon.')}
+                      className="p-2 rounded-xl bg-slate-950 border border-slate-800 hover:bg-slate-900 text-indigo-400 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Test Voice Output"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span className="hidden md:inline">Test Voice</span>
+                    </button>
+                  </div>
                 )}
 
                 <button

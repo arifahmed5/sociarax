@@ -99,8 +99,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   );
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+    <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-800">
+      <div className="w-full max-w-7xl 2xl:max-w-[1700px] mx-auto px-2 sm:px-4 lg:px-6">
         <div className="flex items-center justify-between h-16 sm:h-18 gap-2">
           {/* Left: Brand Logo & Portal Switcher */}
           <div className="flex items-center gap-2 lg:gap-3 shrink-0">
@@ -118,7 +118,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
             {/* Portal Switcher Pill - Only shown if authorized admin or owner */}
             {isOwnerOrAdmin && (
-              <div className="hidden lg:flex items-center bg-slate-900 border border-slate-800 p-0.5 rounded-xl shrink-0 animate-fadeIn">
+              <div className="hidden 2xl:flex items-center bg-slate-900 border border-slate-800 p-0.5 rounded-xl shrink-0 animate-fadeIn">
                 <button
                   onClick={() => onTabChange('dashboard')}
                   className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
@@ -155,7 +155,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           {/* Center: Desktop Navigation Bar for Customer Portal */}
           {!isAdminTab && (
-            <nav className="hidden lg:flex items-center justify-start xl:justify-center gap-1 xl:gap-1.5 flex-1 min-w-0 px-2 overflow-x-auto no-scrollbar">
+            <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-2 shrink-0">
               {customerNavItems.map(item => {
                 const Icon = item.icon;
                 const isActive = currentTab === item.id;
@@ -179,48 +179,6 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           {/* Right: User / Admin Actions & Header Elements */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Top Header Support Buttons OR Simple SociaraX Label */}
-            {!isAdminTab && (
-              <>
-                {maintenanceConfig.showHeaderSimpleLabelOnly ? (
-                  <div 
-                    id="header-simple-label"
-                    className="hidden 2xl:flex items-center px-2.5 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs font-semibold text-slate-200 shadow-xs shrink-0"
-                    title="SociaraX Brand"
-                  >
-                    <span className="text-indigo-400 font-bold mr-1.5">✦</span>
-                    <span className="tracking-wide font-medium">{maintenanceConfig.headerSimpleLabel || 'SociaraX'}</span>
-                  </div>
-                ) : maintenanceConfig.showSupportInHeader ? (
-                  <div 
-                    id="header-contact-buttons"
-                    className="hidden 2xl:flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl shrink-0"
-                  >
-                    <a
-                      href={`https://t.me/${(maintenanceConfig.telegramSupport || 'SociaraXSupport').replace('@', '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-xs font-semibold transition-all"
-                      title="Direct Telegram Support"
-                    >
-                      <Send className="w-3 h-3" />
-                      <span>Telegram</span>
-                    </a>
-                    <a
-                      href={`https://wa.me/${(maintenanceConfig.whatsappSupport || '919876543210').replace(/[^0-9]/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition-all"
-                      title="Direct WhatsApp Support"
-                    >
-                      <MessageCircle className="w-3 h-3" />
-                      <span>WhatsApp</span>
-                    </a>
-                  </div>
-                ) : null}
-              </>
-            )}
-
             {isAdminTab && admin ? (
               <div className="flex items-center gap-2">
                 <div className="hidden md:flex items-center gap-2 bg-rose-950/40 border border-rose-500/30 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs shrink-0">
