@@ -280,12 +280,22 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     const isOwner = cleanEmail === 'arifahmed87204@gmail.com' || cleanUsername === 'arifahmed56';
     const role = isOwner ? 'admin' : 'user';
 
-    // Find referrer if referral code provided
+    // Find referrer if referral code provided (with strict self-referral prevention)
     let referredById: number | null = null;
     if (cleanRefCode) {
-      const refUserCheck = await db.query('SELECT id FROM users WHERE UPPER(referral_code) = $1', [cleanRefCode]);
+      const refUserCheck = await db.query(
+        'SELECT id, email, username FROM users WHERE UPPER(referral_code) = $1',
+        [cleanRefCode]
+      );
       if (refUserCheck.rowCount && refUserCheck.rowCount > 0) {
-        referredById = refUserCheck.rows[0].id;
+        const refUser = refUserCheck.rows[0];
+        // Prohibit self-referral by same email or same username
+        if (
+          refUser.email.toLowerCase() !== cleanEmail.toLowerCase() &&
+          refUser.username.toLowerCase() !== cleanUsername.toLowerCase()
+        ) {
+          referredById = refUser.id;
+        }
       }
     }
 

@@ -58,18 +58,31 @@ walletRouter.get('/transactions', requireUserAuth, async (req: Request, res: Res
     res.json({
       success: true,
       currentBalance: user.walletBalance,
-      transactions: result.rows.map(row => ({
-        id: row.id,
-        type: row.type,
-        amount: parseFloat(row.amount),
-        balanceBefore: parseFloat(row.balance_before),
-        balanceAfter: parseFloat(row.balance_after),
-        currency: row.currency,
-        referenceType: row.reference_type,
-        referenceId: row.reference_id,
-        description: row.description,
-        createdAt: row.created_at
-      })),
+      transactions: result.rows.map(row => {
+        let displayType = row.type;
+        let displayDesc = row.description;
+
+        if (row.reference_type === 'referral_reward' || row.type === 'REFERRAL_BONUS') {
+          displayType = 'SociaraX Bonus';
+          displayDesc = (row.description || 'SociaraX Referral Bonus Reward').replace(/Admin Adjustment:?/gi, 'SociaraX Bonus:').replace(/Referral Reward:?/gi, 'SociaraX Reward:');
+        } else if (row.type === 'ADMIN_ADJUSTMENT') {
+          displayType = 'Wallet Credit';
+          displayDesc = (row.description || 'SociaraX Wallet Credit').replace(/Admin Adjustment:?/gi, 'SociaraX Credit:');
+        }
+
+        return {
+          id: row.id,
+          type: displayType,
+          amount: parseFloat(row.amount),
+          balanceBefore: parseFloat(row.balance_before),
+          balanceAfter: parseFloat(row.balance_after),
+          currency: row.currency,
+          referenceType: row.reference_type,
+          referenceId: row.reference_id,
+          description: displayDesc,
+          createdAt: row.created_at
+        };
+      }),
       depositRequests: depositRequests.rows.map(row => ({
         id: row.id,
         amount: parseFloat(row.amount),
@@ -404,11 +417,11 @@ walletRouter.post('/admin/:id/approve', requireAdminAuth, async (req: Request, r
       const userRefCheck = await client.query('SELECT referred_by_id FROM users WHERE id = $1', [user.id]);
       const referrerId = userRefCheck.rows[0]?.referred_by_id;
 
-      if (referrerId) {
-        // Check if referral reward was already given for this user
+      if (referrerId && referrerId !== user.id) {
+        // Check if referral reward was already given for this user (globally or for this referrer)
         const existingReward = await client.query(
-          'SELECT id FROM referral_rewards WHERE referrer_id = $1 AND referred_user_id = $2',
-          [referrerId, user.id]
+          'SELECT id FROM referral_rewards WHERE referred_user_id = $1',
+          [user.id]
         );
 
         if (existingReward.rowCount === 0) {
@@ -453,23 +466,23 @@ walletRouter.post('/admin/:id/approve', requireAdminAuth, async (req: Request, r
                 user.id,
                 bonusAmt,
                 paymentId,
-                `Referral bonus for inviting @${user.username} (Deposit: ₹${depositAmount})`
+                `SociaraX Referral Bonus for inviting @${user.username} (Deposit: ₹${depositAmount})`
               ]);
 
-              // Record wallet transaction for referrer
+              // Record wallet transaction for referrer with clean SociaraX naming
               await client.query(`
                 INSERT INTO wallet_transactions (
                   user_id, type, amount, balance_before, balance_after, currency,
                   reference_type, reference_id, description, admin_id
                 )
-                VALUES ($1, 'ADMIN_ADJUSTMENT', $2, $3, $4, 'INR', 'referral_reward', $5, $6, $7)
+                VALUES ($1, 'REFERRAL_BONUS', $2, $3, $4, 'INR', 'referral_reward', $5, $6, $7)
               `, [
                 referrerId,
                 bonusAmt,
                 refBalBefore,
                 refBalAfter,
                 String(paymentId),
-                `Referral Reward: ₹${bonusAmt} credited for inviting @${user.username}!`,
+                `SociaraX Reward: ₹${bonusAmt} bonus credited for inviting @${user.username}!`,
                 admin.id
               ]);
 

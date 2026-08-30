@@ -155,7 +155,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           {/* Center: Desktop Navigation Bar for Customer Portal */}
           {!isAdminTab && (
-            <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-2 shrink-0">
+            <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-1.5 flex-1 min-w-0 px-2 overflow-x-auto no-scrollbar">
               {customerNavItems.map(item => {
                 const Icon = item.icon;
                 const isActive = currentTab === item.id;
@@ -212,10 +212,10 @@ export const Navigation: React.FC<NavigationProps> = ({
                   </span>
                 </button>
 
-                {/* Profile Pill */}
+                {/* Profile Pill (Shown on ultra-wide screens, otherwise accessible in nav tab) */}
                 <button
                   onClick={() => onTabChange('profile')}
-                  className={`hidden xl:flex items-center gap-1.5 border px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+                  className={`hidden 2xl:flex items-center gap-1.5 border px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 ${
                     currentTab === 'profile'
                       ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40 shadow-xs'
                       : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800'

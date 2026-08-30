@@ -45,9 +45,25 @@ process.on('unhandledRejection', (reason: any) => {
 // In-Memory Rate Limiting & Anti-DDoS Sliding Window
 const requestWindowMap = new Map<string, { count: number; resetAt: number }>();
 
+function getClientIp(req: Request): string {
+  // Safe IP extraction: prioritize Cloudflare CF-Connecting-IP, then X-Real-IP, then socket address
+  const cfIp = req.headers['cf-connecting-ip'];
+  if (typeof cfIp === 'string' && cfIp.trim()) {
+    return cfIp.trim().split(',')[0].trim();
+  }
+  const realIp = req.headers['x-real-ip'];
+  if (typeof realIp === 'string' && realIp.trim()) {
+    return realIp.trim().split(',')[0].trim();
+  }
+  if (req.ip) {
+    return req.ip;
+  }
+  return req.socket.remoteAddress || '127.0.0.1';
+}
+
 function rateLimiter(limit: number = 180, windowMs: number = 60000) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
+    const ip = getClientIp(req);
     const key = `${ip}_${req.baseUrl || req.path}`;
     const now = Date.now();
 
@@ -85,18 +101,25 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Trust first proxy hop (e.g. Render, Cloudflare)
+  app.set('trust proxy', 1);
+
   // Global Middleware
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(cookieParser());
 
-  // Security & Anti-Sniff Headers
+  // Security & Anti-Sniff Headers (CSP, Referrer-Policy, Anti-Clickjacking)
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; img-src 'self' https: data: blob:; connect-src 'self' https: wss:;"
+    );
     next();
   });
 
@@ -185,23 +208,6 @@ async function startServer() {
   // Initialize 24/7 Self-Healing Monitor Engine
   selfHealingEngine.start();
 
-  // Initialize Database and Defaults in the background with keepalive
-  try {
-    startNeonKeepAliveHeartbeat();
-    const conn = await checkDbConnection();
-    if (conn.connected) {
-      console.log('[SOCIARAX] Database initialized:', conn.message);
-      await initializeDatabaseSchema();
-      await ensureDefaultAdmin();
-      await providerRegistry.ensureDefaultProvider();
-      await loadConfigFromDatabase();
-    } else {
-      console.warn('[SOCIARAX] Database running in resilient local mode:', conn.message);
-    }
-  } catch (initErr) {
-    console.warn('[SOCIARAX INITIALIZATION RESILIENCE]:', initErr);
-  }
-
   // Vite middleware for development vs Static files for production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -217,9 +223,29 @@ async function startServer() {
     });
   }
 
+  // Start HTTP listener immediately so health checks pass in <50ms
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[SOCIARAX] Production Server running on http://0.0.0.0:${PORT} with Self-Healing Shield Active`);
   });
+
+  // Initialize Database and Defaults in the background without blocking boot
+  (async () => {
+    try {
+      startNeonKeepAliveHeartbeat();
+      const conn = await checkDbConnection();
+      if (conn.connected) {
+        console.log('[SOCIARAX] Database connected:', conn.message);
+        await initializeDatabaseSchema();
+        await ensureDefaultAdmin();
+        await providerRegistry.ensureDefaultProvider();
+        await loadConfigFromDatabase();
+      } else {
+        console.warn('[SOCIARAX] Database running in resilient local mode:', conn.message);
+      }
+    } catch (initErr) {
+      console.warn('[SOCIARAX INITIALIZATION RESILIENCE]:', initErr);
+    }
+  })();
 }
 
 startServer().catch(err => {
