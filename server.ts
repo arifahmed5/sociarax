@@ -167,6 +167,11 @@ async function startServer() {
   app.get('/health', healthHandler);
   app.get('/api/health', healthHandler);
 
+  // Google Search Console Site Verification Endpoint
+  app.get('/google12f79571b8dc9f88.html', (_req: Request, res: Response) => {
+    res.type('text/html').send('google-site-verification: google12f79571b8dc9f88.html');
+  });
+
   // Database status inspection endpoint
   app.get('/api/db-status', async (req, res) => {
     try {
