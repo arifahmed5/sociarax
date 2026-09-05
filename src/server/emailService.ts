@@ -1,6 +1,31 @@
 import nodemailer from 'nodemailer';
 import { Request } from 'express';
+import dns from 'dns';
 import { getDbPool } from './db';
+
+// Ensure IPv4 priority across all Node DNS lookups for email delivery
+try {
+  if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+  }
+} catch {
+  // Ignore fallback
+}
+
+/**
+ * Custom DNS lookup handler enforcing IPv4 resolution for outbound SMTP sockets
+ * (resolves connection timeouts on Render where IPv6 egress is blocked or unsupported)
+ */
+function preferIpv4Lookup(hostname: string, options: any, callback: any): void {
+  let cb = callback;
+  let opts: any = { family: 4 };
+  if (typeof options === 'function') {
+    cb = options;
+  } else if (typeof options === 'object' && options !== null) {
+    opts = { ...options, family: 4 };
+  }
+  dns.lookup(hostname, opts, cb);
+}
 
 export interface SendPasswordResetOptions {
   to: string;
@@ -415,16 +440,23 @@ ${baseUrl}
   try {
     const isSecure = dyn.smtp_secure === 'true' || process.env.SMTP_SECURE === 'true' || smtpPort === 465;
 
-    const transporter = nodemailer.createTransport({
+    const transporter = (nodemailer.createTransport as any)({
       host: smtpHost,
       port: smtpPort,
       secure: isSecure,
+      requireTLS: !isSecure && smtpPort === 587,
       auth: {
         user: smtpUser,
         pass: smtpPass,
       },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
+      dnsTimeout: 10000,
+      lookup: preferIpv4Lookup,
       tls: {
-        rejectUnauthorized: process.env.NODE_ENV === 'production' && process.env.SMTP_IGNORE_TLS !== 'true'
+        rejectUnauthorized: process.env.NODE_ENV === 'production' && process.env.SMTP_IGNORE_TLS !== 'true',
+        minVersion: 'TLSv1.2'
       }
     });
 
@@ -489,16 +521,23 @@ export async function sendTestEmail({
   const isSecure = effective.smtp_secure === 'true' || process.env.SMTP_SECURE === 'true' || smtpPort === 465;
 
   try {
-    const transporter = nodemailer.createTransport({
+    const transporter = (nodemailer.createTransport as any)({
       host: smtpHost,
       port: smtpPort,
       secure: isSecure,
+      requireTLS: !isSecure && smtpPort === 587,
       auth: {
         user: smtpUser,
         pass: smtpPass,
       },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
+      dnsTimeout: 10000,
+      lookup: preferIpv4Lookup,
       tls: {
-        rejectUnauthorized: process.env.NODE_ENV === 'production' && process.env.SMTP_IGNORE_TLS !== 'true'
+        rejectUnauthorized: process.env.NODE_ENV === 'production' && process.env.SMTP_IGNORE_TLS !== 'true',
+        minVersion: 'TLSv1.2'
       }
     });
 

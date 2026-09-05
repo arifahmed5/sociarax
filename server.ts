@@ -4,7 +4,17 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import dotenv from 'dotenv';
+import dns from 'dns';
 import { createServer as createViteServer } from 'vite';
+
+// Ensure Node.js prioritizes IPv4 resolution for outbound network sockets (prevents SMTP/network timeouts on container environments like Render without IPv6 egress)
+try {
+  if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+  }
+} catch {
+  // Graceful fallback if unsupported
+}
 
 import { checkDbConnection, initializeDatabaseSchema, startNeonKeepAliveHeartbeat } from './src/server/db';
 import { ensureDefaultAdmin } from './src/server/auth';

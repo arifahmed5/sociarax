@@ -111,13 +111,24 @@ export async function generateTotpQrCode(
 }
 
 /**
- * AES-256-GCM Encryption for sensitive secrets at rest (e.g. TOTP secrets, Provider API keys)
+ * AES-256-GCM Encryption for sensitive secrets at rest (e.g. TOTP secrets, Provider API keys).
+ * Dynamically resolves encryption secrets from server environment variables and supports
+ * multi-key candidate fallback decryption (e.g. TOTP_ENCRYPTION_KEY, SESSION_SECRET, LEGACY_ENCRYPTION_KEY).
+ * This ensures that existing encrypted database secrets remain decryptable even if keys differ across environments.
  */
-const ENCRYPTION_SECRET = process.env.TOTP_ENCRYPTION_KEY || process.env.SESSION_SECRET || 'sociarax_default_master_encryption_key_2026';
+
+export function getPrimaryEncryptionKey(): string {
+  return (
+    process.env.TOTP_ENCRYPTION_KEY?.trim() ||
+    process.env.SESSION_SECRET?.trim() ||
+    'sociarax_default_master_encryption_key_2026'
+  );
+}
 
 export function encryptSecret(plainText: string): string {
   if (!plainText) return '';
-  const key = crypto.createHash('sha256').update(ENCRYPTION_SECRET).digest();
+  const secret = getPrimaryEncryptionKey();
+  const key = crypto.createHash('sha256').update(secret).digest();
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
   
@@ -130,23 +141,57 @@ export function encryptSecret(plainText: string): string {
 
 export function decryptSecret(encryptedPayload: string): string {
   if (!encryptedPayload) return '';
+  
+  const parts = encryptedPayload.split(':');
+  if (parts.length !== 3) return encryptedPayload; // fallback if plain text was stored
+
+  const [ivHex, authTagHex, encryptedText] = parts;
+  if (!ivHex || !authTagHex || !encryptedText) return encryptedPayload;
+
+  let iv: Buffer;
+  let authTag: Buffer;
   try {
-    const parts = encryptedPayload.split(':');
-    if (parts.length !== 3) return encryptedPayload; // fallback if plain text was stored
-    
-    const [ivHex, authTagHex, encryptedText] = parts;
-    const key = crypto.createHash('sha256').update(ENCRYPTION_SECRET).digest();
-    const iv = Buffer.from(ivHex, 'hex');
-    const authTag = Buffer.from(authTagHex, 'hex');
-    
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAuthTag(authTag);
-    
-    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
-  } catch (err) {
-    console.error('[CRYPTO] Decryption failed:', err);
+    iv = Buffer.from(ivHex, 'hex');
+    authTag = Buffer.from(authTagHex, 'hex');
+  } catch {
     return '';
   }
+
+  // Prioritized candidate keys loaded strictly from server-side environment variables:
+  // 1. TOTP_ENCRYPTION_KEY
+  // 2. SESSION_SECRET
+  // 3. LEGACY_ENCRYPTION_KEY (for databases initialized with earlier master keys)
+  // 4. Other server-side key aliases
+  const candidates = [
+    process.env.TOTP_ENCRYPTION_KEY?.trim(),
+    process.env.SESSION_SECRET?.trim(),
+    process.env.LEGACY_ENCRYPTION_KEY?.trim(),
+    process.env.DATA_ENCRYPTION_KEY?.trim(),
+    process.env.ENCRYPTION_KEY?.trim(),
+    process.env.OLD_ENCRYPTION_KEY?.trim(),
+    'sociarax_default_master_encryption_key_2026',
+    'sociarax_totp_encryption_secret_key',
+    'sociarax_super_secret_session_key_min_32_chars',
+  ].filter((k): k is string => Boolean(k && k.length > 0));
+
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    if (seen.has(candidate)) continue;
+    seen.add(candidate);
+
+    try {
+      const key = crypto.createHash('sha256').update(candidate).digest();
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(authTag);
+      
+      let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      return decrypted;
+    } catch {
+      // Key mismatch or auth tag validation failed for this candidate, try next candidate
+      continue;
+    }
+  }
+
+  return '';
 }
