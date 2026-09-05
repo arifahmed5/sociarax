@@ -317,9 +317,11 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
     // 3. Initialize Google Identity Services if available in browser
     const initGsi = () => {
       try {
+        const activeClientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '518031039811-3k8c5t6ghlls3kpafgmp2f33gihq9217.apps.googleusercontent.com';
+
         if ((window as any).google?.accounts?.id) {
           (window as any).google.accounts.id.initialize({
-            client_id: '518031039811-3k8c5t6ghlls3kpafgmp2f33gihq9217.apps.googleusercontent.com',
+            client_id: activeClientId,
             use_fedcm_for_prompt: false,
             auto_select: false,
             callback: async (response: any) => {
@@ -394,18 +396,18 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
     };
   }, []);
 
-  // Google OAuth Login & Registration Handler (Direct Google OAuth, No Firebase Redirect Page)
+  // Google OAuth Login & Registration Handler
   const handleGoogleSignIn = async () => {
     setErrorMessage('');
     setSuccessMessage('');
     setIsGoogleLoading(true);
-    setGoogleLoadingMessage('Connecting to Google... Please select your account.');
+    setGoogleLoadingMessage('Opening Google sign-in...');
 
     // 1. Direct Google Identity Services (GIS) OAuth2 Client - Never visits *.firebaseapp.com
     if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
       try {
         const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: '518031039811-3k8c5t6ghlls3kpafgmp2f33gihq9217.apps.googleusercontent.com',
+          client_id: (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '518031039811-3k8c5t6ghlls3kpafgmp2f33gihq9217.apps.googleusercontent.com',
           scope: 'email profile openid',
           callback: async (tokenResponse: any) => {
             if (tokenResponse?.error) {
@@ -434,7 +436,6 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
                 if (res.success) {
                   setGoogleLoadingMessage('Welcome to SociaraX! Entering your dashboard...');
                   setSuccessMessage('Successfully signed in with Google!');
-                  // Silent background Firebase Auth sync without any popups or redirects
                   try {
                     const cred = GoogleAuthProvider.credential(null, tokenResponse.access_token);
                     await signInWithCredential(auth, cred);
@@ -461,7 +462,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
       }
     }
 
-    // 2. Fallback: Firebase signInWithPopup
+    // 2. Primary Standard Firebase Google Authentication (Safe against origin_mismatch across domains)
     try {
       const result = await signInWithPopup(auth, googleProvider);
       setGoogleLoadingMessage('Verifying credentials with SociaraX...');
@@ -481,24 +482,24 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
         setErrorMessage(res.error || 'Failed to authenticate Google account with SociaraX server.');
       }
     } catch (err: any) {
-      if (err?.code === 'auth/popup-blocked') {
+      setIsGoogleLoading(false);
+      if (err?.code === 'auth/unauthorized-domain') {
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : 'your domain';
+        setErrorMessage(`Domain Unauthorized: Please add '${hostname}' to Firebase Console > Authentication > Settings > Authorized domains.`);
+      } else if (err?.code === 'auth/popup-blocked') {
         console.warn('[AUTH] Google popup blocked by browser policy, attempting redirect flow');
         setGoogleLoadingMessage('Redirecting to Google sign-in...');
         try {
           await signInWithRedirect(auth, googleProvider);
           return;
         } catch (redirectErr: any) {
-          setIsGoogleLoading(false);
           setErrorMessage('Could not open sign-in window. Please allow popups or use manual login.');
         }
       } else if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
-        setIsGoogleLoading(false);
         setErrorMessage('Sign-in window was closed before completion. Click "Sign in with Google" to try again.');
       } else if (err?.code === 'auth/network-request-failed') {
-        setIsGoogleLoading(false);
         setErrorMessage('Network connection failure. Please check your internet connection.');
       } else {
-        setIsGoogleLoading(false);
         console.warn('[AUTH] Google sign-in notice:', err?.message || err);
         setErrorMessage(err?.message || 'Google sign-in encountered an error. Please try again.');
       }

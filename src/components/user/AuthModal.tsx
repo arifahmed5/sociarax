@@ -48,7 +48,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
     if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
       try {
         const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: '518031039811-3k8c5t6ghlls3kpafgmp2f33gihq9217.apps.googleusercontent.com',
+          client_id: (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '518031039811-3k8c5t6ghlls3kpafgmp2f33gihq9217.apps.googleusercontent.com',
           scope: 'email profile openid',
           callback: async (tokenResponse: any) => {
             if (tokenResponse?.error) {
@@ -75,7 +75,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
 
                 if (res.success) {
                   onClose();
-                  // Silent background Firebase Auth sync without any popups or redirects
                   try {
                     const cred = GoogleAuthProvider.credential(null, tokenResponse.access_token);
                     await signInWithCredential(auth, cred);
@@ -102,7 +101,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
       }
     }
 
-    // 2. Fallback: Firebase signInWithPopup
+    // 2. Primary Standard Firebase Google Authentication (Safe against origin_mismatch across domains)
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const idToken = await result.user.getIdToken();
@@ -113,16 +112,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         setErrorMessage(res.error || 'Google authentication failed.');
       }
     } catch (err: any) {
-      if (err?.code === 'auth/popup-blocked') {
+      if (err?.code === 'auth/unauthorized-domain') {
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : 'your domain';
+        setErrorMessage(`Domain Unauthorized: Please add '${hostname}' to Firebase Console > Authentication > Settings > Authorized domains.`);
+      } else if (err?.code === 'auth/popup-blocked') {
         console.warn('[AUTH] Google popup blocked by browser policy, attempting redirect');
         try {
           await signInWithRedirect(auth, googleProvider);
           return;
         } catch {
-          setErrorMessage('Browser ne Google popup ko block kar diya hai. Kripya popups allow karein.');
+          setErrorMessage('Browser blocked Google sign-in window. Please allow popups or use manual login.');
         }
       } else if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
-        setErrorMessage('Google sign-in was closed before completion.');
+        setErrorMessage('Google sign-in was closed before completion. Click "Sign in with Google" to try again.');
       } else {
         console.warn('[AUTH] Google sign-in notice:', err?.message || err);
         setErrorMessage(err?.message || 'Google sign-in encountered an error.');
