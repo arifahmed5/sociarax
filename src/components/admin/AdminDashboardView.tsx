@@ -38,14 +38,41 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
   const [isFetchingLiveBalance, setIsFetchingLiveBalance] = useState(false);
 
   const fetchLiveBalance = async () => {
+    const token = adminToken || localStorage.getItem('sociarax_admin_token') || localStorage.getItem('sociarax_user_token');
+    if (!token) {
+      setIsFetchingLiveBalance(false);
+      return;
+    }
+
     setIsFetchingLiveBalance(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
-      const token = adminToken || localStorage.getItem('sociarax_admin_token');
       const res = await fetch('/api/admin/providers/live-balance', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        // Fallback gracefully from adminProviders cache if available
+        if (adminProviders && adminProviders.length > 0) {
+          const p = adminProviders[0];
+          setLiveBalanceData({
+            totalInr: Number(p.balance || 0) * 88,
+            totalUsd: Number(p.balance || 0),
+            exchangeRate: 88,
+            rawPrimaryBalance: Number(p.balance || 0),
+            rawPrimaryCurrency: String(p.currency || 'USD').toUpperCase(),
+            providers: adminProviders
+          });
+        }
+        return;
+      }
+
       const data = await res.json();
-      if (data.success) {
+      if (data && data.success) {
         setLiveBalanceData({
           totalInr: Number(data.totalLiveBalanceInr ?? data.totalInrBalance ?? 0),
           totalUsd: Number(data.totalLiveBalanceUsd ?? data.primaryProvider?.rawBalance ?? 0),
@@ -56,16 +83,32 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
         });
         loadAdminProviders();
       }
-    } catch (err) {
-      console.error('Failed to fetch provider live balance:', err);
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      // Gracefully fall back to local provider data if available
+      if (adminProviders && adminProviders.length > 0) {
+        const p = adminProviders[0];
+        setLiveBalanceData({
+          totalInr: Number(p.balance || 0) * 88,
+          totalUsd: Number(p.balance || 0),
+          exchangeRate: 88,
+          rawPrimaryBalance: Number(p.balance || 0),
+          rawPrimaryCurrency: String(p.currency || 'USD').toUpperCase(),
+          providers: adminProviders
+        });
+      }
+      console.warn('[ADMIN LIVE BALANCE] Notice:', err?.message || err);
     } finally {
       setIsFetchingLiveBalance(false);
     }
   };
 
   useEffect(() => {
-    fetchLiveBalance();
-  }, []);
+    const token = adminToken || localStorage.getItem('sociarax_admin_token') || localStorage.getItem('sociarax_user_token');
+    if (token) {
+      fetchLiveBalance();
+    }
+  }, [adminToken]);
 
   const metrics = adminMetrics || {
     totalRevenue: 0,

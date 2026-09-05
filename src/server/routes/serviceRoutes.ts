@@ -65,16 +65,24 @@ serviceRouter.get('/', async (req: Request, res: Response): Promise<void> => {
 
     const result = await db.query(query, params);
 
-    // Get list of unique categories and platforms
-    const catResult = await db.query(`
-      SELECT DISTINCT category_name, platform 
-      FROM services 
-      WHERE status = 'active' 
-      ORDER BY category_name ASC
-    `);
+    // Derive unique categories and platforms from rows in memory (zero DB latency)
+    // If filtered, fetch full distinct active categories/platforms in parallel
+    let categories: string[];
+    let platforms: string[];
 
-    const categories = Array.from(new Set(catResult.rows.map(r => r.category_name)));
-    const platforms = Array.from(new Set(catResult.rows.map(r => r.platform)));
+    if (!platform && !category && !search) {
+      categories = Array.from(new Set<string>(result.rows.map(r => String(r.category_name || '')))).filter(Boolean).sort();
+      platforms = Array.from(new Set<string>(result.rows.map(r => String(r.platform || '')))).filter(Boolean).sort();
+    } else {
+      const catResult = await db.query(`
+        SELECT DISTINCT category_name, platform 
+        FROM services 
+        WHERE status = 'active' 
+        ORDER BY category_name ASC
+      `);
+      categories = Array.from(new Set<string>(catResult.rows.map(r => String(r.category_name || '')))).filter(Boolean);
+      platforms = Array.from(new Set<string>(catResult.rows.map(r => String(r.platform || '')))).filter(Boolean);
+    }
 
     res.json({
       success: true,
@@ -133,6 +141,7 @@ serviceRouter.get('/admin', requireAdminAuth, async (req: Request, res: Response
         s.provider_id,
         s.provider_service_id,
         s.provider_rate,
+        COALESCE(s.provider_rate_usd, 0) AS provider_rate_usd,
         s.rate_per_1000, 
         s.markup_percentage,
         s.markup_fixed,
@@ -181,6 +190,7 @@ serviceRouter.get('/admin', requireAdminAuth, async (req: Request, res: Response
 
     const services = result.rows.map(row => {
       const providerRate = parseFloat(row.provider_rate) || 0;
+      const providerRateUsd = parseFloat(row.provider_rate_usd) || 0;
       const sellingRate = parseFloat(row.rate_per_1000) || 0;
       const profitPer1000 = Math.max(0, sellingRate - providerRate);
       const profitMarginPct = sellingRate > 0 ? ((profitPer1000 / sellingRate) * 100).toFixed(1) : '0';
@@ -198,6 +208,7 @@ serviceRouter.get('/admin', requireAdminAuth, async (req: Request, res: Response
         providerName: row.provider_name || 'Manual / None',
         providerServiceId: row.provider_service_id || '',
         providerRate,
+        providerRateUsd,
         sellingRate,
         markupPercentage: parseFloat(row.markup_percentage) || 0,
         markupFixed: parseFloat(row.markup_fixed) || 0,
@@ -518,8 +529,20 @@ serviceRouter.post('/admin/sync', requireAdminAuth, async (req: Request, res: Re
     try {
       await client.query('BEGIN');
 
+      // Pre-load all existing services for this provider in a single query (O(1) in-memory lookup)
+      const existingServicesRes = await client.query(
+        'SELECT id, provider_service_id, rate_per_1000, markup_percentage FROM services WHERE provider_id = $1',
+        [providerInfo.id]
+      );
+      const existingMap = new Map<string, { id: number; rate_per_1000: any; markup_percentage: any }>();
+      for (const row of existingServicesRes.rows) {
+        if (row.provider_service_id) {
+          existingMap.set(String(row.provider_service_id).trim(), row);
+        }
+      }
+
       for (const item of fetchedServices) {
-        const provServiceId = String(item.service);
+        const provServiceId = String(item.service).trim();
         const provRateUsd = parseFloat(String(item.rate)) || 0;
         const provRateInr = Number((provRateUsd * usdRate).toFixed(4));
         const sellingPrice = provRateInr > 0 ? Number((provRateInr * (1 + markupPct / 100)).toFixed(4)) : 10;
@@ -543,32 +566,30 @@ serviceRouter.post('/admin/sync', requireAdminAuth, async (req: Request, res: Re
         else if (lowerName.includes('traffic') || lowerName.includes('website visitor')) platform = 'traffic';
         else if (lowerName.includes('google') || lowerName.includes('review') || lowerName.includes('play store')) platform = 'google';
 
-        // Check if service already exists with this provider_service_id
-        const existing = await client.query(
-          'SELECT id, rate_per_1000, markup_percentage FROM services WHERE provider_id = $1 AND provider_service_id = $2',
-          [providerInfo.id, provServiceId]
-        );
+        const existing = existingMap.get(provServiceId);
 
-        if (existing.rowCount && existing.rowCount > 0) {
-          // Update provider rate in INR & apply margin
+        if (existing) {
+          // Update provider rate in INR & USD & apply margin
           await client.query(`
             UPDATE services 
             SET 
               provider_rate = $1,
-              rate_per_1000 = $2,
-              markup_percentage = $3,
-              name = $4,
-              category_name = $5,
-              platform = $6,
-              min_quantity = $7,
-              max_quantity = $8,
-              refill_available = $9,
-              cancel_available = $10,
+              provider_rate_usd = $2,
+              rate_per_1000 = $3,
+              markup_percentage = $4,
+              name = $5,
+              category_name = $6,
+              platform = $7,
+              min_quantity = $8,
+              max_quantity = $9,
+              refill_available = $10,
+              cancel_available = $11,
               status = 'active',
               updated_at = CURRENT_TIMESTAMP
-            WHERE id = $11
+            WHERE id = $12
           `, [
             provRateInr,
+            provRateUsd,
             sellingPrice,
             markupPct,
             item.name,
@@ -578,19 +599,19 @@ serviceRouter.post('/admin/sync', requireAdminAuth, async (req: Request, res: Re
             parseInt(String(item.max), 10) || 100000,
             Boolean(item.refill),
             Boolean(item.cancel),
-            existing.rows[0].id
+            existing.id
           ]);
           updatedCount++;
         } else {
-          // Insert new service
+          // Insert new service with exact USD and INR rates
           await client.query(`
             INSERT INTO services (
               category_name, platform, name, description, type,
               min_quantity, max_quantity, provider_id, provider_service_id,
-              provider_rate, rate_per_1000, markup_percentage,
+              provider_rate, provider_rate_usd, rate_per_1000, markup_percentage,
               refill_available, cancel_available, average_time, status
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'active')
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'Instant - 1 Hour', 'active')
           `, [
             categoryName,
             platform,
@@ -602,11 +623,11 @@ serviceRouter.post('/admin/sync', requireAdminAuth, async (req: Request, res: Re
             providerInfo.id,
             provServiceId,
             provRateInr,
+            provRateUsd,
             sellingPrice,
             markupPct,
             Boolean(item.refill),
-            Boolean(item.cancel),
-            'Instant - 1 Hour'
+            Boolean(item.cancel)
           ]);
           addedCount++;
         }

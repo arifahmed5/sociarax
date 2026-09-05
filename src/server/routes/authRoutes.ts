@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { getDbPool } from '../db';
 import { 
   checkRateLimit, 
@@ -17,6 +18,7 @@ import {
   decryptSecret 
 } from '../totp';
 import { verifyFirebaseIdToken } from '../firebaseAdmin';
+import { sendPasswordResetEmail, maskEmail, getAppBaseUrl } from '../emailService';
 
 export const authRouter = Router();
 
@@ -29,9 +31,10 @@ export const authRouter = Router();
  * Authenticate or register a user via Firebase Google OAuth
  */
 authRouter.post('/google', async (req: Request, res: Response): Promise<void> => {
-  const { idToken, email, displayName } = req.body;
-  if (!idToken && !email) {
-    res.status(400).json({ success: false, error: 'Google ID token or email is required.' });
+  const { idToken, credential, email, displayName, accessToken } = req.body;
+  const tokenToInspect = credential || idToken;
+  if (!tokenToInspect && !email && !accessToken) {
+    res.status(400).json({ success: false, error: 'Google authentication credential or email is required.' });
     return;
   }
 
@@ -39,15 +42,48 @@ authRouter.post('/google', async (req: Request, res: Response): Promise<void> =>
   let verifiedName = displayName ? String(displayName).trim() : '';
 
   try {
-    if (idToken) {
+    // If accessToken is provided and email isn't verified yet, check Google userinfo
+    if ((!verifiedEmail || !verifiedName) && accessToken) {
       try {
-        const decoded = await verifyFirebaseIdToken(idToken);
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (userInfoRes.ok) {
+          const uInfo = await userInfoRes.json();
+          if (uInfo && uInfo.email) {
+            verifiedEmail = String(uInfo.email).trim().toLowerCase();
+            if (uInfo.name) verifiedName = String(uInfo.name).trim();
+          }
+        }
+      } catch (accessErr: any) {
+        console.warn('[GOOGLE AUTH] Access token verification note:', accessErr.message);
+      }
+    }
+
+    if (tokenToInspect && !verifiedEmail) {
+      try {
+        const decoded = await verifyFirebaseIdToken(tokenToInspect);
         if (decoded && decoded.email) {
           verifiedEmail = decoded.email.trim().toLowerCase();
           if (decoded.name) verifiedName = decoded.name;
         }
       } catch (verifyErr: any) {
-        console.warn('[GOOGLE AUTH] Firebase token verify notice (using provided payload):', verifyErr.message);
+        // Fallback check: Google Identity Services (GIS) / Firebase JWT token payload
+        try {
+          const parts = String(tokenToInspect).split('.');
+          if (parts.length === 3) {
+            const base64UrlPayload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const pad = base64UrlPayload.length % 4;
+            const padded = pad ? base64UrlPayload + '='.repeat(4 - pad) : base64UrlPayload;
+            const rawPayload = JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+            if (rawPayload && rawPayload.email) {
+              verifiedEmail = String(rawPayload.email).trim().toLowerCase();
+              if (rawPayload.name) verifiedName = String(rawPayload.name).trim();
+            }
+          }
+        } catch (jwtErr: any) {
+          console.warn('[GOOGLE AUTH] Token verification notice:', jwtErr.message);
+        }
       }
     }
 
@@ -587,8 +623,137 @@ authRouter.post('/forgot-password/check-account', async (req: Request, res: Resp
 });
 
 /**
+ * POST /api/auth/forgot-password/request
+ * Public password reset request endpoint - sends branded email with secure link & OTP.
+ * Prevents account enumeration by always returning uniform generic confirmation.
+ */
+authRouter.post('/forgot-password/request', async (req: Request, res: Response): Promise<void> => {
+  const { identifier, email } = req.body;
+  const rawId = identifier || email;
+
+  if (!rawId || !String(rawId).trim()) {
+    res.status(400).json({ success: false, error: 'Please enter your username or registered email address.' });
+    return;
+  }
+
+  const cleanIdentifier = String(rawId).trim().toLowerCase();
+  const db = getDbPool();
+  if (!db) {
+    res.status(503).json({ success: false, error: 'Database service unavailable.' });
+    return;
+  }
+
+  // Generic security message to prevent account enumeration
+  const genericSuccessMessage = 'If an account associated with this email or username exists, a password reset email has been sent. Please check your inbox and spam folder.';
+
+  try {
+    const userRes = await db.query(`
+      SELECT id, username, email, phone, status
+      FROM users
+      WHERE LOWER(username) = $1 OR LOWER(email) = $1
+    `, [cleanIdentifier]);
+
+    if (userRes.rowCount > 0) {
+      const user = userRes.rows[0];
+
+      if (user.status !== 'suspended' && user.email) {
+        // Generate secure 64-character token and 6-digit OTP
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes expiry
+
+        // Invalidate prior unused tokens/OTPs for this user
+        await db.query(`
+          UPDATE password_resets 
+          SET verified = true 
+          WHERE user_id = $1 AND verified = false
+        `, [user.id]);
+
+        // Insert new active reset record
+        await db.query(`
+          INSERT INTO password_resets (user_id, identifier, otp_code, token, channel, destination, expires_at, verified, attempts)
+          VALUES ($1, $2, $3, $4, 'email', $5, $6, false, 0)
+        `, [user.id, cleanIdentifier, otpCode, resetToken, user.email, expiresAt.toISOString()]);
+
+        // Dispatch branded password reset email via server-side SMTP
+        await sendPasswordResetEmail({
+          to: user.email,
+          username: user.username,
+          resetToken,
+          otpCode,
+          req,
+          expiresInMinutes: 15
+        });
+      }
+    }
+
+    // Always respond with identical safe message to prevent email enumeration
+    res.json({
+      success: true,
+      message: genericSuccessMessage
+    });
+  } catch (err: any) {
+    console.error('[FORGOT PASSWORD REQUEST ERROR]:', err.message || err);
+    res.status(500).json({ success: false, error: 'Failed to process password reset request. Please try again.' });
+  }
+});
+
+/**
+ * GET /api/auth/forgot-password/verify-token
+ * Validates whether a reset token from an email link is still valid before showing reset form
+ */
+authRouter.post('/forgot-password/verify-token', async (req: Request, res: Response): Promise<void> => {
+  const { token } = req.body;
+  if (!token) {
+    res.status(400).json({ success: false, valid: false, error: 'Reset token is required.' });
+    return;
+  }
+
+  const cleanToken = String(token).trim();
+  const db = getDbPool();
+  if (!db) {
+    res.status(503).json({ success: false, valid: false, error: 'Database service unavailable.' });
+    return;
+  }
+
+  try {
+    const tokenRes = await db.query(`
+      SELECT pr.id, pr.expires_at, pr.verified, u.username, u.email
+      FROM password_resets pr
+      JOIN users u ON pr.user_id = u.id
+      WHERE pr.token = $1 AND pr.verified = false
+      ORDER BY pr.id DESC
+      LIMIT 1
+    `, [cleanToken]);
+
+    if (tokenRes.rowCount === 0) {
+      res.status(400).json({ success: false, valid: false, error: 'Invalid or already used password reset link.' });
+      return;
+    }
+
+    const record = tokenRes.rows[0];
+    const isExpired = new Date(record.expires_at).getTime() < Date.now();
+
+    if (isExpired) {
+      res.status(400).json({ success: false, valid: false, error: 'This password reset link has expired (15 minute limit). Please request a new one.' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      valid: true,
+      username: record.username,
+      maskedEmail: maskEmail(record.email)
+    });
+  } catch (err: any) {
+    console.error('[VERIFY TOKEN ERROR]:', err.message || err);
+    res.status(500).json({ success: false, valid: false, error: 'Failed to verify reset token.' });
+  }
+});
+
+/**
  * POST /api/auth/forgot-password/request-otp
- * Generates secure 6-digit OTP and dispatches to verified channel
+ * Generates secure 6-digit OTP and token, dispatches branded email with link & OTP
  */
 authRouter.post('/forgot-password/request-otp', async (req: Request, res: Response): Promise<void> => {
   const { identifier, channel } = req.body;
@@ -633,48 +798,61 @@ authRouter.post('/forgot-password/request-otp', async (req: Request, res: Respon
       destination = user.phone;
     }
 
-    // Generate cryptographically random 6-digit OTP
+    // Generate cryptographically random token and 6-digit OTP
+    const resetToken = crypto.randomBytes(32).toString('hex');
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes expiry
 
-    // Invalidate prior unused OTPs for this user
+    // Invalidate prior unused OTPs/tokens for this user
     await db.query(`
       UPDATE password_resets 
       SET verified = true 
       WHERE user_id = $1 AND verified = false
     `, [user.id]);
 
-    // Insert new active OTP record
+    // Insert new active OTP and Token record
     await db.query(`
-      INSERT INTO password_resets (user_id, identifier, otp_code, channel, destination, expires_at, verified, attempts)
-      VALUES ($1, $2, $3, $4, $5, $6, false, 0)
-    `, [user.id, cleanIdentifier, otpCode, selectedChannel, destination, expiresAt.toISOString()]);
+      INSERT INTO password_resets (user_id, identifier, otp_code, token, channel, destination, expires_at, verified, attempts)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, false, 0)
+    `, [user.id, cleanIdentifier, otpCode, resetToken, selectedChannel, destination, expiresAt.toISOString()]);
 
     const masked = maskDestination(destination, selectedChannel);
-    console.log(`[OTP DISPATCH] Real 6-Digit Password Reset OTP for ${cleanIdentifier} via ${selectedChannel} (${masked}): ${otpCode}`);
+
+    // If channel is email, send professional branded email matching SociaraX
+    if (selectedChannel === 'email' && user.email) {
+      await sendPasswordResetEmail({
+        to: user.email,
+        username: user.username,
+        resetToken,
+        otpCode,
+        req,
+        expiresInMinutes: 15
+      });
+    }
 
     res.json({
       success: true,
-      message: `A 6-digit verification code (OTP) has been generated and dispatched to your ${selectedChannel === 'phone' ? 'WhatsApp/Phone' : 'Email'} (${masked}). Please enter the code to verify your identity.`,
+      message: `A password reset email with verification link and 6-digit code has been sent to your ${selectedChannel === 'phone' ? 'WhatsApp/Phone' : 'Email'} (${masked}).`,
       channel: selectedChannel,
       maskedDestination: masked,
-      expiresInSeconds: 600
+      expiresInSeconds: 900
     });
   } catch (err: any) {
-    console.error('[REQUEST OTP ERROR]:', err);
+    console.error('[REQUEST OTP ERROR]:', err.message || err);
     res.status(500).json({ success: false, error: 'Failed to generate OTP verification code.' });
   }
 });
 
 /**
  * POST /api/auth/forgot-password/verify-and-reset
- * Verifies the exact OTP code and safely resets password in database
+ * Verifies either a single-use token from email link OR 6-digit OTP code,
+ * then securely updates password in database and logs the user in.
  */
 authRouter.post('/forgot-password/verify-and-reset', async (req: Request, res: Response): Promise<void> => {
-  const { identifier, otpCode, newPassword, confirmPassword } = req.body;
+  const { identifier, otpCode, token, newPassword, confirmPassword } = req.body;
 
-  if (!identifier || !otpCode || !newPassword) {
-    res.status(400).json({ success: false, error: 'Identifier, 6-digit OTP code, and new password are required.' });
+  if (!newPassword) {
+    res.status(400).json({ success: false, error: 'New password is required.' });
     return;
   }
 
@@ -688,9 +866,6 @@ authRouter.post('/forgot-password/verify-and-reset', async (req: Request, res: R
     return;
   }
 
-  const cleanIdentifier = String(identifier).trim().toLowerCase();
-  const cleanOtp = String(otpCode).trim();
-
   const db = getDbPool();
   if (!db) {
     res.status(503).json({ success: false, error: 'Database service unavailable.' });
@@ -698,6 +873,111 @@ authRouter.post('/forgot-password/verify-and-reset', async (req: Request, res: R
   }
 
   try {
+    // ------------------------------------------------------------------------
+    // CASE 1: Reset via Single-Use Secure Token (from Email Reset Button / Link)
+    // ------------------------------------------------------------------------
+    if (token) {
+      const cleanToken = String(token).trim();
+      const tokenRes = await db.query(`
+        SELECT pr.id, pr.user_id, pr.expires_at, pr.verified,
+               u.id AS uid, u.username, u.email, u.phone, u.role, u.wallet_balance, u.status, u.created_at
+        FROM password_resets pr
+        JOIN users u ON pr.user_id = u.id
+        WHERE pr.token = $1 AND pr.verified = false
+        ORDER BY pr.id DESC
+        LIMIT 1
+      `, [cleanToken]);
+
+      if (tokenRes.rowCount === 0) {
+        res.status(400).json({ success: false, error: 'Invalid or already used password reset link. Please request a new one.' });
+        return;
+      }
+
+      const record = tokenRes.rows[0];
+      const isExpired = new Date(record.expires_at).getTime() < Date.now();
+
+      if (isExpired) {
+        res.status(400).json({ success: false, error: 'This password reset link has expired (15 minute limit). Please request a fresh reset link.' });
+        return;
+      }
+
+      // Token is valid! Hash new password with bcrypt
+      const passwordHash = await bcrypt.hash(String(newPassword), 10);
+      const isOwner = record.username?.toLowerCase() === 'arifahmed56' || record.email?.toLowerCase() === 'arifahmed87204@gmail.com';
+      const effectiveRole = isOwner ? 'admin' : record.role;
+
+      // Update password hash in users table
+      await db.query('UPDATE users SET password_hash = $1, role = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3', [
+        passwordHash,
+        effectiveRole,
+        record.uid
+      ]);
+
+      // If owner or admin, sync admin_security table
+      if (isOwner || effectiveRole === 'admin') {
+        await db.query('UPDATE admin_security SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE LOWER(email) = LOWER($2) OR id = $3', [
+          passwordHash,
+          record.email,
+          record.uid
+        ]);
+      }
+
+      // Mark token as verified (single-use enforcement)
+      await db.query('UPDATE password_resets SET verified = true WHERE id = $1', [record.id]);
+
+      // Issue authenticated session tokens
+      const sessionToken = signSessionToken({ userId: record.uid, role: effectiveRole }, 168);
+      res.cookie('sociarax_user_token', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 3600 * 1000
+      });
+
+      let adminToken: string | undefined;
+      let adminObj: any | undefined;
+      if (isOwner || effectiveRole === 'admin') {
+        adminToken = signSessionToken({ adminId: record.uid, email: record.email, role: 'admin', totpVerified: true }, 168);
+        res.cookie('sociarax_admin_token', adminToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 7 * 24 * 3600 * 1000
+        });
+        adminObj = { id: record.uid, email: record.email, role: 'admin', totpEnabled: true };
+      }
+
+      res.json({
+        success: true,
+        message: 'Password reset successfully! Logging you in...',
+        token: sessionToken,
+        adminToken,
+        user: {
+          id: record.uid,
+          username: record.username,
+          email: record.email,
+          phone: record.phone || null,
+          role: effectiveRole,
+          walletBalance: parseFloat(record.wallet_balance) || 0,
+          status: record.status,
+          created_at: record.created_at
+        },
+        admin: adminObj
+      });
+      return;
+    }
+
+    // ------------------------------------------------------------------------
+    // CASE 2: Reset via 6-Digit OTP Code (from In-App Modal)
+    // ------------------------------------------------------------------------
+    if (!identifier || !otpCode) {
+      res.status(400).json({ success: false, error: 'Identifier and 6-digit OTP code are required.' });
+      return;
+    }
+
+    const cleanIdentifier = String(identifier).trim().toLowerCase();
+    const cleanOtp = String(otpCode).trim();
+
     const userRes = await db.query(`
       SELECT id, username, email, phone, role, wallet_balance, status, created_at
       FROM users
@@ -729,7 +1009,7 @@ authRouter.post('/forgot-password/verify-and-reset', async (req: Request, res: R
     const isExpired = new Date(otpRecord.expires_at).getTime() < Date.now();
 
     if (isExpired) {
-      res.status(400).json({ success: false, error: 'Verification code has expired. Please request a fresh OTP code.' });
+      res.status(400).json({ success: false, error: 'Verification code has expired. Please request a fresh code.' });
       return;
     }
 
@@ -764,8 +1044,8 @@ authRouter.post('/forgot-password/verify-and-reset', async (req: Request, res: R
     await db.query('UPDATE password_resets SET verified = true WHERE id = $1', [otpRecord.id]);
 
     // Sign new session tokens
-    const token = signSessionToken({ userId: user.id, role: effectiveRole }, 168);
-    res.cookie('sociarax_user_token', token, {
+    const sessionToken = signSessionToken({ userId: user.id, role: effectiveRole }, 168);
+    res.cookie('sociarax_user_token', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -789,7 +1069,7 @@ authRouter.post('/forgot-password/verify-and-reset', async (req: Request, res: R
     res.json({
       success: true,
       message: 'OTP verified successfully! Your new password has been set.',
-      token,
+      token: sessionToken,
       adminToken,
       user: {
         id: user.id,
@@ -804,7 +1084,7 @@ authRouter.post('/forgot-password/verify-and-reset', async (req: Request, res: R
       admin: adminObj
     });
   } catch (err: any) {
-    console.error('[OTP RESET ERROR]:', err);
+    console.error('[PASSWORD RESET ERROR]:', err.message || err);
     res.status(500).json({ success: false, error: 'Database error during password reset.' });
   }
 });

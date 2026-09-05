@@ -17,65 +17,70 @@ reportRouter.get('/', requireAdminAuth, async (req: Request, res: Response): Pro
   }
 
   try {
-    // 1. Order stats
-    const orderStatsRes = await db.query(`
-      SELECT 
-        COUNT(*) AS total_orders,
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending_orders,
-        COUNT(CASE WHEN status = 'processing' OR status = 'in_progress' THEN 1 END) AS processing_orders,
-        COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completed_orders,
-        COUNT(CASE WHEN status = 'cancelled' OR status = 'failed' THEN 1 END) AS cancelled_orders,
-        COUNT(CASE WHEN status = 'refunded' THEN 1 END) AS refunded_orders,
-        COALESCE(SUM(charge), 0) AS total_revenue,
-        COALESCE(SUM(provider_cost), 0) AS total_provider_cost,
-        COALESCE(SUM(profit), 0) AS total_profit
-      FROM orders
-    `);
-
-    // 2. User stats
-    const userStatsRes = await db.query(`
-      SELECT 
-        COUNT(*) AS total_users,
-        COUNT(CASE WHEN status = 'active' THEN 1 END) AS active_users,
-        COALESCE(SUM(wallet_balance), 0) AS total_user_wallet_balance
-      FROM users
-    `);
-
-    // 3. Payment stats
-    const payStatsRes = await db.query(`
-      SELECT 
-        COUNT(*) AS total_payment_requests,
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending_deposits_count,
-        COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending_deposits_amount,
-        COUNT(CASE WHEN status = 'approved' THEN 1 END) AS approved_deposits_count,
-        COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) AS total_approved_deposits
-      FROM payment_requests
-    `);
-
-    // 4. Platform breakdown
-    const platformBreakdownRes = await db.query(`
-      SELECT 
-        platform,
-        COUNT(*) AS order_count,
-        COALESCE(SUM(charge), 0) AS total_revenue,
-        COALESCE(SUM(profit), 0) AS total_profit
-      FROM orders
-      GROUP BY platform
-      ORDER BY total_revenue DESC
-    `);
-
-    // 5. Recent 7 Days Revenue Trend
-    const recentTrendRes = await db.query(`
-      SELECT 
-        DATE(created_at) AS order_date,
-        COUNT(*) AS daily_orders,
-        COALESCE(SUM(charge), 0) AS daily_revenue,
-        COALESCE(SUM(profit), 0) AS daily_profit
-      FROM orders
-      WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
-      GROUP BY DATE(created_at)
-      ORDER BY order_date ASC
-    `);
+    // Run all independent aggregation queries concurrently in parallel
+    const [
+      orderStatsRes,
+      userStatsRes,
+      payStatsRes,
+      platformBreakdownRes,
+      recentTrendRes
+    ] = await Promise.all([
+      // 1. Order stats
+      db.query(`
+        SELECT 
+          COUNT(*) AS total_orders,
+          COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending_orders,
+          COUNT(CASE WHEN status = 'processing' OR status = 'in_progress' THEN 1 END) AS processing_orders,
+          COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completed_orders,
+          COUNT(CASE WHEN status = 'cancelled' OR status = 'failed' THEN 1 END) AS cancelled_orders,
+          COUNT(CASE WHEN status = 'refunded' THEN 1 END) AS refunded_orders,
+          COALESCE(SUM(charge), 0) AS total_revenue,
+          COALESCE(SUM(provider_cost), 0) AS total_provider_cost,
+          COALESCE(SUM(profit), 0) AS total_profit
+        FROM orders
+      `),
+      // 2. User stats
+      db.query(`
+        SELECT 
+          COUNT(*) AS total_users,
+          COUNT(CASE WHEN status = 'active' THEN 1 END) AS active_users,
+          COALESCE(SUM(wallet_balance), 0) AS total_user_wallet_balance
+        FROM users
+      `),
+      // 3. Payment stats
+      db.query(`
+        SELECT 
+          COUNT(*) AS total_payment_requests,
+          COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending_deposits_count,
+          COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending_deposits_amount,
+          COUNT(CASE WHEN status = 'approved' THEN 1 END) AS approved_deposits_count,
+          COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) AS total_approved_deposits
+        FROM payment_requests
+      `),
+      // 4. Platform breakdown
+      db.query(`
+        SELECT 
+          platform,
+          COUNT(*) AS order_count,
+          COALESCE(SUM(charge), 0) AS total_revenue,
+          COALESCE(SUM(profit), 0) AS total_profit
+        FROM orders
+        GROUP BY platform
+        ORDER BY total_revenue DESC
+      `),
+      // 5. Recent 7 Days Revenue Trend
+      db.query(`
+        SELECT 
+          DATE(created_at) AS order_date,
+          COUNT(*) AS daily_orders,
+          COALESCE(SUM(charge), 0) AS daily_revenue,
+          COALESCE(SUM(profit), 0) AS daily_profit
+        FROM orders
+        WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+        GROUP BY DATE(created_at)
+        ORDER BY order_date ASC
+      `)
+    ]);
 
     const orderStats = orderStatsRes.rows[0];
     const userStats = userStatsRes.rows[0];

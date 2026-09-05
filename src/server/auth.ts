@@ -217,7 +217,7 @@ export async function requireAdminAuth(req: Request, res: Response, next: NextFu
     }
 
     // Check users table with admin role or owner email
-    if (targetId || targetEmail || payload.role === 'admin') {
+    if (targetId || targetEmail) {
       const userRes = await db.query(
         "SELECT id, email, username, role FROM users WHERE (id = $1 OR LOWER(email) = LOWER($2)) AND (role = 'admin' OR LOWER(email) = 'arifahmed87204@gmail.com' OR LOWER(username) = 'arifahmed56')",
         [targetId || 0, targetEmail || '']
@@ -236,18 +236,7 @@ export async function requireAdminAuth(req: Request, res: Response, next: NextFu
       }
     }
 
-    if (payload.role === 'admin') {
-      (req as any).admin = {
-        id: payload.adminId || payload.userId || 1,
-        email: payload.email || 'admin@sociarax.com',
-        role: 'admin',
-        totpEnabled: true
-      };
-      next();
-      return;
-    }
-
-    res.status(403).json({ success: false, error: 'Admin authorization failed.' });
+    res.status(403).json({ success: false, error: 'Access denied: Admin privileges required.' });
   } catch (err: any) {
     console.error('[ADMIN AUTH ERROR]:', err);
     res.status(500).json({ success: false, error: 'Internal server authorization error' });

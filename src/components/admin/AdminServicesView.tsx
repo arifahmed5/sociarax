@@ -469,7 +469,12 @@ export const AdminServicesView: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-300 font-bold">
-                      {formatCurrency(srv.providerRate)}
+                      <div>{formatCurrency(srv.providerRate)}</div>
+                      {srv.providerRateUsd !== undefined && srv.providerRateUsd > 0 && (
+                        <div className="text-[10px] text-slate-500 font-sans font-normal">
+                          (${Number(srv.providerRateUsd).toFixed(3)} USD)
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 font-mono font-bold text-emerald-400 text-base">
                       {formatCurrency(srv.sellingRate)}

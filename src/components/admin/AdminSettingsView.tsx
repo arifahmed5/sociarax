@@ -19,7 +19,22 @@ import {
   Coins,
   Wallet,
   Copy,
-  Check
+  Check,
+  Globe,
+  Server,
+  Send,
+  Database,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Cpu,
+  Sparkles,
+  ExternalLink,
+  Image as ImageIcon,
+  Layers,
+  Upload,
+  Info,
+  RotateCcw
 } from 'lucide-react';
 
 interface AdminAccount {
@@ -64,8 +79,197 @@ export const AdminSettingsView: React.FC = () => {
     support_email: settings.support_email || 'arifahmed87204@gmail.com',
     telegram_support: settings.telegram_support || '@arifahmed5_6',
     whatsapp_support: settings.whatsapp_support || '@arifahmed56',
-    announcement: settings.announcement || ''
+    announcement: settings.announcement || '',
+    // Production Domain & URL
+    app_url: settings.app_url || 'https://sociarax.onrender.com',
+    // Dynamic SMTP Email Configuration
+    smtp_host: settings.smtp_host || '',
+    smtp_port: settings.smtp_port || '587',
+    smtp_user: settings.smtp_user || '',
+    smtp_password: settings.smtp_password || '',
+    email_from: settings.email_from || 'noreply@sociarax.com',
+    email_from_name: settings.email_from_name || 'SociaraX',
+    smtp_secure: settings.smtp_secure || 'false',
+    // Dynamic Custom Background Image Configuration
+    custom_background_image_url: settings.custom_background_image_url || '',
+    background_overlay_opacity: settings.background_overlay_opacity || '0.85',
+    background_blur: settings.background_blur || 'none',
+    background_apply_to: settings.background_apply_to || 'all'
   });
+
+  // Background Image analysis metadata
+  const [bgImageMeta, setBgImageMeta] = useState<{
+    width: number;
+    height: number;
+    sizeKB: number;
+    aspectRatio: string;
+    isRecommended: boolean;
+    notes: string[];
+  } | null>(null);
+  const [bgUploadError, setBgUploadError] = useState<string>('');
+  const [isSavingBg, setIsSavingBg] = useState<boolean>(false);
+  const [bgSaveNotice, setBgSaveNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Sync settings when loaded from API
+  useEffect(() => {
+    if (settings) {
+      setFormData(prev => ({
+        ...prev,
+        app_url: settings.app_url || prev.app_url || 'https://sociarax.onrender.com',
+        smtp_host: settings.smtp_host || prev.smtp_host || '',
+        smtp_port: settings.smtp_port || prev.smtp_port || '587',
+        smtp_user: settings.smtp_user || prev.smtp_user || '',
+        smtp_password: settings.smtp_password || prev.smtp_password || '',
+        email_from: settings.email_from || prev.email_from || 'noreply@sociarax.com',
+        email_from_name: settings.email_from_name || prev.email_from_name || 'SociaraX',
+        smtp_secure: settings.smtp_secure || prev.smtp_secure || 'false',
+        custom_background_image_url: settings.custom_background_image_url || prev.custom_background_image_url || '',
+        background_overlay_opacity: settings.background_overlay_opacity || prev.background_overlay_opacity || '0.85',
+        background_blur: settings.background_blur || prev.background_blur || 'none',
+        background_apply_to: settings.background_apply_to || prev.background_apply_to || 'all'
+      }));
+    }
+  }, [settings]);
+
+  // Direct save handler specifically for background photo and styling
+  const handleSaveBackgroundOnly = async () => {
+    setIsSavingBg(true);
+    setBgSaveNotice(null);
+
+    const payload = {
+      custom_background_image_url: formData.custom_background_image_url,
+      background_overlay_opacity: formData.background_overlay_opacity,
+      background_blur: formData.background_blur,
+      background_apply_to: formData.background_apply_to
+    };
+
+    const res = await saveAdminSettings(payload);
+    setIsSavingBg(false);
+
+    if (res.success) {
+      setBgSaveNotice({ type: 'success', message: 'Background photo successfully saved & applied across SociaraX!' });
+      setTimeout(() => setBgSaveNotice(null), 4500);
+    } else {
+      setBgSaveNotice({ type: 'error', message: res.error || 'Failed to save background settings. Please try again.' });
+    }
+  };
+
+  // Direct reset handler to revert back to default pure dark theme with ambient glow (pehle jaisa)
+  const handleResetToDefaultBackground = async () => {
+    setIsSavingBg(true);
+    setBgSaveNotice(null);
+    setBgImageMeta(null);
+    setBgUploadError('');
+
+    const defaultPayload = {
+      custom_background_image_url: '',
+      background_overlay_opacity: '0.85',
+      background_blur: 'none',
+      background_apply_to: 'all'
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      ...defaultPayload
+    }));
+
+    const res = await saveAdminSettings(defaultPayload);
+    setIsSavingBg(false);
+
+    if (res.success) {
+      setBgSaveNotice({ 
+        type: 'success', 
+        message: 'Default background successfully restored! Pehle jaisa original glowing dark theme active ho gaya hai.' 
+      });
+      setTimeout(() => setBgSaveNotice(null), 5000);
+    } else {
+      setBgSaveNotice({ type: 'error', message: res.error || 'Failed to reset background.' });
+    }
+  };
+
+  const handleBgFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setBgUploadError('');
+    if (!file.type.startsWith('image/')) {
+      setBgUploadError('Please choose a valid image file (WebP, JPG, or PNG).');
+      return;
+    }
+
+    if (file.size > 12 * 1024 * 1024) {
+      setBgUploadError('Image size exceeds 12MB. Please select an image under 12MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const rawDataUrl = reader.result as string;
+      const testImg = new Image();
+      testImg.onload = () => {
+        const origWidth = testImg.naturalWidth;
+        const origHeight = testImg.naturalHeight;
+
+        // Auto-optimize resolution: scale to max 1920 width to guarantee instant save and zero database lag
+        let targetWidth = origWidth;
+        let targetHeight = origHeight;
+        if (targetWidth > 1920) {
+          targetHeight = Math.round((origHeight * 1920) / origWidth);
+          targetWidth = 1920;
+        }
+
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(testImg, 0, 0, targetWidth, targetHeight);
+            let optimizedDataUrl = canvas.toDataURL('image/webp', 0.85);
+            if (!optimizedDataUrl.startsWith('data:image/webp')) {
+              optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            }
+
+            const ratio = (targetWidth / targetHeight).toFixed(2);
+            const is169 = Math.abs((targetWidth / targetHeight) - (16 / 9)) < 0.18;
+            const optSizeKB = Math.round((optimizedDataUrl.length * 0.75) / 1024);
+
+            setBgImageMeta({
+              width: targetWidth,
+              height: targetHeight,
+              sizeKB: optSizeKB,
+              aspectRatio: is169 ? '16:9 (Ideal)' : `${ratio}:1`,
+              isRecommended: true,
+              notes: [
+                `✅ Optimized for instant loading (${optSizeKB} KB).`,
+                `✅ Crisp resolution (${targetWidth} × ${targetHeight} px).`,
+                '✅ Ready to save!'
+              ]
+            });
+
+            setFormData(prev => ({
+              ...prev,
+              custom_background_image_url: optimizedDataUrl
+            }));
+            return;
+          }
+        } catch (canvasErr) {
+          console.warn('Canvas optimization note:', canvasErr);
+        }
+
+        // Fallback to raw dataUrl if canvas was unavailable
+        setFormData(prev => ({
+          ...prev,
+          custom_background_image_url: rawDataUrl
+        }));
+      };
+      testImg.onerror = () => {
+        setBgUploadError('Failed to load image preview.');
+      };
+      testImg.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleScannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -302,6 +506,119 @@ export const AdminSettingsView: React.FC = () => {
       }
     } catch (err) {
       setAdminNotice({ type: 'error', message: 'Error deleting admin.' });
+    }
+  };
+
+  // SMTP & Domain Test State
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
+  const [testEmailRecipient, setTestEmailRecipient] = useState(admin?.email || 'arifahmed87204@gmail.com');
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const [testEmailNotice, setTestEmailNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Database Storage & 24/7 Monitor State
+  const [dbStats, setDbStats] = useState<{ lastMaintenanceAt: string | null; totalPrunedRows: number; poolConnections: any } | null>(null);
+  const [isCleaningDb, setIsCleaningDb] = useState(false);
+  const [dbCleanNotice, setDbCleanNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const fetchDbStats = async () => {
+    try {
+      const res = await fetch('/api/settings/db-stats', {
+        headers: { 'Authorization': `Bearer ${activeToken}` },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.success && data.status) {
+        setDbStats(data.status);
+      }
+    } catch (err) {
+      console.error('Error fetching DB stats:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDbStats();
+  }, [activeToken]);
+
+  const handleRunDbHygiene = async () => {
+    setIsCleaningDb(true);
+    setDbCleanNotice(null);
+    try {
+      const res = await fetch('/api/settings/db-maintenance', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${activeToken}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDbCleanNotice({
+          type: 'success',
+          message: data.message || `Database storage optimized! Pruned ${data.prunedResets || 0} expired records.`
+        });
+        fetchDbStats();
+      } else {
+        setDbCleanNotice({ type: 'error', message: data.error || 'Failed to complete storage maintenance' });
+      }
+    } catch (err: any) {
+      setDbCleanNotice({ type: 'error', message: err?.message || 'Error executing database hygiene' });
+    } finally {
+      setIsCleaningDb(false);
+    }
+  };
+
+  const handleSendTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testEmailRecipient || !testEmailRecipient.includes('@')) {
+      setTestEmailNotice({ type: 'error', message: 'Please enter a valid recipient email address' });
+      return;
+    }
+
+    setIsSendingTestEmail(true);
+    setTestEmailNotice(null);
+    try {
+      const res = await fetch('/api/settings/test-email', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${activeToken}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          to: testEmailRecipient.trim(),
+          customSettings: {
+            app_url: formData.app_url,
+            smtp_host: formData.smtp_host,
+            smtp_port: formData.smtp_port,
+            smtp_user: formData.smtp_user,
+            smtp_password: formData.smtp_password,
+            email_from: formData.email_from,
+            email_from_name: formData.email_from_name,
+            smtp_secure: formData.smtp_secure
+          }
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setTestEmailNotice({
+          type: 'success',
+          message: data.message || `Test email successfully dispatched to ${testEmailRecipient}!`
+        });
+      } else {
+        setTestEmailNotice({
+          type: 'error',
+          message: data.error || 'Failed to dispatch test email. Please check your SMTP host, port, user and password.'
+        });
+      }
+    } catch (err: any) {
+      setTestEmailNotice({
+        type: 'error',
+        message: err?.message || 'Network error while contacting email service.'
+      });
+    } finally {
+      setIsSendingTestEmail(false);
     }
   };
 
@@ -1200,6 +1517,741 @@ export const AdminSettingsView: React.FC = () => {
                 placeholder="@arifahmed56"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Portal Background Image Manager with Dimension & Size Guidelines */}
+        <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                <ImageIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>Portal Custom Background Image Manager</span>
+                  {formData.custom_background_image_url ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                      Custom Active
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-semibold">
+                      Default Dark Theme
+                    </span>
+                  )}
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Upload or link a custom background image with size guidelines, contrast overlay, and resolution protection.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={handleSaveBackgroundOnly}
+                disabled={isSavingBg}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition-all cursor-pointer"
+              >
+                {isSavingBg ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Background</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetToDefaultBackground}
+                disabled={isSavingBg}
+                title="Reset back to default dark theme with ambient glow (pehle jaisa)"
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Default Pehle Jaisa</span>
+              </button>
+
+              {formData.custom_background_image_url && (
+                <button
+                  type="button"
+                  onClick={handleResetToDefaultBackground}
+                  className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remove Image</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {bgSaveNotice && (
+            <div className={`p-3.5 rounded-2xl text-xs font-medium flex items-center gap-2 border ${
+              bgSaveNotice.type === 'success'
+                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+            }`}>
+              {bgSaveNotice.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              )}
+              <span>{bgSaveNotice.message}</span>
+            </div>
+          )}
+
+          {/* Size & Dimension Guidelines Notice Card */}
+          <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-3">
+            <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+              <Info className="w-4 h-4 shrink-0" />
+              <span>Recommended Image Specifications for Best Display Quality:</span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <span className="text-[11px] text-slate-400 block mb-1">Recommended Resolution</span>
+                <span className="font-bold text-white font-mono">1920 × 1080 px</span>
+                <span className="text-[10px] text-emerald-400 block mt-0.5">Full HD (or 2560×1440 for 2K)</span>
+              </div>
+
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <span className="text-[11px] text-slate-400 block mb-1">Aspect Ratio</span>
+                <span className="font-bold text-white font-mono">16:9 (Widescreen)</span>
+                <span className="text-[10px] text-emerald-400 block mt-0.5">Prevents side-stretching</span>
+              </div>
+
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <span className="text-[11px] text-slate-400 block mb-1">Recommended File Size</span>
+                <span className="font-bold text-white font-mono">Under 2.5 MB</span>
+                <span className="text-[10px] text-emerald-400 block mt-0.5">Max 8MB limit</span>
+              </div>
+
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <span className="text-[11px] text-slate-400 block mb-1">Optimal Formats</span>
+                <span className="font-bold text-white font-mono">.WebP / .JPG / .PNG</span>
+                <span className="text-[10px] text-emerald-400 block mt-0.5">WebP gives highest speed</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              💡 <strong>Why this matters:</strong> Using an image with at least 1920×1080 resolution and 16:9 ratio ensures the background stays sharp without pixelation or weird vertical crops on desktop and mobile screens. SociaraX will automatically apply an adjustable dark tint overlay so text and buttons remain 100% legible.
+            </p>
+          </div>
+
+          {/* Background URL and Upload Inputs */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Background Image URL (Direct Link, Unsplash, CDN, or Imgur)
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="url"
+                  value={formData.custom_background_image_url}
+                  onChange={(e) => {
+                    setFormData({ ...formData, custom_background_image_url: e.target.value });
+                    setBgImageMeta(null);
+                  }}
+                  placeholder="https://images.unsplash.com/... or https://yourcdn.com/bg.webp"
+                  className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 font-mono text-xs"
+                />
+
+                <label className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0">
+                  <Upload className="w-4 h-4 text-emerald-400" />
+                  <span>Upload from PC</span>
+                  <input
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp"
+                    onChange={handleBgFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {bgUploadError && (
+                <div className="mt-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{bgUploadError}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Presets */}
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-2">
+                Quick Themes & Tested 16:9 High-Resolution Presets:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {[
+                  {
+                    name: 'Default Dark',
+                    url: '',
+                    label: 'Pehle Jaisa (Original)',
+                    isDefault: true
+                  },
+                  {
+                    name: 'Cyber Grid',
+                    url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=2070&auto=format&fit=crop',
+                    label: 'Dark Cyan Grid'
+                  },
+                  {
+                    name: 'Deep Cosmic',
+                    url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=2070&auto=format&fit=crop',
+                    label: 'Violet Aurora'
+                  },
+                  {
+                    name: 'Midnight Mesh',
+                    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2070&auto=format&fit=crop',
+                    label: 'Abstract Waves'
+                  },
+                  {
+                    name: 'Future Neon',
+                    url: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop',
+                    label: 'High Tech'
+                  }
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      if (preset.isDefault) {
+                        setFormData({ 
+                          ...formData, 
+                          custom_background_image_url: '',
+                          background_overlay_opacity: '0.85',
+                          background_blur: 'none'
+                        });
+                        setBgImageMeta(null);
+                      } else {
+                        setFormData({ ...formData, custom_background_image_url: preset.url });
+                        setBgImageMeta({
+                          width: 1920,
+                          height: 1080,
+                          sizeKB: 480,
+                          aspectRatio: '16:9 (Ideal)',
+                          isRecommended: true,
+                          notes: [
+                            '✅ Excellent resolution (1920×1080 Full HD).',
+                            '✅ Standard 16:9 widescreen ratio.',
+                            '✅ Optimized CDN delivery.'
+                          ]
+                        });
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between h-16 ${
+                      (!formData.custom_background_image_url && preset.isDefault) || (formData.custom_background_image_url === preset.url)
+                        ? 'bg-emerald-500/15 border-emerald-500/50 text-white shadow-md shadow-emerald-950'
+                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <span className="font-bold text-xs truncate flex items-center gap-1.5">
+                      {preset.isDefault && <RotateCcw className="w-3 h-3 text-indigo-400 shrink-0" />}
+                      <span>{preset.name}</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500 truncate">{preset.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Live Image Preview & Metadata Inspector */}
+            {formData.custom_background_image_url && (
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Real-Time Background Preview & Contrast Check</span>
+                  </span>
+                  <a 
+                    href={formData.custom_background_image_url} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                  >
+                    <span>View original</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+
+                <div className="relative h-44 rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center">
+                  {/* The Background */}
+                  <img
+                    src={formData.custom_background_image_url}
+                    alt="Background Preview"
+                    className="absolute inset-0 w-full h-full object-cover transition-all"
+                    style={{
+                      filter: formData.background_blur === 'md' ? 'blur(6px)' : formData.background_blur === 'sm' ? 'blur(3px)' : 'none',
+                      transform: formData.background_blur && formData.background_blur !== 'none' ? 'scale(1.08)' : 'none'
+                    }}
+                  />
+                  {/* The Dark Overlay */}
+                  <div 
+                    className="absolute inset-0 bg-slate-950 transition-opacity"
+                    style={{ opacity: parseFloat(formData.background_overlay_opacity || '0.85') }}
+                  />
+
+                  {/* Sample Portal UI Elements on top to test readability */}
+                  <div className="relative z-10 p-4 max-w-sm w-full bg-slate-900/90 border border-slate-800 rounded-xl shadow-xl text-center space-y-2">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="text-xs font-bold text-white">SociaraX Contrast Sample</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      Overlay Darkness: {Math.round(parseFloat(formData.background_overlay_opacity || '0.85') * 100)}% | Blur: {formData.background_blur || 'none'}
+                    </p>
+                  </div>
+                </div>
+
+                {bgImageMeta && (
+                  <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-200 font-mono text-[11px]">
+                        {bgImageMeta.width} × {bgImageMeta.height} px
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-200 text-[11px]">
+                        Ratio: {bgImageMeta.aspectRatio}
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-200 text-[11px]">
+                        Size: {bgImageMeta.sizeKB < 1024 ? `${bgImageMeta.sizeKB} KB` : `${(bgImageMeta.sizeKB / 1024).toFixed(1)} MB`}
+                      </span>
+                    </div>
+                    {bgImageMeta.notes.map((note, nIdx) => (
+                      <div key={nIdx} className="text-[11px] text-slate-300">
+                        {note}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Display Tuning Controls: Overlay Darkness, Blur & Apply Scope */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Overlay Darkness
+                  </label>
+                  <span className="text-xs font-mono font-bold text-emerald-400">
+                    {Math.round(parseFloat(formData.background_overlay_opacity || '0.85') * 100)}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0.50"
+                  max="0.95"
+                  step="0.05"
+                  value={formData.background_overlay_opacity || '0.85'}
+                  onChange={(e) => setFormData({ ...formData, background_overlay_opacity: e.target.value })}
+                  className="w-full accent-emerald-500 cursor-pointer"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Higher darkness guarantees text & cards are crystal clear.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Background Blur
+                </label>
+                <select
+                  value={formData.background_blur || 'none'}
+                  onChange={(e) => setFormData({ ...formData, background_blur: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500"
+                >
+                  <option value="none">None (Sharp original)</option>
+                  <option value="sm">Subtle Blur (4px - recommended)</option>
+                  <option value="md">Medium Blur (8px - soft ambient)</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Softens busy textures behind buttons and inputs.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Apply Background To
+                </label>
+                <select
+                  value={formData.background_apply_to || 'all'}
+                  onChange={(e) => setFormData({ ...formData, background_apply_to: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500"
+                >
+                  <option value="all">Everywhere (Login, Register & Dashboards)</option>
+                  <option value="auth_only">Login & Register Pages Only</option>
+                  <option value="dashboard_only">Customer & Admin Dashboards Only</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Choose where the background appears.
+                </p>
+              </div>
+            </div>
+
+            {/* Direct Save Action for Background */}
+            <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-xs text-slate-400">
+                Changes apply immediately across all selected pages once saved.
+              </span>
+              <button
+                type="button"
+                onClick={handleSaveBackgroundOnly}
+                disabled={isSavingBg}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all cursor-pointer"
+              >
+                {isSavingBg ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Saving Background...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save Background Changes</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Production Domain & Base URL Configuration */}
+        <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>Production Domain & Public URL</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+                    Live Active
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  The official domain used to generate password-reset links, email buttons, and external callbacks.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, app_url: 'https://sociarax.onrender.com' })}
+                className="px-2.5 py-1 text-[11px] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono transition-colors cursor-pointer border border-slate-700"
+                title="Reset to official Render URL"
+              >
+                Render Domain
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Domain URL (Base URL with https://)
+              </label>
+              <div className="relative">
+                <Globe className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                <input
+                  type="url"
+                  required
+                  value={formData.app_url}
+                  onChange={(e) => setFormData({ ...formData, app_url: e.target.value })}
+                  placeholder="https://sociarax.onrender.com"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5">
+                <span>⚡ <strong>Tip:</strong> If you connect a custom domain (e.g. <code className="text-indigo-300">https://sociarax.com</code>), enter it here and click <em>Save All Settings</em>. All reset emails will immediately use your custom domain without rebuilding!</span>
+              </p>
+            </div>
+
+            {/* Live Password Reset Link Preview */}
+            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-1.5">
+              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Generated Password-Reset Link Preview:</span>
+                <span className="text-emerald-400 font-mono lowercase">Single-Use Token Link</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 font-mono text-xs text-indigo-300 break-all select-all flex items-center justify-between gap-2">
+                <span>{`${(formData.app_url || 'https://sociarax.onrender.com').replace(/\/+$/, '')}/#reset-password?token=a8f92b...&email=user@example.com`}</span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Email Service & SMTP Configuration (Nodemailer) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+                <Server className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>Email Service & SMTP Settings (Nodemailer)</span>
+                  {formData.smtp_host && formData.smtp_user ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                      Configured
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
+                      Simulation Mode
+                    </span>
+                  )}
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Configure real SMTP credentials (Gmail, Brevo, SendGrid, Amazon SES) for automated password reset emails.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                SMTP Host Server
+              </label>
+              <input
+                type="text"
+                value={formData.smtp_host}
+                onChange={(e) => setFormData({ ...formData, smtp_host: e.target.value })}
+                placeholder="smtp.gmail.com or smtp-relay.brevo.com"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Gmail: <code className="text-indigo-300">smtp.gmail.com</code> | Brevo: <code className="text-indigo-300">smtp-relay.brevo.com</code>
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                SMTP Port
+              </label>
+              <input
+                type="number"
+                value={formData.smtp_port}
+                onChange={(e) => setFormData({ ...formData, smtp_port: e.target.value })}
+                placeholder="587"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Port 587 (STARTTLS) or 465 (SSL)
+              </p>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                SMTP Username / Sender Email
+              </label>
+              <input
+                type="text"
+                value={formData.smtp_user}
+                onChange={(e) => setFormData({ ...formData, smtp_user: e.target.value })}
+                placeholder="e.g. arifahmed87204@gmail.com or info@sociarax.com"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                SMTP Password / App Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showSmtpPass ? 'text' : 'password'}
+                  value={formData.smtp_password}
+                  onChange={(e) => setFormData({ ...formData, smtp_password: e.target.value })}
+                  placeholder="••••••••••••••••"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-3.5 pr-10 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSmtpPass(!showSmtpPass)}
+                  className="absolute right-3 top-3 text-slate-400 hover:text-white cursor-pointer"
+                  title={showSmtpPass ? 'Hide password' : 'Show password'}
+                >
+                  {showSmtpPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                For Gmail, use a 16-character App Password.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Sender Display Name
+              </label>
+              <input
+                type="text"
+                value={formData.email_from_name}
+                onChange={(e) => setFormData({ ...formData, email_from_name: e.target.value })}
+                placeholder="SociaraX"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                From Email Address
+              </label>
+              <input
+                type="email"
+                value={formData.email_from}
+                onChange={(e) => setFormData({ ...formData, email_from: e.target.value })}
+                placeholder="noreply@sociarax.com"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                SSL / TLS Security Mode
+              </label>
+              <select
+                value={formData.smtp_secure}
+                onChange={(e) => setFormData({ ...formData, smtp_secure: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500"
+              >
+                <option value="false">STARTTLS / Auto (Default - Port 587)</option>
+                <option value="true">Direct SSL / TLS (Port 465)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Interactive Live Email Tester */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-white">
+              <Send className="w-4 h-4 text-emerald-400" />
+              <span>Test Real Email Delivery Now</span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Send a real branded SociaraX test email to any inbox to verify that your SMTP server and credentials are authenticated.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <input
+                type="email"
+                value={testEmailRecipient}
+                onChange={(e) => setTestEmailRecipient(e.target.value)}
+                placeholder="Enter test recipient email address"
+                className="w-full sm:flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:border-indigo-500 font-mono"
+              />
+              <button
+                type="button"
+                onClick={handleSendTestEmail}
+                disabled={isSendingTestEmail || !testEmailRecipient}
+                className="w-full sm:w-auto px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20 shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{isSendingTestEmail ? 'Sending Test...' : 'Send Live Test Email'}</span>
+              </button>
+            </div>
+
+            {testEmailNotice && (
+              <div className={`p-3 rounded-xl text-xs flex items-start gap-2.5 ${
+                testEmailNotice.type === 'success'
+                  ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-200'
+                  : 'bg-rose-500/10 border border-rose-500/30 text-rose-200'
+              }`}>
+                {testEmailNotice.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                )}
+                <div className="space-y-0.5">
+                  <span className="font-semibold block">{testEmailNotice.message}</span>
+                  {testEmailNotice.type === 'success' && (
+                    <span className="text-[11px] text-emerald-400/80">Check your inbox or spam folder for the branded SociaraX test email.</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 24/7 Monitoring & Database Storage Protection */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                <Cpu className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>24/7 Monitoring & Database Storage Protection</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Zero Storage Overhead
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Surveillance architecture runs 100% in RAM memory. No monitor logs or ticks are written to the database.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleRunDbHygiene}
+              disabled={isCleaningDb}
+              className="px-3.5 py-1.5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/30 text-cyan-200 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50 shrink-0"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isCleaningDb ? 'animate-spin' : ''}`} />
+              <span>{isCleaningDb ? 'Optimizing...' : 'Optimize & Free DB Storage'}</span>
+            </button>
+          </div>
+
+          {dbCleanNotice && (
+            <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+              dbCleanNotice.type === 'success'
+                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-200'
+                : 'bg-rose-500/10 border border-rose-500/30 text-rose-200'
+            }`}>
+              {dbCleanNotice.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />}
+              <span>{dbCleanNotice.message}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Monitor DB Footprint</span>
+              <div className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>0 Bytes Disk Bloat</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Keeps logs in an in-memory 500-entry ring buffer. Never writes monitor logs into PostgreSQL.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Keep-Alive Engine</span>
+              <div className="text-sm font-bold text-cyan-400 flex items-center gap-1.5">
+                <Cpu className="w-4 h-4 text-cyan-400" />
+                <span>SELECT 1 Ping (&lt;1ms)</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Lightweight health ping touches zero tables, zero catalog locks, and produces zero dead tuples.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Storage Auto-Pruner</span>
+              <div className="text-sm font-bold text-purple-400 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+                <span>Runs Every 6 Hours</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Auto-deletes expired password reset tokens and temporary sessions so DB storage never fills up.
+              </p>
             </div>
           </div>
         </div>

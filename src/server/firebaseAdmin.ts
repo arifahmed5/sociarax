@@ -1,6 +1,8 @@
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
-import config from '../../firebase-applet-config.json';
+import rawConfig from '../../firebase-applet-config.json';
+
+const config = (rawConfig as any)?.default || rawConfig;
 
 let adminApp: App | null = null;
 
@@ -11,7 +13,7 @@ export function getFirebaseAdmin(): App {
       adminApp = apps[0]!;
     } else {
       adminApp = initializeApp({
-        projectId: process.env.FIREBASE_PROJECT_ID || config.projectId,
+        projectId: config.projectId || process.env.FIREBASE_PROJECT_ID,
       });
     }
   }

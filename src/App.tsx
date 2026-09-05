@@ -39,10 +39,22 @@ const MainLayout: React.FC = () => {
 
   const theme = getTheme(maintenanceConfig);
 
+  // Stealth URL Shield: The Admin panel has NO public URL or hash route.
+  // Any attempt to type #admin, #admin_dashboard, or /admin is sanitized and stripped immediately.
+  const sanitizeHash = (rawHash: string): string => {
+    const clean = (rawHash || '').replace('#', '').trim().toLowerCase();
+    if (clean.includes('admin')) {
+      if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+      return 'dashboard';
+    }
+    return clean || 'dashboard';
+  };
+
   const [currentTab, setCurrentTab] = useState<string>(() => {
     if (typeof window !== 'undefined' && window.location.hash) {
-      const h = window.location.hash.replace('#', '').trim();
-      if (h) return h;
+      return sanitizeHash(window.location.hash);
     }
     return 'dashboard';
   });
@@ -51,11 +63,11 @@ const MainLayout: React.FC = () => {
   const [isAdminAuthOpen, setIsAdminAuthOpen] = useState<boolean>(false);
   const [selectedServiceIdForOrder, setSelectedServiceIdForOrder] = useState<number | null>(null);
 
-  // Synchronize browser history / hash navigation with tabs
+  // Synchronize browser history / hash navigation with customer tabs only
   React.useEffect(() => {
     const handleHashChange = () => {
-      const h = window.location.hash.replace('#', '').trim();
-      if (h) setCurrentTab(h);
+      const clean = sanitizeHash(window.location.hash);
+      setCurrentTab(clean);
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
@@ -74,10 +86,22 @@ const MainLayout: React.FC = () => {
   );
 
   const handleTabChange = (tab: string) => {
-    if (tab.startsWith('admin_') && !admin && !isOwnerOrAdmin) {
-      setIsAdminAuthOpen(true);
+    if (tab.startsWith('admin_')) {
+      // Strictly prevent non-authorized users from switching to admin tabs
+      if (!isOwnerOrAdmin) {
+        setCurrentTab('dashboard');
+        return;
+      }
+      // Zero-URL Admin Panel: Admin navigation is 100% IN-MEMORY.
+      // We explicitly clear any hash from the URL bar so the admin panel has NO URL.
+      setCurrentTab(tab);
+      if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
       return;
     }
+
+    // Customer tabs can use normal hash routing
     setCurrentTab(tab);
     if (typeof window !== 'undefined') {
       window.location.hash = tab;
@@ -117,10 +141,35 @@ const MainLayout: React.FC = () => {
     );
   }
 
+  const hasCustomBg = Boolean(
+    settings?.custom_background_image_url && 
+    (settings.background_apply_to === 'all' || settings.background_apply_to === 'dashboard_only' || !settings.background_apply_to)
+  );
+
   return (
-    <div className={`min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans ${theme.selectionClass} relative overflow-x-hidden`}>
+    <div className={`min-h-screen ${hasCustomBg ? 'bg-slate-950/75' : 'bg-slate-950'} text-slate-100 flex flex-col font-sans ${theme.selectionClass} relative overflow-x-hidden`}>
+      {/* Dynamic Custom Background Image (Managed by Admin) */}
+      {hasCustomBg && (
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700"
+            style={{
+              backgroundImage: `url("${settings.custom_background_image_url}")`,
+              filter: settings.background_blur === 'md' ? 'blur(8px)' : settings.background_blur === 'sm' ? 'blur(4px)' : 'none',
+              transform: settings.background_blur && settings.background_blur !== 'none' ? 'scale(1.05)' : 'none'
+            }}
+          />
+          <div 
+            className="absolute inset-0 bg-slate-950 transition-opacity duration-300"
+            style={{
+              opacity: parseFloat(settings.background_overlay_opacity || '0.70')
+            }}
+          />
+        </div>
+      )}
+
       {/* Dynamic Background Glow Orb if enabled */}
-      {maintenanceConfig.enableGlowEffects && (
+      {maintenanceConfig.enableGlowEffects && !hasCustomBg && (
         <>
           <div className={`fixed top-0 right-1/4 w-96 h-96 ${theme.primaryGlow} rounded-full blur-3xl pointer-events-none -z-10`} />
           <div className={`fixed bottom-10 left-1/4 w-96 h-96 ${theme.primaryGlow} rounded-full blur-3xl pointer-events-none -z-10`} />
@@ -129,25 +178,29 @@ const MainLayout: React.FC = () => {
 
       {/* Emergency Maintenance Mode Banner */}
       {maintenanceConfig.maintenanceModeActive && (
-        <div className="bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-white py-2.5 px-4 text-xs font-bold text-center flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30">
+        <div className="relative z-30 bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-white py-2.5 px-4 text-xs font-bold text-center flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30">
           <span className="inline-block w-2 h-2 rounded-full bg-white animate-ping" />
           <span>{maintenanceConfig.maintenanceMessage || 'SociaraX is currently undergoing scheduled high-speed infrastructure maintenance.'}</span>
         </div>
       )}
 
       {/* DB Connection Health Banner */}
-      <DbStatusBanner />
+      <div className="relative z-20">
+        <DbStatusBanner />
+      </div>
 
       {/* Primary Navigation */}
-      <Navigation
-        currentTab={currentTab}
-        onTabChange={handleTabChange}
-        onOpenUserAuth={() => setIsUserAuthOpen(true)}
-        onOpenAdminAuth={() => setIsAdminAuthOpen(true)}
-      />
+      <div className="relative z-30">
+        <Navigation
+          currentTab={currentTab}
+          onTabChange={handleTabChange}
+          onOpenUserAuth={() => setIsUserAuthOpen(true)}
+          onOpenAdminAuth={() => setIsAdminAuthOpen(true)}
+        />
+      </div>
 
       {/* Main Content Area */}
-      <main className={`flex-1 max-w-7xl w-full mx-auto ${maintenanceConfig.compactMobileLayout ? 'px-3 sm:px-6 py-4 sm:py-6' : 'px-4 sm:px-6 py-6 sm:py-8'}`}>
+      <main className={`relative z-10 flex-1 max-w-7xl w-full mx-auto ${maintenanceConfig.compactMobileLayout ? 'px-3 sm:px-6 py-4 sm:py-6' : 'px-4 sm:px-6 py-6 sm:py-8'}`}>
         {/* Customer Portal Views */}
         {currentTab === 'dashboard' && (
           <UserDashboard
@@ -255,7 +308,7 @@ const MainLayout: React.FC = () => {
       />
 
       {/* Footer */}
-      <footer className="bg-slate-950 border-t border-slate-900 mt-auto py-8">
+      <footer className={`${hasCustomBg ? 'bg-slate-950/85 backdrop-blur-md' : 'bg-slate-950'} border-t border-slate-900 mt-auto py-8 relative z-10`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded-lg bg-indigo-600 flex items-center justify-center text-white">

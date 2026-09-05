@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Bot, 
   Sparkles, 
@@ -92,6 +92,17 @@ export const AdminMaintenanceView: React.FC = () => {
   const [isVoiceResponseEnabled, setIsVoiceResponseEnabled] = useState(true);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
+
+  // Deduplicated voices with guaranteed unique identifiers for React keys
+  const uniqueVoices = useMemo(() => {
+    const seen = new Set<string>();
+    return availableVoices.filter((v, idx) => {
+      const id = `${v.voiceURI || v.name}__${v.lang}`;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [availableVoices]);
   const recognitionRef = useRef<any>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
@@ -194,7 +205,7 @@ export const AdminMaintenanceView: React.FC = () => {
     if (!voices || voices.length === 0) return null;
 
     if (selectedVoiceName) {
-      const found = voices.find(v => v.name === selectedVoiceName);
+      const found = voices.find(v => (v.voiceURI && v.voiceURI === selectedVoiceName) || v.name === selectedVoiceName);
       if (found) return found;
     }
 
@@ -653,7 +664,7 @@ export const AdminMaintenanceView: React.FC = () => {
 
                 {isVoiceResponseEnabled && (
                   <div className="flex items-center gap-1.5">
-                    {availableVoices.length > 0 && (
+                    {uniqueVoices.length > 0 && (
                       <select
                         value={selectedVoiceName}
                         onChange={(e) => setSelectedVoiceName(e.target.value)}
@@ -661,8 +672,8 @@ export const AdminMaintenanceView: React.FC = () => {
                         title="Select Voice Engine / Accent"
                       >
                         <option value="">Auto Indian Hindi Voice</option>
-                        {availableVoices.map((v) => (
-                          <option key={v.name} value={v.name}>
+                        {uniqueVoices.map((v, idx) => (
+                          <option key={`${v.voiceURI || v.name}_${v.lang}_${idx}`} value={v.voiceURI || v.name}>
                             {v.name} ({v.lang})
                           </option>
                         ))}

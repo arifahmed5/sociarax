@@ -1,4 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -104,21 +106,53 @@ async function startServer() {
   // Trust first proxy hop (e.g. Render, Cloudflare)
   app.set('trust proxy', 1);
 
+  // CORS Configuration to support AI Studio iframe preview, API calls, and preflight checks
+  app.use(cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Request-Id', 'Cache-Control', 'Pragma']
+  }));
+  app.options('*', cors());
+
+  // Permissions-Policy header to support Google Identity Services and FedCM
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Permissions-Policy', 'identity-credentials-get=(self "https://accounts.google.com")');
+    next();
+  });
+
+  // Global Performance Compression (Gzip / Brotli for JSON and static files)
+  app.use(compression({
+    filter: (req: Request, res: Response) => {
+      if (req.headers['x-no-compression'] || req.path.startsWith('/@') || req.path.includes('node_modules')) {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+    threshold: 1024 // Only compress responses > 1KB
+  }));
+
   // Global Middleware
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(cookieParser());
 
-  // Security & Anti-Sniff Headers (CSP, Referrer-Policy, Anti-Clickjacking)
+  // Prevent caching of all dynamic API responses (Private User Data & Financial Safety)
+  app.use('/api', (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+  });
+
+  // Security & Anti-Sniff Headers (Permissive for AI Studio iframe embedding and web workers)
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     res.setHeader(
       'Content-Security-Policy',
-      "default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; img-src 'self' https: data: blob:; connect-src 'self' https: wss:;"
+      "default-src 'self' https: http: data: blob: 'unsafe-inline' 'unsafe-eval'; img-src 'self' https: http: data: blob:; connect-src 'self' https: http: ws: wss:; frame-ancestors *;"
     );
     next();
   });
@@ -172,6 +206,11 @@ async function startServer() {
     res.type('text/html').send('google-site-verification: google12f79571b8dc9f88.html');
   });
 
+  // Stealth Shield: Never expose any public /admin URL route (redirect direct hits immediately to home)
+  app.get(['/admin', '/admin/*', '/dashboard/admin', '/admin-panel'], (_req: Request, res: Response) => {
+    res.redirect(301, '/');
+  });
+
   // Database status inspection endpoint
   app.get('/api/db-status', async (req, res) => {
     try {
@@ -222,8 +261,19 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // Cache static immutable assets (JS/CSS/images) for high performance
+    app.use(express.static(distPath, {
+      maxAge: '1y',
+      immutable: true,
+      index: false,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        }
+      }
+    }));
     app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

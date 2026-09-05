@@ -236,9 +236,15 @@ export class LuvsmmAdapter implements ProviderAdapter {
       console.warn('[LUVSMM MULTI STATUS ERROR]:', err.message);
     }
 
-    // Fallback to individual status checks
-    for (const id of orderIds) {
-      results[String(id)] = await this.getOrderStatus(apiUrl, apiKey, id);
+    // Fallback to parallel status checks in concurrency chunks of 5 (avoids 60s sequential block)
+    const chunkSize = 5;
+    for (let i = 0; i < orderIds.length; i += chunkSize) {
+      const chunk = orderIds.slice(i, i + chunkSize);
+      await Promise.all(
+        chunk.map(async (id) => {
+          results[String(id)] = await this.getOrderStatus(apiUrl, apiKey, id);
+        })
+      );
     }
     return results;
   }

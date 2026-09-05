@@ -118,7 +118,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
             {/* Portal Switcher Pill - Only shown if authorized admin or owner */}
             {isOwnerOrAdmin && (
-              <div className="hidden 2xl:flex items-center bg-slate-900 border border-slate-800 p-0.5 rounded-xl shrink-0 animate-fadeIn">
+              <div className="flex items-center bg-slate-900/90 border border-slate-800 p-0.5 rounded-xl shrink-0 animate-fadeIn">
                 <button
                   onClick={() => onTabChange('dashboard')}
                   className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
@@ -144,7 +144,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Admin</span>
+                  <span>Owner</span>
                   {adminPendingPayments.length > 0 && (
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                   )}

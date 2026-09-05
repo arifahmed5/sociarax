@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { UserProfile, AdminProfile, TotpSetupData } from '../types';
 
 interface DbStatus {
@@ -13,7 +15,7 @@ interface AuthContextType {
   userToken: string | null;
   isUserLoading: boolean;
   loginUser: (identifier: string, password: string) => Promise<{ success: boolean; error?: string; user?: UserProfile; admin?: AdminProfile }>;
-  loginWithGoogle: (idToken: string, email?: string, displayName?: string) => Promise<{ success: boolean; error?: string; user?: UserProfile; admin?: AdminProfile }>;
+  loginWithGoogle: (idToken: string, email?: string, displayName?: string, accessToken?: string) => Promise<{ success: boolean; error?: string; user?: UserProfile; admin?: AdminProfile }>;
   registerUser: (username: string, email: string, password: string, phone?: string) => Promise<{ success: boolean; error?: string; user?: UserProfile; admin?: AdminProfile }>;
   updateUserProfile: (data: { email?: string; phone?: string; username?: string }) => Promise<{ success: boolean; error?: string; user?: UserProfile }>;
   changeUserPassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
@@ -29,6 +31,29 @@ interface AuthContextType {
     message?: string;
     channel?: string;
     maskedDestination?: string;
+  }>;
+  requestPasswordResetEmail: (identifier: string) => Promise<{
+    success: boolean;
+    error?: string;
+    message?: string;
+  }>;
+  verifyResetToken: (token: string) => Promise<{
+    success: boolean;
+    valid?: boolean;
+    error?: string;
+    username?: string;
+    maskedEmail?: string;
+  }>;
+  resetPasswordWithToken: (
+    token: string,
+    newPassword: string,
+    confirmPassword?: string
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    message?: string;
+    user?: UserProfile;
+    admin?: AdminProfile;
   }>;
   verifyOtpAndResetPassword: (
     identifier: string,
@@ -104,6 +129,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  // Helper for resilient auth fetches with retry
+  const fetchAuth = async (url: string, token: string, retries = 1): Promise<any> => {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (res.status === 401 || res.status === 403) {
+          return { unauthorized: true };
+        }
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          return await res.json();
+        }
+        return null;
+      } catch (err) {
+        if (i < retries) {
+          await new Promise((r) => setTimeout(r, 600));
+          continue;
+        }
+        throw err;
+      }
+    }
+    return null;
+  };
+
   // Fetch current logged in user
   const refreshUser = useCallback(async () => {
     const token = localStorage.getItem('sociarax_user_token');
@@ -114,29 +167,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const res = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const contentType = res.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        const data = await res.json();
-        if (data.success && data.user) {
-          setUser(data.user);
-          if (data.adminToken && data.admin) {
-            localStorage.setItem('sociarax_admin_token', data.adminToken);
-            setAdminToken(data.adminToken);
-            setAdmin(data.admin);
-          }
-        } else {
-          localStorage.removeItem('sociarax_user_token');
-          setUser(null);
-          setUserToken(null);
+      const data = await fetchAuth('/api/auth/me', token, 1);
+      if (data?.unauthorized) {
+        localStorage.removeItem('sociarax_user_token');
+        setUser(null);
+        setUserToken(null);
+      } else if (data && data.success && data.user) {
+        setUser(data.user);
+        if (data.adminToken && data.admin) {
+          localStorage.setItem('sociarax_admin_token', data.adminToken);
+          setAdminToken(data.adminToken);
+          setAdmin(data.admin);
         }
       }
-    } catch (err) {
-      console.error('[AUTH] Failed to refresh user:', err);
+    } catch (err: any) {
+      console.warn('[AUTH] Session check deferred (server booting or offline):', err?.message || err);
     } finally {
       setIsUserLoading(false);
     }
@@ -152,24 +197,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const res = await fetch('/api/auth/admin/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const contentType = res.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        const data = await res.json();
-        if (data.success && data.admin) {
-          setAdmin(data.admin);
-        } else {
-          localStorage.removeItem('sociarax_admin_token');
-          setAdmin(null);
-          setAdminToken(null);
-        }
+      const data = await fetchAuth('/api/auth/admin/me', token, 1);
+      if (data?.unauthorized) {
+        localStorage.removeItem('sociarax_admin_token');
+        setAdmin(null);
+        setAdminToken(null);
+      } else if (data && data.success && data.admin) {
+        setAdmin(data.admin);
       }
-    } catch (err) {
-      console.error('[AUTH] Failed to refresh admin:', err);
+    } catch (err: any) {
+      console.warn('[AUTH] Admin session check deferred (server booting or offline):', err?.message || err);
     } finally {
       setIsAdminLoading(false);
     }
@@ -180,6 +217,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser();
     refreshAdmin();
   }, [checkDbStatus, refreshUser, refreshAdmin]);
+
+  // Synchronize Firebase Auth state automatically (handles popup, redirect, or existing Google session)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const savedToken = localStorage.getItem('sociarax_user_token');
+        if (!savedToken && !user) {
+          try {
+            setIsUserLoading(true);
+            const idToken = await firebaseUser.getIdToken();
+            await loginWithGoogle(
+              idToken,
+              firebaseUser.email || undefined,
+              firebaseUser.displayName || undefined
+            );
+          } catch (syncErr) {
+            console.warn('[AUTH] Firebase auth state auto-sync notice:', syncErr);
+          } finally {
+            setIsUserLoading(false);
+          }
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   // User Login
   const loginUser = async (identifier: string, password: string) => {
@@ -218,12 +281,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // User Google Login / OAuth
-  const loginWithGoogle = async (idToken: string, email?: string, displayName?: string) => {
+  const loginWithGoogle = async (idToken: string, email?: string, displayName?: string, accessToken?: string) => {
     try {
       const res = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, email, displayName })
+        body: JSON.stringify({ 
+          idToken, 
+          credential: idToken, 
+          email, 
+          displayName, 
+          accessToken 
+        })
       });
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
@@ -240,6 +309,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setAdminToken(data.adminToken);
           setAdmin(data.admin);
         }
+
+        setIsUserLoading(false);
+        setIsAdminLoading(false);
 
         return { 
           success: true, 
@@ -349,6 +421,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Request direct branded password reset email (prevents account enumeration)
+  const requestPasswordResetEmail = async (identifier: string) => {
+    try {
+      const res = await fetch('/api/auth/forgot-password/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier })
+      });
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error requesting password reset' };
+    }
+  };
+
+  // Verify single-use token from email link
+  const verifyResetToken = async (token: string) => {
+    try {
+      const res = await fetch('/api/auth/forgot-password/verify-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error verifying reset link' };
+    }
+  };
+
+  // Reset password securely using single-use email token
+  const resetPasswordWithToken = async (
+    token: string,
+    newPassword: string,
+    confirmPassword?: string
+  ) => {
+    try {
+      const res = await fetch('/api/auth/forgot-password/verify-and-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword, confirmPassword })
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        localStorage.setItem('sociarax_user_token', data.token);
+        setUserToken(data.token);
+        setUser(data.user);
+
+        if (data.adminToken && data.admin) {
+          localStorage.setItem('sociarax_admin_token', data.adminToken);
+          setAdminToken(data.adminToken);
+          setAdmin(data.admin);
+        }
+
+        return {
+          success: true,
+          message: data.message,
+          user: data.user,
+          admin: data.admin
+        };
+      }
+      return { success: false, error: data.error || 'Failed to reset password' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error during password reset' };
+    }
+  };
+
   // Request 6-digit OTP code to registered email or phone
   const requestPasswordResetOtp = async (identifier: string, channel: 'email' | 'phone') => {
     try {
@@ -406,6 +545,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logoutUser = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
+    try {
+      await auth.signOut();
     } catch {}
     localStorage.removeItem('sociarax_user_token');
     localStorage.removeItem('sociarax_admin_token');
@@ -499,6 +641,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         changeUserPassword,
         checkAccountForOtp,
         requestPasswordResetOtp,
+        requestPasswordResetEmail,
+        verifyResetToken,
+        resetPasswordWithToken,
         verifyOtpAndResetPassword,
         logoutUser,
         refreshUser,

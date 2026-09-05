@@ -89,6 +89,7 @@ export interface AdminService extends SociaraxService {
   providerName: string;
   providerServiceId: string;
   providerRate: number;
+  providerRateUsd?: number;
   sellingRate: number;
   markupPercentage: number;
   markupFixed: number;
@@ -119,6 +120,8 @@ export interface AdminOrder extends SociaraxOrder {
   email: string;
   serviceId: number;
   providerCost: number;
+  providerCostUsd?: number;
+  exchangeRateUsed?: number;
   profit: number;
   providerId: number | null;
   providerName: string;
@@ -273,6 +276,19 @@ export interface SystemSettings {
   telegram_support: string;
   whatsapp_support: string;
   announcement: string;
+  app_url?: string;
+  smtp_host?: string;
+  smtp_port?: string;
+  smtp_user?: string;
+  smtp_password?: string;
+  email_from?: string;
+  email_from_name?: string;
+  smtp_secure?: string;
+  // Custom Background Image Configuration
+  custom_background_image_url?: string;
+  background_overlay_opacity?: string;
+  background_blur?: string;
+  background_apply_to?: string;
   [key: string]: string | undefined;
 }
 

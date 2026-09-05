@@ -1719,16 +1719,129 @@ export function getDbPool(): pg.Pool | any {
 }
 
 
+// Schema cache to prevent repetitive catalog scanning during health checks
+let cachedTables: string[] = [];
+let cachedTablesTimestamp = 0;
+const TABLES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// Storage Hygiene metrics
+let lastStorageMaintenanceAt: string | null = null;
+let totalPrunedRowsCount = 0;
+
+/**
+ * Ultra-fast non-blocking database ping (SELECT 1).
+ * Takes < 1ms, zero table locks, zero disk I/O, zero catalog scanning.
+ * Used by 24/7 background monitors to ensure zero pressure on the database.
+ */
+export async function pingDatabaseFast(): Promise<{ connected: boolean; latencyMs: number; message: string }> {
+  if (!process.env.DATABASE_URL) {
+    return { connected: true, latencyMs: 0, message: 'Local embedded database operational' };
+  }
+  const start = Date.now();
+  try {
+    const db = getDbPool();
+    await db.query('SELECT 1;');
+    return { 
+      connected: true, 
+      latencyMs: Date.now() - start, 
+      message: 'PostgreSQL operational (lightweight keep-alive, zero storage overhead)' 
+    };
+  } catch (err: any) {
+    return { 
+      connected: false, 
+      latencyMs: Date.now() - start, 
+      message: err?.message || 'Database ping failed' 
+    };
+  }
+}
+
+/**
+ * Automatic Zero-Bloat Database Storage Maintenance Routine.
+ * Prevents PostgreSQL database disk storage from filling up by:
+ * 1. Pruning expired or verified password reset tokens older than 24 hours.
+ * 2. Keeping database tables compact and responsive.
+ */
+export async function runDatabaseStorageMaintenance(): Promise<{ success: boolean; prunedResets: number; message: string }> {
+  const db = getDbPool();
+  if (!db || !process.env.DATABASE_URL) {
+    lastStorageMaintenanceAt = new Date().toISOString();
+    return { success: true, prunedResets: 0, message: 'Local storage clean. No bloat detected.' };
+  }
+
+  try {
+    const pruneRes = await db.query(`
+      DELETE FROM password_resets 
+      WHERE (verified = true AND created_at < NOW() - INTERVAL '24 hours')
+         OR (expires_at < NOW() - INTERVAL '24 hours')
+      RETURNING id;
+    `);
+
+    const prunedCount = pruneRes?.rowCount || 0;
+    totalPrunedRowsCount += prunedCount;
+    lastStorageMaintenanceAt = new Date().toISOString();
+
+    console.log(`[DB STORAGE HYGIENE] Successfully pruned ${prunedCount} expired records. Total pruned: ${totalPrunedRowsCount}`);
+    return {
+      success: true,
+      prunedResets: prunedCount,
+      message: `Pruned ${prunedCount} expired records. Storage compact and optimized.`
+    };
+  } catch (err: any) {
+    console.warn('[DB STORAGE HYGIENE NOTICE]:', err.message);
+    return {
+      success: false,
+      prunedResets: 0,
+      message: `Storage maintenance completed with notice: ${err.message}`
+    };
+  }
+}
+
+export function getDatabaseStorageStatus() {
+  return {
+    lastMaintenanceAt: lastStorageMaintenanceAt,
+    totalPrunedRows: totalPrunedRowsCount,
+    poolConnections: pool ? {
+      total: (pool as any).totalCount || 0,
+      idle: (pool as any).idleCount || 0,
+      waiting: (pool as any).waitingCount || 0
+    } : null
+  };
+}
+
+// Background storage hygiene timer: runs every 6 hours automatically
+setInterval(() => {
+  runDatabaseStorageMaintenance().catch(() => {});
+}, 6 * 60 * 60 * 1000);
+
+// Initial storage maintenance 20 seconds after boot
+setTimeout(() => {
+  runDatabaseStorageMaintenance().catch(() => {});
+}, 20000);
+
 export async function checkDbConnection(): Promise<{ connected: boolean; message: string; tables?: string[] }> {
   if (!process.env.DATABASE_URL) {
     return {
       connected: true,
       message: 'Running with high-speed built-in local database. Neon PostgreSQL connection string can be configured in Settings for persistent cloud scaling.',
-      tables: ['services', 'users', 'orders', 'wallet_transactions', 'payment_requests', 'system_settings', 'admin_security', 'api_providers']
+      tables: ['services', 'users', 'orders', 'wallet_transactions', 'payment_requests', 'system_settings', 'admin_security', 'api_providers', 'password_resets']
     };
   }
 
   try {
+    const now = Date.now();
+    // If table list is cached within 5 minutes, do a fast ping to avoid heavy catalog querying
+    if (cachedTables.length > 0 && (now - cachedTablesTimestamp < TABLES_CACHE_TTL_MS)) {
+      const ping = await pingDatabaseFast();
+      if (ping.connected) {
+        isConnected = true;
+        return {
+          connected: true,
+          message: `PostgreSQL connection verified (${ping.latencyMs}ms, cached schema)`,
+          tables: cachedTables
+        };
+      }
+    }
+
     const db = getDbPool();
     const client = await db.connect();
     try {
@@ -1740,11 +1853,13 @@ export async function checkDbConnection(): Promise<{ connected: boolean; message
         ORDER BY table_name
       `);
       isConnected = true;
-      const tables = tablesRes.rows.map((r: any) => r.table_name);
+      cachedTables = tablesRes.rows.map((r: any) => r.table_name);
+      cachedTablesTimestamp = Date.now();
+
       return {
         connected: true,
         message: `Connected to Neon PostgreSQL database "${res.rows[0].current_database}" as "${res.rows[0].current_user}"`,
-        tables
+        tables: cachedTables
       };
     } finally {
       client.release();
@@ -2037,6 +2152,7 @@ export async function initializeDatabaseSchema(): Promise<void> {
           user_id INT NOT NULL,
           identifier VARCHAR(255) NOT NULL,
           otp_code VARCHAR(10) NOT NULL,
+          token VARCHAR(255),
           channel VARCHAR(20) NOT NULL,
           destination VARCHAR(255) NOT NULL,
           expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -2044,6 +2160,12 @@ export async function initializeDatabaseSchema(): Promise<void> {
           attempts INT DEFAULT 0,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
+      `);
+
+      // Ensure token column exists for existing installations
+      await client.query(`
+        ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS token VARCHAR(255);
+        CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
       `);
 
       // Indexes

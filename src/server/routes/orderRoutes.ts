@@ -86,12 +86,28 @@ orderRouter.post('/', requireUserAuth, async (req: Request, res: Response): Prom
       return;
     }
 
-    // 3. Server-side price calculation (Precise Decimal calculation)
+    // 3. Server-side price calculation with precise USD and INR conversion & Loss Prevention
+    const sRes = await client.query("SELECT value FROM system_settings WHERE key = 'usd_to_inr_rate'");
+    const usdRate = parseFloat(sRes.rows[0]?.value) || 88.0;
+
     const sellingRate = parseFloat(service.rate_per_1000);
     const providerRate = parseFloat(service.provider_rate) || 0;
+    const providerRateUsd = parseFloat(service.provider_rate_usd) || (usdRate > 0 ? Number((providerRate / usdRate).toFixed(6)) : 0);
+
     const charge = parseFloat(((cleanQty / 1000) * sellingRate).toFixed(4));
     const providerCost = parseFloat(((cleanQty / 1000) * providerRate).toFixed(4));
+    const providerCostUsd = parseFloat(((cleanQty / 1000) * providerRateUsd).toFixed(4));
     const profit = parseFloat((charge - providerCost).toFixed(4));
+
+    // Automated Loss Protection: Selling charge must never be less than real provider cost
+    if (charge < providerCost) {
+      await client.query('ROLLBACK');
+      res.status(400).json({ 
+        success: false, 
+        error: 'Price protection notice: Provider rate has been updated. Please refresh your page to see the latest rate.' 
+      });
+      return;
+    }
 
     // 4. Lock and check user wallet balance
     const userRes = await client.query(
@@ -124,14 +140,14 @@ orderRouter.post('/', requireUserAuth, async (req: Request, res: Response): Prom
       [newBalance, user.id]
     );
 
-    // 6. Insert Order in SociaraX
+    // 6. Insert Order in SociaraX with exact USD cost and exchange rate
     const orderRes = await client.query(`
       INSERT INTO orders (
         user_id, service_id, service_name, platform, link, quantity,
-        charge, provider_cost, profit, currency,
+        charge, provider_cost, provider_cost_usd, exchange_rate_used, profit, currency,
         provider_id, provider_status, status, idempotency_key
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'INR', $10, 'pending', 'pending', $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'INR', $12, 'pending', 'pending', $13)
       RETURNING id, service_name, link, quantity, charge, status, created_at
     `, [
       user.id,
@@ -142,6 +158,8 @@ orderRouter.post('/', requireUserAuth, async (req: Request, res: Response): Prom
       cleanQty,
       charge,
       providerCost,
+      providerCostUsd,
+      usdRate,
       profit,
       service.provider_id,
       idempotencyKey || null
@@ -467,6 +485,8 @@ orderRouter.get('/admin', requireAdminAuth, async (req: Request, res: Response):
         o.quantity,
         o.charge,
         o.provider_cost,
+        COALESCE(o.provider_cost_usd, 0) AS provider_cost_usd,
+        COALESCE(o.exchange_rate_used, 88.0) AS exchange_rate_used,
         o.profit,
         o.provider_id,
         o.provider_order_id,
@@ -523,6 +543,8 @@ orderRouter.get('/admin', requireAdminAuth, async (req: Request, res: Response):
         quantity: row.quantity,
         charge: parseFloat(row.charge),
         providerCost: parseFloat(row.provider_cost || '0'),
+        providerCostUsd: parseFloat(row.provider_cost_usd || '0'),
+        exchangeRateUsed: parseFloat(row.exchange_rate_used || '88.0'),
         profit: parseFloat(row.profit || '0'),
         providerId: row.provider_id,
         providerName: row.provider_name || 'None',
@@ -640,12 +662,27 @@ orderRouter.post('/admin/sync-status', requireAdminAuth, async (req: Request, re
 
     let syncedCount = 0;
 
+    // Group active orders by provider_id for single-roundtrip batch querying
+    const providerOrderMap = new Map<number, typeof activeOrdersRes.rows>();
     for (const ord of activeOrdersRes.rows) {
+      const pid = ord.provider_id || 0;
+      if (!providerOrderMap.has(pid)) {
+        providerOrderMap.set(pid, []);
+      }
+      providerOrderMap.get(pid)!.push(ord);
+    }
+
+    for (const [providerId, ordersList] of providerOrderMap.entries()) {
       try {
-        const prov = await providerRegistry.getActiveProvider(ord.provider_id);
-        if (prov && prov.apiKey) {
-          const statusRes = await prov.adapter.getOrderStatus(prov.apiUrl, prov.apiKey, ord.provider_order_id);
-          if (statusRes.success && statusRes.status) {
+        const prov = await providerRegistry.getActiveProvider(providerId);
+        if (!prov || !prov.apiKey) continue;
+
+        const orderIds = ordersList.map(o => o.provider_order_id);
+        const multiStatus = await prov.adapter.getMultipleOrderStatus(prov.apiUrl, prov.apiKey, orderIds);
+
+        for (const ord of ordersList) {
+          const statusRes = multiStatus[String(ord.provider_order_id)];
+          if (statusRes && statusRes.success && statusRes.status) {
             const rawStatus = statusRes.status.toLowerCase();
             let mappedStatus = 'processing';
             if (rawStatus.includes('completed') || rawStatus === 'done') mappedStatus = 'completed';
@@ -674,7 +711,7 @@ orderRouter.post('/admin/sync-status', requireAdminAuth, async (req: Request, re
           }
         }
       } catch (syncErr) {
-        console.warn(`[STATUS SYNC FAILED for Order #${ord.id}]:`, syncErr);
+        console.warn(`[BATCH STATUS SYNC FAILED for Provider #${providerId}]:`, syncErr);
       }
     }
 

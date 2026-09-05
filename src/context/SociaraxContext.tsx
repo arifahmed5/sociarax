@@ -248,8 +248,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         body: JSON.stringify(data)
       });
       if (resData && resData.success) {
-        await loadAdminServices();
-        await loadServices();
+        await Promise.all([loadAdminServices(), loadServices()]);
         return { success: true };
       }
       return { success: false, error: resData?.error || 'Failed to create service' };
@@ -269,8 +268,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         body: JSON.stringify(data)
       });
       if (resData && resData.success) {
-        await loadAdminServices();
-        await loadServices();
+        await Promise.all([loadAdminServices(), loadServices()]);
         return { success: true };
       }
       return { success: false, error: resData?.error || 'Failed to update service' };
@@ -288,8 +286,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       });
       if (resData && resData.success) {
-        await loadAdminServices();
-        await loadServices();
+        await Promise.all([loadAdminServices(), loadServices()]);
         return { success: true, message: resData.message };
       }
       return { success: false, error: resData?.error || 'Failed to delete service' };
@@ -307,8 +304,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       });
       if (resData && resData.success) {
-        await loadAdminServices();
-        await loadServices();
+        await Promise.all([loadAdminServices(), loadServices()]);
         return { success: true, status: resData.status };
       }
       return { success: false, error: resData?.error || 'Failed to toggle status' };
@@ -328,8 +324,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         body: JSON.stringify({ providerId, defaultMarkupPct })
       });
       if (resData && resData.success) {
-        await loadAdminServices();
-        await loadServices();
+        await Promise.all([loadAdminServices(), loadServices()]);
         return { success: true, message: resData.message };
       }
       return { success: false, error: resData?.error || 'Sync failed' };
@@ -769,6 +764,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         body: JSON.stringify({ settings: data })
       });
       if (resData && resData.success) {
+        setSettings(prev => prev ? ({ ...prev, ...data } as SystemSettings) : null);
         await loadSettings();
         return { success: true };
       }

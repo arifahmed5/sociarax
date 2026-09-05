@@ -268,7 +268,14 @@ export const AdminOrdersView: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 font-mono">
                       <div className="text-white font-bold">{formatCurrency(ord.charge)}</div>
-                      <div className="text-[11px] text-rose-400/90">Cost: {formatCurrency(ord.providerCost)}</div>
+                      <div className="text-[11px] text-rose-400/90 flex items-center gap-1">
+                        <span>Cost: {formatCurrency(ord.providerCost)}</span>
+                        {ord.providerCostUsd !== undefined && ord.providerCostUsd > 0 && (
+                          <span className="text-[10px] text-rose-300/80 font-sans font-medium">
+                            (${Number(ord.providerCostUsd).toFixed(3)} USD)
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[11px] text-emerald-400 font-bold">
                         Profit: {formatCurrency(ord.profit)}
                       </div>
