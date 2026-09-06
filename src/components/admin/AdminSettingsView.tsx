@@ -82,12 +82,13 @@ export const AdminSettingsView: React.FC = () => {
     announcement: settings.announcement || '',
     // Production Domain & URL
     app_url: settings.app_url || 'https://sociarax.onrender.com',
+    resend_api_key: settings.resend_api_key || '',
     // Dynamic SMTP Email Configuration
     smtp_host: settings.smtp_host || '',
     smtp_port: settings.smtp_port || '587',
     smtp_user: settings.smtp_user || '',
     smtp_password: settings.smtp_password || '',
-    email_from: settings.email_from || 'noreply@sociarax.com',
+    email_from: settings.email_from || 'onboarding@resend.dev',
     email_from_name: settings.email_from_name || 'SociaraX',
     smtp_secure: settings.smtp_secure || 'false',
     // Dynamic Custom Background Image Configuration
@@ -116,11 +117,12 @@ export const AdminSettingsView: React.FC = () => {
       setFormData(prev => ({
         ...prev,
         app_url: settings.app_url || prev.app_url || 'https://sociarax.onrender.com',
+        resend_api_key: settings.resend_api_key || prev.resend_api_key || '',
         smtp_host: settings.smtp_host || prev.smtp_host || '',
         smtp_port: settings.smtp_port || prev.smtp_port || '587',
         smtp_user: settings.smtp_user || prev.smtp_user || '',
         smtp_password: settings.smtp_password || prev.smtp_password || '',
-        email_from: settings.email_from || prev.email_from || 'noreply@sociarax.com',
+        email_from: settings.email_from || prev.email_from || 'onboarding@resend.dev',
         email_from_name: settings.email_from_name || prev.email_from_name || 'SociaraX',
         smtp_secure: settings.smtp_secure || prev.smtp_secure || 'false',
         custom_background_image_url: settings.custom_background_image_url || prev.custom_background_image_url || '',
@@ -589,13 +591,9 @@ export const AdminSettingsView: React.FC = () => {
           to: testEmailRecipient.trim(),
           customSettings: {
             app_url: formData.app_url,
-            smtp_host: formData.smtp_host,
-            smtp_port: formData.smtp_port,
-            smtp_user: formData.smtp_user,
-            smtp_password: formData.smtp_password,
+            resend_api_key: formData.resend_api_key,
             email_from: formData.email_from,
-            email_from_name: formData.email_from_name,
-            smtp_secure: formData.smtp_secure
+            email_from_name: formData.email_from_name
           }
         })
       });
@@ -609,7 +607,7 @@ export const AdminSettingsView: React.FC = () => {
       } else {
         setTestEmailNotice({
           type: 'error',
-          message: data.error || 'Failed to dispatch test email. Please check your SMTP host, port, user and password.'
+          message: data.error || 'Failed to dispatch test email. Please verify that RESEND_API_KEY is configured in your server environment.'
         });
       }
     } catch (err: any) {
@@ -1987,7 +1985,7 @@ export const AdminSettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Email Service & SMTP Configuration (Nodemailer) */}
+        {/* Email Service & Delivery Configuration (Resend HTTPS API) */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
             <div className="flex items-center gap-3">
@@ -1996,8 +1994,8 @@ export const AdminSettingsView: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <span>Email Service & SMTP Settings (Nodemailer)</span>
-                  {formData.smtp_host && formData.smtp_user ? (
+                  <span>Email Service Settings (Resend HTTPS API)</span>
+                  {(formData.resend_api_key || (formData.smtp_host && formData.smtp_user)) ? (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
                       Configured
                     </span>
@@ -2008,81 +2006,26 @@ export const AdminSettingsView: React.FC = () => {
                   )}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Configure real SMTP credentials (Gmail, Brevo, SendGrid, Amazon SES) for automated password reset emails.
+                  Configure real email credentials via Resend HTTPS API (Port 443 - Render Free Compatible) for automated password reset emails.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                SMTP Host Server
+                Resend API Key (HTTPS Delivery - Port 443)
               </label>
               <input
-                type="text"
-                value={formData.smtp_host}
-                onChange={(e) => setFormData({ ...formData, smtp_host: e.target.value })}
-                placeholder="smtp.gmail.com or smtp-relay.brevo.com"
+                type="password"
+                value={formData.resend_api_key || ''}
+                onChange={(e) => setFormData({ ...formData, resend_api_key: e.target.value })}
+                placeholder="re_... (or leave blank if set in Render Environment Variables)"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
               />
               <p className="text-[11px] text-slate-400 mt-1">
-                Gmail: <code className="text-indigo-300">smtp.gmail.com</code> | Brevo: <code className="text-indigo-300">smtp-relay.brevo.com</code>
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                SMTP Port
-              </label>
-              <input
-                type="number"
-                value={formData.smtp_port}
-                onChange={(e) => setFormData({ ...formData, smtp_port: e.target.value })}
-                placeholder="587"
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Port 587 (STARTTLS) or 465 (SSL)
-              </p>
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                SMTP Username / Sender Email
-              </label>
-              <input
-                type="text"
-                value={formData.smtp_user}
-                onChange={(e) => setFormData({ ...formData, smtp_user: e.target.value })}
-                placeholder="e.g. arifahmed87204@gmail.com or info@sociarax.com"
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                SMTP Password / App Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showSmtpPass ? 'text' : 'password'}
-                  value={formData.smtp_password}
-                  onChange={(e) => setFormData({ ...formData, smtp_password: e.target.value })}
-                  placeholder="••••••••••••••••"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-3.5 pr-10 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowSmtpPass(!showSmtpPass)}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-white cursor-pointer"
-                  title={showSmtpPass ? 'Hide password' : 'Show password'}
-                >
-                  {showSmtpPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                For Gmail, use a 16-character App Password.
+                API key from <span className="text-indigo-300">resend.com/api-keys</span>. Operates via secure HTTPS (Port 443) and bypasses all SMTP socket blocks on Render Free.
               </p>
             </div>
 
@@ -2097,33 +2040,40 @@ export const AdminSettingsView: React.FC = () => {
                 placeholder="SociaraX"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500"
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Name shown in recipient inbox (e.g. "SociaraX"). Falls back to <code className="text-indigo-300">EMAIL_FROM_NAME</code> env.
+              </p>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                From Email Address
+                Sender From Address
               </label>
               <input
                 type="email"
                 value={formData.email_from}
                 onChange={(e) => setFormData({ ...formData, email_from: e.target.value })}
-                placeholder="noreply@sociarax.com"
+                placeholder="onboarding@resend.dev"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Use <code className="text-indigo-300">onboarding@resend.dev</code> for instant testing. Public domains (e.g. <code className="text-amber-300">@gmail.com</code>) cannot be used as senders in Resend and will automatically route via <code className="text-indigo-300">onboarding@resend.dev</code>.
+              </p>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                SSL / TLS Security Mode
-              </label>
-              <select
-                value={formData.smtp_secure}
-                onChange={(e) => setFormData({ ...formData, smtp_secure: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500"
-              >
-                <option value="false">STARTTLS / Auto (Default - Port 587)</option>
-                <option value="true">Direct SSL / TLS (Port 465)</option>
-              </select>
+            <div className="sm:col-span-2 p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/20 text-xs text-amber-200/90 flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-white">Resend Domain Verification Notice:</span> When using the free sandbox address (<code className="text-amber-300">onboarding@resend.dev</code>), Resend only permits sending test emails to your registered account owner address (<code className="text-amber-300">arifahmed87204@gmail.com</code>). To send password resets to other recipients, verify your custom domain at <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">resend.com/domains</a> and set Sender From Address to your domain (e.g. <code className="text-indigo-300">noreply@yourdomain.com</code>).
+              </div>
+            </div>
+
+            <div className="sm:col-span-2 p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-500/20 text-xs text-indigo-300 flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-white">Direct HTTPS Delivery (No Port 587 / No SMTP):</span>{' '}
+                Emails are dispatched via direct HTTPS REST API to <code className="text-indigo-200">api.resend.com:443</code>. All blocked SMTP ports (25, 465, 587) and socket timeouts are completely eliminated.
+              </div>
             </div>
           </div>
 
@@ -2134,7 +2084,7 @@ export const AdminSettingsView: React.FC = () => {
               <span>Test Real Email Delivery Now</span>
             </div>
             <p className="text-xs text-slate-400">
-              Send a real branded SociaraX test email to any inbox to verify that your SMTP server and credentials are authenticated.
+              Send a real branded SociaraX test email to any inbox to verify that your Resend HTTPS delivery is active.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center gap-3">

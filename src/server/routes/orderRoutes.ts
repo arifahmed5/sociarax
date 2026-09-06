@@ -269,12 +269,52 @@ orderRouter.post('/', requireUserAuth, async (req: Request, res: Response): Prom
         }
       } catch (provErr: any) {
         console.error('[PROVIDER COMMUNICATION ERROR]:', provErr);
-        // Mark as provider_pending for admin review without crashing
-        await db.query(`
-          UPDATE orders 
-          SET status = 'pending', provider_error = $1, updated_at = CURRENT_TIMESTAMP
-          WHERE id = $2
-        `, [provErr.message, createdOrder.id]);
+        // Safely auto-refund the deducted charge back to user wallet
+        const refundClient = await db.connect();
+        try {
+          await refundClient.query('BEGIN');
+          const userRefRes = await refundClient.query('SELECT wallet_balance FROM users WHERE id = $1 FOR UPDATE', [user.id]);
+          const balBeforeRefund = parseFloat(userRefRes.rows[0]?.wallet_balance || '0');
+          const balAfterRefund = parseFloat((balBeforeRefund + charge).toFixed(4));
+
+          await refundClient.query('UPDATE users SET wallet_balance = $1 WHERE id = $2', [balAfterRefund, user.id]);
+
+          await refundClient.query(`
+            UPDATE orders 
+            SET status = 'failed', provider_error = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+          `, [provErr.message || 'Provider connection error', createdOrder.id]);
+
+          await refundClient.query(`
+            INSERT INTO wallet_transactions (
+              user_id, type, amount, balance_before, balance_after, currency,
+              reference_type, reference_id, description
+            )
+            VALUES ($1, 'REFUND', $2, $3, $4, 'INR', 'order', $5, $6)
+          `, [
+            user.id,
+            charge,
+            balBeforeRefund,
+            balAfterRefund,
+            String(createdOrder.id),
+            `Auto-refund for Order #${createdOrder.id} (Provider connection failure: ${provErr.message || 'Error'})`
+          ]);
+
+          await refundClient.query('COMMIT');
+        } catch (refErr) {
+          await refundClient.query('ROLLBACK');
+          console.error('[REFUND ON PROVIDER COMM ERROR FAILED]:', refErr);
+        } finally {
+          refundClient.release();
+        }
+
+        res.status(400).json({
+          success: false,
+          error: `Provider communication error (${provErr.message || 'Network error'}). Your wallet has been fully refunded.`,
+          orderId: createdOrder.id,
+          refunded: true
+        });
+        return;
       }
     }
 

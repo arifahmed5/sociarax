@@ -45,10 +45,10 @@ export const AdminReferralsView: React.FC = () => {
 
   const [settings, setSettings] = useState<ReferralAdminSettings>({
     referral_enabled: 'true',
-    referral_bonus_amount: '25.0',
+    referral_bonus_amount: '70.0',
     referral_min_deposit: '100.0',
-    referral_required_count: '1',
-    referral_terms: 'Refer friends to SociaraX. When they make their first verified deposit of ₹100 or more, you both receive an instant wallet reward!'
+    referral_required_count: '10',
+    referral_terms: 'Refer friends to SociaraX. When 10 unique users successfully register using your invite link, you receive an instant ₹70 wallet reward!'
   });
 
   const [metrics, setMetrics] = useState({
@@ -210,7 +210,7 @@ export const AdminReferralsView: React.FC = () => {
         </div>
 
         <form onSubmit={handleSaveSettings} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block mb-2">
                 Program Status
@@ -227,7 +227,7 @@ export const AdminReferralsView: React.FC = () => {
 
             <div>
               <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block mb-2">
-                Bonus Amount Per Referral (₹)
+                Milestone Reward (₹)
               </label>
               <input
                 type="number"
@@ -241,7 +241,21 @@ export const AdminReferralsView: React.FC = () => {
 
             <div>
               <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block mb-2">
-                Min First Deposit Required (₹)
+                Required Referrals Count
+              </label>
+              <input
+                type="number"
+                step="1"
+                min="1"
+                value={settings.referral_required_count}
+                onChange={(e) => setSettings({ ...settings, referral_required_count: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-hidden focus:border-indigo-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block mb-2">
+                Min Deposit Qualifier (₹)
               </label>
               <input
                 type="number"

@@ -10,6 +10,7 @@ import {
   RefreshCw, 
   ShieldCheck, 
   AlertCircle,
+  AlertTriangle,
   X,
   User
 } from 'lucide-react';
@@ -71,8 +72,12 @@ export const AdminPaymentsView: React.FC = () => {
 
     if (res.success) {
       setRejectingItem(null);
-      setActionNotice({ type: 'success', message: 'Payment marked as rejected.' });
-      setTimeout(() => setActionNotice(null), 4000);
+      const isFraudNotice = rejectReason === 'Fraud / Scam';
+      setActionNotice({ 
+        type: 'success', 
+        message: res.message || (isFraudNotice ? 'Payment rejected as Fraud / Scam and user account suspended.' : 'Payment marked as rejected.') 
+      });
+      setTimeout(() => setActionNotice(null), 5000);
     } else {
       setActionNotice({ type: 'error', message: res.error || 'Failed to reject payment' });
     }
@@ -295,22 +300,51 @@ export const AdminPaymentsView: React.FC = () => {
                 <select
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-rose-500"
+                  className={`w-full bg-slate-950 border rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none transition-colors ${
+                    rejectReason === 'Fraud / Scam'
+                      ? 'border-rose-500 ring-1 ring-rose-500/50 text-rose-200'
+                      : 'border-slate-700 focus:border-rose-500'
+                  }`}
                 >
-                  <option value="Invalid or unverified UTR number">Invalid or unverified UTR number</option>
-                  <option value="Payment not received in merchant account">Payment not received in merchant account</option>
-                  <option value="Amount mismatch with bank credit">Amount mismatch with bank credit</option>
-                  <option value="Duplicate submission of previous UTR">Duplicate submission of previous UTR</option>
-                  <option value="Other / Suspected fraudulent entry">Other / Suspected fraudulent entry</option>
+                  <optgroup label="Standard Payment Rejections (Account Remains Active)">
+                    <option value="Invalid or unverified UTR number">Invalid or unverified UTR number</option>
+                    <option value="Payment not received in merchant account">Payment not received in merchant account</option>
+                    <option value="Amount mismatch with bank credit">Amount mismatch with bank credit</option>
+                    <option value="Duplicate submission of previous UTR">Duplicate submission of previous UTR</option>
+                    <option value="Transaction cancelled or reversed by bank">Transaction cancelled or reversed by bank</option>
+                  </optgroup>
+                  <optgroup label="Security & Fraud Enforcement (Suspends User Account)">
+                    <option value="Fraud / Scam">Fraud / Scam</option>
+                  </optgroup>
                 </select>
               </div>
+
+              {rejectReason === 'Fraud / Scam' && (
+                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs space-y-1.5">
+                  <div className="font-bold flex items-center gap-1.5 text-rose-400">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>Fraud / Scam Suspension Action</span>
+                  </div>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    Confirming this action will <strong>permanently reject</strong> this payment, <strong>immediately suspend</strong> user <strong className="text-white">@{rejectingItem.username}</strong> (blocking login, orders, and wallet usage), record an internal audit trail, and dispatch a fraud warning email to their registered email address.
+                  </p>
+                </div>
+              )}
 
               <button
                 type="submit"
                 disabled={isProcessing}
-                className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs sm:text-sm shadow-md transition-colors cursor-pointer disabled:opacity-50"
+                className={`w-full py-3 rounded-xl text-white font-bold text-xs sm:text-sm shadow-md transition-colors cursor-pointer disabled:opacity-50 ${
+                  rejectReason === 'Fraud / Scam'
+                    ? 'bg-rose-700 hover:bg-rose-600 border border-rose-500/50 shadow-rose-900/40'
+                    : 'bg-rose-600 hover:bg-rose-500'
+                }`}
               >
-                {isProcessing ? 'Processing...' : 'Confirm Payment Rejection'}
+                {isProcessing
+                  ? 'Processing Rejection...'
+                  : rejectReason === 'Fraud / Scam'
+                  ? 'Confirm Fraud / Scam Rejection & Suspend Account'
+                  : 'Confirm Payment Rejection'}
               </button>
             </form>
           </div>

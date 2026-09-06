@@ -28,6 +28,7 @@ interface FallbackData {
   support_tickets: Array<any>;
   ticket_messages: Array<any>;
   audit_logs: Array<any>;
+  fraud_rejection_audits: Array<any>;
   notifications: Array<any>;
   password_resets: Array<any>;
 }
@@ -947,6 +948,7 @@ const fallbackStore: FallbackData = {
   support_tickets: [],
   ticket_messages: [],
   audit_logs: [],
+  fraud_rejection_audits: [],
   notifications: [],
   password_resets: []
 };
@@ -960,7 +962,8 @@ let nextIds = {
   api_providers: 2,
   support_tickets: 1,
   ticket_messages: 1,
-  password_resets: 1
+  password_resets: 1,
+  fraud_rejection_audits: 1
 };
 
 // Fallback Query Executor
@@ -1223,6 +1226,9 @@ function executeFallbackQuery(text: string, params: any[] = []): { rows: any[]; 
       target = fallbackStore.admin_security[0];
     }
     if (target) {
+      if (lowerSql.includes('password_hash')) {
+        target.password_hash = params[0];
+      }
       if (lowerSql.includes('totp_enabled = true') || lowerSql.includes('totp_enabled = $')) {
         target.totp_enabled = true;
         if (params[0]) target.totp_secret_encrypted = params[0];
@@ -1290,6 +1296,18 @@ function executeFallbackQuery(text: string, params: any[] = []): { rows: any[]; 
       const u = fallbackStore.users.find(usr => usr.id === uid);
       if (u) {
         u.wallet_balance = newBal;
+        u.updated_at = new Date().toISOString();
+        return { rows: [u], rowCount: 1 };
+      }
+    }
+    if (lowerSql.includes('status = \'suspended\'') || lowerSql.includes('status = $1')) {
+      const uid = parseInt(params[params.length - 1], 10);
+      const u = fallbackStore.users.find(usr => usr.id === uid);
+      if (u) {
+        u.status = lowerSql.includes('status = \'suspended\'') ? 'suspended' : params[0];
+        if (params.length > 2 && typeof params[0] === 'string' && params[0].toLowerCase().includes('fraud')) {
+          u.suspension_reason = params[0];
+        }
         u.updated_at = new Date().toISOString();
         return { rows: [u], rowCount: 1 };
       }
@@ -1497,7 +1515,7 @@ function executeFallbackQuery(text: string, params: any[] = []): { rows: any[]; 
 
   // 8. Support Tickets
   if (lowerSql.includes('from support_tickets')) {
-    const rows = fallbackStore.support_tickets.map(t => {
+    let rows = fallbackStore.support_tickets.map(t => {
       const u = fallbackStore.users.find(usr => usr.id === t.user_id);
       return {
         ...t,
@@ -1506,7 +1524,27 @@ function executeFallbackQuery(text: string, params: any[] = []): { rows: any[]; 
         message_count: fallbackStore.ticket_messages.filter(m => m.ticket_id === t.id).length
       };
     });
+
+    if ((lowerSql.includes('where t.id =') || lowerSql.includes('where id =')) && params && params.length > 0) {
+      const tid = parseInt(String(params[0]), 10);
+      rows = rows.filter(r => r.id === tid);
+    } else if ((lowerSql.includes('where t.user_id =') || lowerSql.includes('where user_id =')) && params && params.length > 0) {
+      const uid = parseInt(String(params[0]), 10);
+      rows = rows.filter(r => r.user_id === uid);
+    }
+
     return { rows, rowCount: rows.length };
+  }
+
+  if (lowerSql.includes('update support_tickets')) {
+    const status = params && params[0] ? String(params[0]) : 'open';
+    const id = params && params[1] ? parseInt(String(params[1]), 10) : 0;
+    const ticket = fallbackStore.support_tickets.find(t => t.id === id);
+    if (ticket) {
+      ticket.status = status;
+      ticket.updated_at = new Date().toISOString();
+    }
+    return { rows: ticket ? [ticket] : [], rowCount: ticket ? 1 : 0 };
   }
 
   if (lowerSql.includes('insert into support_tickets')) {
@@ -1546,7 +1584,41 @@ function executeFallbackQuery(text: string, params: any[] = []): { rows: any[]; 
     return { rows: msgs, rowCount: msgs.length };
   }
 
-  // 9. Transaction statements
+  // 9. Audit Logs & Fraud Rejection Audits
+  if (lowerSql.includes('insert into audit_logs')) {
+    const newLog = {
+      id: fallbackStore.audit_logs.length + 1,
+      actor_type: params[0] || 'admin',
+      actor_id: params[1],
+      action: params[2],
+      target_type: params[3],
+      target_id: params[4],
+      details: params[5],
+      ip_address: params[6] || null,
+      created_at: new Date().toISOString()
+    };
+    fallbackStore.audit_logs.unshift(newLog);
+    return { rows: [newLog], rowCount: 1 };
+  }
+
+  if (lowerSql.includes('insert into fraud_rejection_audits')) {
+    const id = nextIds.fraud_rejection_audits++;
+    const newAudit = {
+      id,
+      user_id: params[0],
+      payment_id: params[1],
+      rejection_reason: params[2] || 'Fraud / Scam',
+      admin_id: params[3],
+      admin_email: params[4],
+      suspension_action: params[5] || 'account_suspended',
+      details: params[6],
+      created_at: new Date().toISOString()
+    };
+    fallbackStore.fraud_rejection_audits.unshift(newAudit);
+    return { rows: [newAudit], rowCount: 1 };
+  }
+
+  // 10. Transaction statements
   if (lowerSql === 'begin' || lowerSql === 'commit' || lowerSql === 'rollback') {
     return { rows: [], rowCount: 0 };
   }
@@ -2166,6 +2238,28 @@ export async function initializeDatabaseSchema(): Promise<void> {
       await client.query(`
         ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS token VARCHAR(255);
         CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
+      `);
+
+      // Ensure suspension & fraud audit support
+      await client.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS suspension_reason TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_by_admin_id INT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS last_reminder_sent_at TIMESTAMP WITH TIME ZONE;
+
+        CREATE TABLE IF NOT EXISTS fraud_rejection_audits (
+          id SERIAL PRIMARY KEY,
+          user_id INT NOT NULL,
+          payment_id INT NOT NULL,
+          rejection_reason VARCHAR(100) NOT NULL DEFAULT 'Fraud / Scam',
+          admin_id INT,
+          admin_email VARCHAR(255),
+          suspension_action VARCHAR(50) NOT NULL DEFAULT 'account_suspended',
+          details JSONB,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_fraud_audits_user_id ON fraud_rejection_audits(user_id);
+        CREATE INDEX IF NOT EXISTS idx_fraud_audits_payment_id ON fraud_rejection_audits(payment_id);
       `);
 
       // Indexes

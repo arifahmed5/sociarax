@@ -46,9 +46,10 @@ referralRouter.get('/stats', requireUserAuth, async (req: Request, res: Response
     }
 
     const referralEnabled = settings.referral_enabled !== 'false';
-    const referralBonusAmount = parseFloat(settings.referral_bonus_amount || '25.0');
+    const referralBonusAmount = parseFloat(settings.referral_bonus_amount || '70.0');
     const referralMinDeposit = parseFloat(settings.referral_min_deposit || '100.0');
-    const referralTerms = settings.referral_terms || 'Refer friends to SociaraX. When they make their first verified deposit of ₹100 or more, you both receive an instant wallet reward!';
+    const referralRequiredCount = parseInt(settings.referral_required_count || '10', 10);
+    const referralTerms = settings.referral_terms || 'Refer friends to SociaraX. When 10 unique users register using your invite link, you receive an instant ₹70 reward credited directly to your wallet!';
 
     // 3. Count total referred users
     const referredUsersRes = await db.query(
@@ -70,7 +71,7 @@ referralRouter.get('/stats', requireUserAuth, async (req: Request, res: Response
         r.status,
         r.created_at
       FROM referral_rewards r
-      JOIN users u ON r.referred_user_id = u.id
+      LEFT JOIN users u ON r.referred_user_id = u.id
       WHERE r.referrer_id = $1
       ORDER BY r.id DESC
     `, [user.id]);
@@ -79,7 +80,7 @@ referralRouter.get('/stats', requireUserAuth, async (req: Request, res: Response
       id: row.id,
       referrerId: row.referrer_id,
       referredUserId: row.referred_user_id,
-      referredUsername: row.referred_username,
+      referredUsername: row.referred_username || 'Referred User',
       referredEmail: row.referred_email ? (row.referred_email.substring(0, 3) + '***@' + row.referred_email.split('@')[1]) : 'User',
       bonusAmount: parseFloat(row.bonus_amount) || 0,
       currency: row.currency || 'INR',
@@ -89,6 +90,8 @@ referralRouter.get('/stats', requireUserAuth, async (req: Request, res: Response
 
     const totalEarned = rewards.reduce((sum, r) => sum + r.bonusAmount, 0);
     const activeReferrals = rewards.length;
+    const progressToNext = referralRequiredCount > 0 ? (totalReferrals % referralRequiredCount) : 0;
+    const referralsUntilNextReward = referralRequiredCount > 0 ? Math.max(0, referralRequiredCount - progressToNext) : 0;
 
     // Generate referral link based on origin or default host
     const origin = req.get('origin') || `${req.protocol}://${req.get('host')}`;
@@ -104,6 +107,8 @@ referralRouter.get('/stats', requireUserAuth, async (req: Request, res: Response
         totalEarned,
         referralBonusAmount,
         referralMinDeposit,
+        referralRequiredCount,
+        referralsUntilNextReward,
         referralTerms,
         referralEnabled,
         rewards
@@ -133,10 +138,10 @@ const getAdminOverviewHandler = async (req: Request, res: Response): Promise<voi
     );
     const settings: Record<string, string> = {
       referral_enabled: 'true',
-      referral_bonus_amount: '25.0',
+      referral_bonus_amount: '70.0',
       referral_min_deposit: '100.0',
-      referral_required_count: '1',
-      referral_terms: 'Refer your friends to SociaraX. When they make their first verified deposit of ₹100 or more, you both receive an instant ₹25 wallet reward!'
+      referral_required_count: '10',
+      referral_terms: 'Refer your friends to SociaraX. When 10 unique users register using your invite link, you receive an instant ₹70 wallet reward!'
     };
     for (const r of settingsRes.rows) {
       settings[r.key] = r.value;

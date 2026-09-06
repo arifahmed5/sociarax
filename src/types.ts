@@ -49,6 +49,8 @@ export interface ReferralStats {
   totalEarned: number;
   referralBonusAmount: number;
   referralMinDeposit: number;
+  referralRequiredCount?: number;
+  referralsUntilNextReward?: number;
   referralTerms: string;
   referralEnabled: boolean;
   rewards: ReferralReward[];
@@ -193,6 +195,7 @@ export interface SupportTicket {
   id: number;
   userId: number;
   username?: string;
+  email?: string;
   subject: string;
   category: string;
   orderId?: number;
@@ -277,6 +280,7 @@ export interface SystemSettings {
   whatsapp_support: string;
   announcement: string;
   app_url?: string;
+  resend_api_key?: string;
   smtp_host?: string;
   smtp_port?: string;
   smtp_user?: string;

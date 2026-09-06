@@ -21,6 +21,7 @@ import { AdminAuthModal } from './components/admin/AdminAuthModal';
 import { AdminDashboardView } from './components/admin/AdminDashboardView';
 import { AdminOrdersView } from './components/admin/AdminOrdersView';
 import { AdminPaymentsView } from './components/admin/AdminPaymentsView';
+import { AdminSupportView } from './components/admin/AdminSupportView';
 import { AdminServicesView } from './components/admin/AdminServicesView';
 import { AdminProvidersView } from './components/admin/AdminProvidersView';
 import { AdminUsersView } from './components/admin/AdminUsersView';
@@ -258,6 +259,10 @@ const MainLayout: React.FC = () => {
 
         {currentTab === 'admin_payments' && (admin || isOwnerOrAdmin) && (
           <AdminPaymentsView />
+        )}
+
+        {currentTab === 'admin_support' && (admin || isOwnerOrAdmin) && (
+          <AdminSupportView />
         )}
 
         {currentTab === 'admin_services' && (admin || isOwnerOrAdmin) && (

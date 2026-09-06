@@ -40,12 +40,13 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   referral_min_deposit: '100.0',
   // Domain & Public URL configuration (editable anytime by admin)
   app_url: 'https://sociarax.onrender.com',
+  resend_api_key: '',
   // Dynamic SMTP Email Service configuration (editable anytime by admin)
   smtp_host: '',
   smtp_port: '587',
   smtp_user: '',
   smtp_password: '',
-  email_from: 'noreply@sociarax.com',
+  email_from: 'onboarding@resend.dev',
   email_from_name: 'SociaraX',
   smtp_secure: 'false',
   // Background Image Configuration
@@ -148,14 +149,15 @@ settingsRouter.post('/', requireAdminAuth, async (req: Request, res: Response): 
  * Dispatch a live test email from Admin Panel using saved or form settings
  */
 settingsRouter.post('/test-email', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
-  const { to, customSettings } = req.body;
-  if (!to || typeof to !== 'string' || !to.includes('@')) {
+  const targetTo = (req.body.to || req.body.recipient || '').trim();
+  const customSettings = req.body.customSettings;
+  if (!targetTo || typeof targetTo !== 'string' || !targetTo.includes('@')) {
     res.status(400).json({ success: false, error: 'A valid recipient email address is required.' });
     return;
   }
 
   try {
-    const result = await sendTestEmail({ to: to.trim(), customSettings });
+    const result = await sendTestEmail({ to: targetTo, customSettings });
     if (result.success) {
       res.json({ success: true, message: result.message || 'Test email successfully sent' });
     } else {

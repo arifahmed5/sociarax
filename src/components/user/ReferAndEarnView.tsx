@@ -150,10 +150,10 @@ export const ReferAndEarnView: React.FC<ReferAndEarnViewProps> = ({ onNavigate, 
               <span>SociaraX Partner Rewards</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Refer Friends & Earn {stats?.referralBonusAmount ? `₹${stats.referralBonusAmount}` : '₹25'} Per Deposit
+              Refer Friends & Earn ₹{stats?.referralBonusAmount || 70} Every {stats?.referralRequiredCount || 10} Signups
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
-              Share your personal invite link. Whenever a referred friend completes their first qualifying deposit of {stats?.referralMinDeposit ? `₹${stats.referralMinDeposit}` : '₹100'} or more, your wallet is automatically credited!
+              {stats?.referralTerms || `Share your personal invite link. When ${stats?.referralRequiredCount || 10} unique friends register on SociaraX, you receive an instant ₹${stats?.referralBonusAmount || 70} reward credited directly to your wallet!`}
             </p>
           </div>
 
@@ -163,7 +163,7 @@ export const ReferAndEarnView: React.FC<ReferAndEarnViewProps> = ({ onNavigate, 
               {formatCurrency(stats?.totalEarned || 0)}
             </div>
             <div className="text-[11px] text-slate-500 mt-1">
-              {stats?.activeReferrals || 0} Successful Rewards
+              {stats?.activeReferrals || 0} Milestones Rewarded
             </div>
           </div>
         </div>
@@ -186,9 +186,9 @@ export const ReferAndEarnView: React.FC<ReferAndEarnViewProps> = ({ onNavigate, 
             <Coins className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-xs text-slate-400">Reward Per Referral</div>
+            <div className="text-xs text-slate-400">Milestone Reward</div>
             <div className="text-xl font-bold text-emerald-400 mt-0.5">
-              ₹{stats?.referralBonusAmount || 25}
+              ₹{stats?.referralBonusAmount || 70} <span className="text-xs font-normal text-slate-400">/ {stats?.referralRequiredCount || 10} users</span>
             </div>
           </div>
         </div>
@@ -198,9 +198,9 @@ export const ReferAndEarnView: React.FC<ReferAndEarnViewProps> = ({ onNavigate, 
             <TrendingUp className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-xs text-slate-400">Min Qualifying Deposit</div>
+            <div className="text-xs text-slate-400">Until Next Reward</div>
             <div className="text-xl font-bold text-purple-300 mt-0.5">
-              ₹{stats?.referralMinDeposit || 100}
+              {stats?.referralsUntilNextReward !== undefined ? stats.referralsUntilNextReward : Math.max(0, (stats?.referralRequiredCount || 10) - ((stats?.totalReferrals || 0) % (stats?.referralRequiredCount || 10)))} <span className="text-xs font-normal text-slate-400">more needed</span>
             </div>
           </div>
         </div>

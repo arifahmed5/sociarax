@@ -33,7 +33,8 @@ import {
   KeyRound,
   X,
   RefreshCw,
-  HelpCircle
+  HelpCircle,
+  Globe
 } from 'lucide-react';
 
 interface AuthGateProps {
@@ -524,7 +525,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
       const checkRes = await checkAccountForOtp(forgotIdentifier.trim());
       if (!checkRes.success) {
         setForgotLoading(false);
-        setForgotError(checkRes.error || 'Account not found. Please verify spelling.');
+        setForgotError(checkRes.error || 'locked 🔓');
         return;
       }
 
@@ -543,7 +544,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
       setForgotStep('verify_otp');
       setResendCooldown(60); // 60s cooldown
     } else {
-      setForgotError(otpRes.error || 'Failed to dispatch OTP code. Please try again.');
+      setForgotError(otpRes.error || 'locked 🔓');
     }
   };
 
@@ -558,10 +559,10 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
     setForgotLoading(false);
 
     if (otpRes.success) {
-      setForgotSuccess('New OTP verification code sent successfully!');
+      setForgotSuccess(otpRes.message || 'New OTP verification code sent successfully!');
       setResendCooldown(60);
     } else {
-      setForgotError(otpRes.error || 'Failed to resend OTP.');
+      setForgotError(otpRes.error || 'locked 🔓');
     }
   };
 
@@ -702,7 +703,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
       </header>
 
       {/* Main Hero & Auth Section */}
-      <main className="w-full max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-10 flex-1 flex flex-col items-center justify-start gap-8 overflow-x-hidden">
+      <main className="relative z-10 w-full max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-10 flex-1 flex flex-col items-center justify-start gap-8 overflow-x-hidden">
         
         {/* SECTION 1: Sign In / Register Account Card (AT THE TOP) */}
         <div className="w-full">
@@ -1028,24 +1029,27 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
         </div>
 
         {/* SECTION 2: SociaraX Introductory Section & Fulfillment Networks (Directly BELOW Sign In to Dashboard) */}
-        <div className="w-full space-y-6">
-          <div className="space-y-3 sm:space-y-4">
+        <div id="auth-intro-section" className="relative z-10 w-full space-y-6 pt-2">
+          {/* Main Welcome Hero Card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 shadow-2xl relative overflow-hidden space-y-4">
+            <div className="absolute -top-24 -right-24 w-52 h-52 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+            
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-semibold max-w-full">
               <Sparkles className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">Automated SMM Infrastructure & Instant API Engine</span>
             </div>
             
-            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
               Welcome to <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">SociaraX</span>.
             </h1>
             
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
-              Non-drop social media growth services, real-time automated order fulfillment, multi-gateway INR payments, and direct owner WhatsApp/Telegram support.
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Non-drop social media growth services, real-time automated order fulfillment, multi-gateway instant INR payments, and high-retention engagement networks.
             </p>
           </div>
 
           {/* Supported Networks Showcase */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3 shadow-xl">
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
               <Zap className="w-4 h-4 text-indigo-400" />
               <span>Active Automated Fulfillment Networks</span>
@@ -1057,8 +1061,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
               <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 font-semibold flex items-center gap-1.5">
                 <Youtube className="w-3.5 h-3.5" /> YouTube Watch Time & Subs
               </span>
-              <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-semibold flex items-center gap-1.5">
-                <Send className="w-3.5 h-3.5" /> Telegram Channel Members
+              <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 font-semibold flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5" /> Facebook Pages & Reels
               </span>
               <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-semibold flex items-center gap-1.5">
                 <Ghost className="w-3.5 h-3.5" /> Snapchat Spotlight & Views
@@ -1072,52 +1076,38 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onOpenAdminAuth }) => {
             </div>
           </div>
 
-          {/* Official Support Team Contacts Card */}
-          <div className="bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-500/30 rounded-2xl p-4 sm:p-5 space-y-3">
+          {/* Platform Performance & Infrastructure Highlights */}
+          <div className="bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-500/30 rounded-2xl p-4 sm:p-5 space-y-3 shadow-xl">
             <div className="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>24/7 Official Support Helpdesk</span>
+              <span>Enterprise Platform Guarantees</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <a
-                href={settings?.telegram_support?.startsWith('http') ? settings.telegram_support : `https://t.me/${(settings?.telegram_support || 'SociaraXSupport').replace('@', '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-sky-500/50 transition-colors group"
-              >
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center text-sky-400 shrink-0">
-                    <Send className="w-4 h-4" />
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 shrink-0">
+                    <Zap className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-slate-400 text-[10px]">Telegram Support</div>
-                    <div className="text-white font-bold group-hover:text-sky-400 transition-colors truncate">
-                      {settings?.telegram_support || '@SociaraXSupport'}
-                    </div>
+                    <div className="text-slate-400 text-[10px]">Automated Pipeline</div>
+                    <div className="text-white font-bold truncate">Instant API Fulfillment</div>
                   </div>
                 </div>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-sky-400 shrink-0 ml-2" />
-              </a>
+                <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 shrink-0">Active</span>
+              </div>
 
-              <a
-                href={settings?.whatsapp_support?.startsWith('http') ? settings.whatsapp_support : `https://wa.me/${(settings?.whatsapp_support || '').replace(/[^0-9]/g, '') || '919876543210'}?text=Hello%20SociaraX%20Support`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-emerald-500/50 transition-colors group"
-              >
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
-                    <MessageCircle className="w-4 h-4" />
+                    <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-slate-400 text-[10px]">WhatsApp Support</div>
-                    <div className="text-white font-bold group-hover:text-emerald-400 transition-colors truncate">
-                      {settings?.whatsapp_support || '@SociaraXDirect'}
-                    </div>
+                    <div className="text-slate-400 text-[10px]">Bank-Grade Security</div>
+                    <div className="text-white font-bold truncate">256-Bit SSL Protection</div>
                   </div>
                 </div>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-emerald-400 shrink-0 ml-2" />
-              </a>
+                <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 shrink-0">Verified</span>
+              </div>
             </div>
           </div>
         </div>

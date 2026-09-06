@@ -16,7 +16,8 @@ import {
   Zap,
   LogOut,
   RefreshCw,
-  Wallet
+  Wallet,
+  LifeBuoy
 } from 'lucide-react';
 
 interface AdminDashboardViewProps {
@@ -25,7 +26,15 @@ interface AdminDashboardViewProps {
 
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNavigateAdmin }) => {
   const { logoutAdmin, adminToken } = useAuth();
-  const { adminMetrics, formatCurrency, adminPendingPayments, syncAdminOrderStatus, adminProviders, loadAdminProviders } = useSociarax();
+  const { 
+    adminMetrics, 
+    formatCurrency, 
+    adminPendingPayments, 
+    adminOpenTicketsCount, 
+    syncAdminOrderStatus, 
+    adminProviders, 
+    loadAdminProviders 
+  } = useSociarax();
 
   const [liveBalanceData, setLiveBalanceData] = useState<{
     totalInr: number;
@@ -191,6 +200,31 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
             className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-colors cursor-pointer shrink-0"
           >
             Review & Approve
+          </button>
+        </div>
+      )}
+
+      {/* Pending Support Tickets Alert */}
+      {adminOpenTicketsCount > 0 && (
+        <div className="bg-rose-950/60 border border-rose-500/40 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-rose-200 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0 animate-pulse">
+              <LifeBuoy className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">
+                {adminOpenTicketsCount} Customer Support Ticket{adminOpenTicketsCount > 1 ? 's' : ''} Awaiting Response
+              </h3>
+              <p className="text-xs text-rose-300/80 mt-0.5">
+                Users have submitted support inquiries, order requests, or questions that need review.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigateAdmin('admin_support')}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-600/30 transition-colors cursor-pointer shrink-0"
+          >
+            Open Support Desk
           </button>
         </div>
       )}

@@ -49,7 +49,10 @@ export const SupportView: React.FC = () => {
   const loadTicketMessages = async (ticket: SupportTicket) => {
     setSelectedTicket(ticket);
     try {
-      const res = await fetch(`/api/tickets/${ticket.id}`);
+      const token = userToken || localStorage.getItem('sociarax_user_token');
+      const res = await fetch(`/api/tickets/${ticket.id}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       const data = await res.json();
       if (data.success) {
         setMessages(data.messages || []);
@@ -305,7 +308,7 @@ export const SupportView: React.FC = () => {
           {/* Messages Thread */}
           <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
             {messages.map(msg => {
-              const isAdmin = msg.senderRole === 'admin';
+              const isAdmin = msg.senderRole === 'admin' || (msg as any).sender_role === 'admin';
               return (
                 <div
                   key={msg.id}

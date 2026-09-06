@@ -345,6 +345,107 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
 
     const newUser = insertRes.rows[0];
 
+    // Referral Milestone Reward Engine: check if this referral completes a reward milestone (e.g. 10 referrals -> ₹70)
+    if (referredById && referredById !== newUser.id) {
+      try {
+        const refSettingsRes = await db.query(
+          "SELECT key, value FROM system_settings WHERE key IN ('referral_enabled', 'referral_bonus_amount', 'referral_required_count')"
+        );
+        const refSettings: Record<string, string> = {};
+        for (const row of refSettingsRes.rows) {
+          refSettings[row.key] = row.value;
+        }
+
+        const isRefEnabled = refSettings.referral_enabled !== 'false';
+        const requiredCount = parseInt(refSettings.referral_required_count || '10', 10);
+        const bonusAmount = parseFloat(refSettings.referral_bonus_amount || '70.0');
+
+        if (isRefEnabled && requiredCount > 0 && bonusAmount > 0) {
+          // Count total unique active users referred by this referrer
+          const countRes = await db.query(
+            "SELECT COUNT(DISTINCT id) as total FROM users WHERE referred_by_id = $1 AND status = 'active'",
+            [referredById]
+          );
+          const totalReferred = parseInt(countRes.rows[0]?.total || '0', 10);
+
+          // Calculate earned milestones (e.g. 10 referrals = 1 milestone, 20 = 2 milestones)
+          const milestonesEarned = Math.floor(totalReferred / requiredCount);
+
+          // Count existing rewards credited to this referrer
+          const awardedRes = await db.query(
+            "SELECT COUNT(id) as awarded FROM referral_rewards WHERE referrer_id = $1",
+            [referredById]
+          );
+          const milestonesAwarded = parseInt(awardedRes.rows[0]?.awarded || '0', 10);
+
+          if (milestonesEarned > milestonesAwarded) {
+            const pendingMilestones = milestonesEarned - milestonesAwarded;
+            for (let m = 0; m < pendingMilestones; m++) {
+              const currentMilestone = milestonesAwarded + m + 1;
+              const rewardClient = await db.connect();
+              try {
+                await rewardClient.query('BEGIN');
+
+                const referrerRow = await rewardClient.query(
+                  'SELECT id, username, wallet_balance FROM users WHERE id = $1 FOR UPDATE',
+                  [referredById]
+                );
+
+                if (referrerRow.rowCount && referrerRow.rowCount > 0) {
+                  const refUser = referrerRow.rows[0];
+                  const balBefore = parseFloat(refUser.wallet_balance);
+                  const balAfter = parseFloat((balBefore + bonusAmount).toFixed(4));
+
+                  // Update referrer's wallet balance
+                  await rewardClient.query(
+                    'UPDATE users SET wallet_balance = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+                    [balAfter, referredById]
+                  );
+
+                  // Insert into referral_rewards audit table
+                  const rewardNote = `Referral Milestone #${currentMilestone}: Reached ${currentMilestone * requiredCount} registered referrals (Latest referred user: @${newUser.username})`;
+                  await rewardClient.query(`
+                    INSERT INTO referral_rewards (
+                      referrer_id, referred_user_id, bonus_amount, currency, status, notes
+                    )
+                    VALUES ($1, $2, $3, 'INR', 'credited', $4)
+                  `, [referredById, newUser.id, bonusAmount, rewardNote]);
+
+                  // Insert into wallet ledger
+                  await rewardClient.query(`
+                    INSERT INTO wallet_transactions (
+                      user_id, type, amount, balance_before, balance_after, currency,
+                      reference_type, reference_id, description
+                    )
+                    VALUES ($1, 'REFERRAL_BONUS', $2, $3, $4, 'INR', 'referral_milestone', $5, $6)
+                  `, [
+                    referredById,
+                    bonusAmount,
+                    balBefore,
+                    balAfter,
+                    `milestone_${referredById}_${currentMilestone}`,
+                    `Referral Bonus: ₹${bonusAmount} credited for successfully referring ${requiredCount} active users!`
+                  ]);
+
+                  await rewardClient.query('COMMIT');
+                  console.log(`[REFERRAL MILESTONE] Successfully awarded ₹${bonusAmount} to referrer #${referredById} (@${refUser.username}) for milestone #${currentMilestone}!`);
+                } else {
+                  await rewardClient.query('ROLLBACK');
+                }
+              } catch (rErr) {
+                await rewardClient.query('ROLLBACK');
+                console.error('[REFERRAL MILESTONE ERROR]:', rErr);
+              } finally {
+                rewardClient.release();
+              }
+            }
+          }
+        }
+      } catch (refCheckErr) {
+        console.error('[REFERRAL CHECK ERROR ON REGISTRATION]:', refCheckErr);
+      }
+    }
+
     // Create session token
     const token = signSessionToken({ userId: newUser.id, role: newUser.role }, 168); // 7 days
 
@@ -567,6 +668,15 @@ authRouter.post('/forgot-password/check-account', async (req: Request, res: Resp
   }
 
   const cleanIdentifier = String(identifier).trim().toLowerCase();
+  const isOwner = cleanIdentifier === 'arifahmed56' || cleanIdentifier === 'arifahmed87204@gmail.com';
+  if (!isOwner) {
+    res.status(400).json({
+      success: false,
+      error: 'locked 🔓'
+    });
+    return;
+  }
+
   const db = getDbPool();
   if (!db) {
     res.status(503).json({ success: false, error: 'Database service unavailable.' });
@@ -591,6 +701,15 @@ authRouter.post('/forgot-password/check-account', async (req: Request, res: Resp
     const user = userRes.rows[0];
     if (user.status === 'suspended') {
       res.status(403).json({ success: false, error: 'This account is suspended. Please contact support.' });
+      return;
+    }
+
+    const isOwner = cleanIdentifier === 'arifahmed56' || user.email?.toLowerCase() === 'arifahmed87204@gmail.com';
+    if (!isOwner) {
+      res.status(400).json({
+        success: false,
+        error: 'locked 🔓'
+      });
       return;
     }
 
@@ -637,6 +756,14 @@ authRouter.post('/forgot-password/request', async (req: Request, res: Response):
   }
 
   const cleanIdentifier = String(rawId).trim().toLowerCase();
+  const isOwner = cleanIdentifier === 'arifahmed56' || cleanIdentifier === 'arifahmed87204@gmail.com';
+  if (!isOwner) {
+    res.status(400).json({
+      success: false,
+      error: 'locked 🔓'
+    });
+    return;
+  }
   const db = getDbPool();
   if (!db) {
     res.status(503).json({ success: false, error: 'Database service unavailable.' });
@@ -655,6 +782,14 @@ authRouter.post('/forgot-password/request', async (req: Request, res: Response):
 
     if (userRes.rowCount > 0) {
       const user = userRes.rows[0];
+      const isOwner = cleanIdentifier === 'arifahmed56' || user.email?.toLowerCase() === 'arifahmed87204@gmail.com';
+      if (!isOwner) {
+        res.status(400).json({
+          success: false,
+          error: 'locked 🔓'
+        });
+        return;
+      }
 
       if (user.status !== 'suspended' && user.email) {
         // Generate secure 64-character token and 6-digit OTP
@@ -763,6 +898,14 @@ authRouter.post('/forgot-password/request-otp', async (req: Request, res: Respon
   }
 
   const cleanIdentifier = String(identifier).trim().toLowerCase();
+  const isOwner = cleanIdentifier === 'arifahmed56' || cleanIdentifier === 'arifahmed87204@gmail.com';
+  if (!isOwner) {
+    res.status(400).json({
+      success: false,
+      error: 'locked 🔓'
+    });
+    return;
+  }
   const selectedChannel: 'email' | 'phone' = channel === 'phone' ? 'phone' : 'email';
 
   const db = getDbPool();
@@ -789,6 +932,15 @@ authRouter.post('/forgot-password/request-otp', async (req: Request, res: Respon
       return;
     }
 
+    const isOwner = cleanIdentifier === 'arifahmed56' || user.email?.toLowerCase() === 'arifahmed87204@gmail.com';
+    if (!isOwner) {
+      res.status(400).json({
+        success: false,
+        error: 'locked 🔓'
+      });
+      return;
+    }
+
     let destination = user.email;
     if (selectedChannel === 'phone') {
       if (!user.phone) {
@@ -796,6 +948,11 @@ authRouter.post('/forgot-password/request-otp', async (req: Request, res: Respon
         return;
       }
       destination = user.phone;
+    } else {
+      if (!user.email || !user.email.includes('@')) {
+        res.status(400).json({ success: false, error: 'No valid registered email address found on this account.' });
+        return;
+      }
     }
 
     // Generate cryptographically random token and 6-digit OTP
@@ -818,9 +975,9 @@ authRouter.post('/forgot-password/request-otp', async (req: Request, res: Respon
 
     const masked = maskDestination(destination, selectedChannel);
 
-    // If channel is email, send professional branded email matching SociaraX
-    if (selectedChannel === 'email' && user.email) {
-      await sendPasswordResetEmail({
+    // If channel is email, send professional branded email matching SociaraX strictly to user's registered email
+    if (selectedChannel === 'email') {
+      const emailResult = await sendPasswordResetEmail({
         to: user.email,
         username: user.username,
         resetToken,
@@ -828,18 +985,35 @@ authRouter.post('/forgot-password/request-otp', async (req: Request, res: Respon
         req,
         expiresInMinutes: 15
       });
+
+      if (!emailResult.success) {
+        res.status(400).json({
+          success: false,
+          error: emailResult.error || 'Failed to dispatch password reset email via Resend.'
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: `A password reset email with verification link and 6-digit code has been sent to your registered Email (${masked}).`,
+        channel: 'email',
+        maskedDestination: masked,
+        expiresInSeconds: 900
+      });
+      return;
     }
 
     res.json({
       success: true,
-      message: `A password reset email with verification link and 6-digit code has been sent to your ${selectedChannel === 'phone' ? 'WhatsApp/Phone' : 'Email'} (${masked}).`,
+      message: `A password reset code has been sent to your WhatsApp/Phone (${masked}).`,
       channel: selectedChannel,
       maskedDestination: masked,
       expiresInSeconds: 900
     });
   } catch (err: any) {
     console.error('[REQUEST OTP ERROR]:', err.message || err);
-    res.status(500).json({ success: false, error: 'Failed to generate OTP verification code.' });
+    res.status(400).json({ success: false, error: err.message || 'Failed to generate OTP verification code.' });
   }
 });
 

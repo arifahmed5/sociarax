@@ -112,8 +112,7 @@ export async function generateTotpQrCode(
 
 /**
  * AES-256-GCM Encryption for sensitive secrets at rest (e.g. TOTP secrets, Provider API keys).
- * Dynamically resolves encryption secrets from server environment variables and supports
- * multi-key candidate fallback decryption (e.g. TOTP_ENCRYPTION_KEY, SESSION_SECRET, LEGACY_ENCRYPTION_KEY).
+ * Dynamically resolves encryption secrets from server environment variables (TOTP_ENCRYPTION_KEY, SESSION_SECRET).
  * This ensures that existing encrypted database secrets remain decryptable even if keys differ across environments.
  */
 
@@ -158,17 +157,13 @@ export function decryptSecret(encryptedPayload: string): string {
   }
 
   // Prioritized candidate keys loaded strictly from server-side environment variables:
-  // 1. TOTP_ENCRYPTION_KEY
-  // 2. SESSION_SECRET
-  // 3. LEGACY_ENCRYPTION_KEY (for databases initialized with earlier master keys)
-  // 4. Other server-side key aliases
+  // 1. TOTP_ENCRYPTION_KEY (primary encryption key for database secrets)
+  // 2. SESSION_SECRET (session fallback)
   const candidates = [
     process.env.TOTP_ENCRYPTION_KEY?.trim(),
     process.env.SESSION_SECRET?.trim(),
-    process.env.LEGACY_ENCRYPTION_KEY?.trim(),
     process.env.DATA_ENCRYPTION_KEY?.trim(),
     process.env.ENCRYPTION_KEY?.trim(),
-    process.env.OLD_ENCRYPTION_KEY?.trim(),
     'sociarax_default_master_encryption_key_2026',
     'sociarax_totp_encryption_secret_key',
     'sociarax_super_secret_session_key_min_32_chars',

@@ -12,7 +12,8 @@ import {
   PlatformMetric, 
   DailyTrendMetric, 
   SystemSettings,
-  WebsiteMaintenanceConfig
+  WebsiteMaintenanceConfig,
+  SupportTicket
 } from '../types';
 import { useAuth } from './AuthContext';
 
@@ -83,7 +84,7 @@ interface SociaraxContextType {
   loadAdminPendingPayments: () => Promise<void>;
   loadAdminPaymentHistory: () => Promise<void>;
   approvePayment: (paymentId: number) => Promise<{ success: boolean; message?: string; error?: string }>;
-  rejectPayment: (paymentId: number, reason: string) => Promise<{ success: boolean; error?: string }>;
+  rejectPayment: (paymentId: number, reason: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   adjustUserWallet: (userId: number, amount: number, reason: string) => Promise<{ success: boolean; message?: string; error?: string }>;
 
   // Providers
@@ -103,6 +104,14 @@ interface SociaraxContextType {
   platformBreakdown: PlatformMetric[];
   dailyTrend: DailyTrendMetric[];
   loadAdminReports: () => Promise<void>;
+
+  // Support Tickets (Admin)
+  adminTickets: SupportTicket[];
+  adminOpenTicketsCount: number;
+  isAdminTicketsLoading: boolean;
+  loadAdminTickets: () => Promise<void>;
+  adminReplyTicket: (ticketId: number, message: string) => Promise<{ success: boolean; status?: string; error?: string }>;
+  updateAdminTicketStatus: (ticketId: number, status: string) => Promise<{ success: boolean; status?: string; error?: string }>;
 
   // Settings
   settings: SystemSettings;
@@ -141,6 +150,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [platformBreakdown, setPlatformBreakdown] = useState<PlatformMetric[]>([]);
   const [dailyTrend, setDailyTrend] = useState<DailyTrendMetric[]>([]);
   const [maintenanceConfig, setMaintenanceConfig] = useState<WebsiteMaintenanceConfig>(DEFAULT_MAINTENANCE_CONFIG);
+
+  // Admin Support Tickets State
+  const [adminTickets, setAdminTickets] = useState<SupportTicket[]>([]);
+  const [isAdminTicketsLoading, setIsAdminTicketsLoading] = useState<boolean>(false);
+  const adminOpenTicketsCount = adminTickets.filter(t => t.status === 'open').length;
 
   const [settings, setSettings] = useState<SystemSettings>({
     site_name: 'SociaraX',
@@ -562,7 +576,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (data && data.success) {
         await loadAdminPendingPayments();
         await loadAdminPaymentHistory();
-        return { success: true };
+        return { success: true, message: data.message };
       }
       return { success: false, error: data?.error || 'Rejection failed' };
     } catch (err: any) {
@@ -741,7 +755,71 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setMaintenanceConfig(newConfig);
   }, []);
 
-  // 10. Settings
+  // 10. Admin Support Tickets
+  const loadAdminTickets = useCallback(async () => {
+    const token = adminToken || localStorage.getItem('sociarax_admin_token') || localStorage.getItem('sociarax_user_token');
+    if (!token) return;
+    setIsAdminTicketsLoading(true);
+    try {
+      const data = await safeFetchJson('/api/tickets', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (data && data.success && Array.isArray(data.tickets)) {
+        setAdminTickets(data.tickets);
+      }
+    } catch (err) {
+      console.error('[LOAD ADMIN TICKETS ERROR]:', err);
+    } finally {
+      setIsAdminTicketsLoading(false);
+    }
+  }, [adminToken]);
+
+  const adminReplyTicket = async (ticketId: number, message: string) => {
+    try {
+      const token = adminToken || localStorage.getItem('sociarax_admin_token') || localStorage.getItem('sociarax_user_token');
+      const data = await safeFetchJson(`/api/tickets/${ticketId}/reply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          message,
+          senderRole: 'admin'
+        })
+      });
+      if (data && data.success) {
+        await loadAdminTickets();
+        return { success: true, status: data.status };
+      }
+      return { success: false, error: data?.error || 'Failed to submit reply' };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  const updateAdminTicketStatus = async (ticketId: number, status: string) => {
+    try {
+      const token = adminToken || localStorage.getItem('sociarax_admin_token') || localStorage.getItem('sociarax_user_token');
+      const data = await safeFetchJson(`/api/tickets/${ticketId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      });
+      if (data && data.success) {
+        await loadAdminTickets();
+        return { success: true, status };
+      }
+      return { success: false, error: data?.error || 'Failed to update status' };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  // 11. Settings
   const loadSettings = useCallback(async () => {
     try {
       const data = await safeFetchJson('/api/settings');
@@ -797,8 +875,15 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       loadAdminProviders();
       loadAdminUsers();
       loadAdminReports();
+      loadAdminTickets();
+
+      // Poll support tickets every 30s so admin instantly sees new user messages
+      const ticketInterval = setInterval(() => {
+        loadAdminTickets();
+      }, 30000);
+      return () => clearInterval(ticketInterval);
     }
-  }, [adminToken, loadAdminServices, loadAdminOrders, loadAdminPendingPayments, loadAdminPaymentHistory, loadAdminProviders, loadAdminUsers, loadAdminReports]);
+  }, [adminToken, loadAdminServices, loadAdminOrders, loadAdminPendingPayments, loadAdminPaymentHistory, loadAdminProviders, loadAdminUsers, loadAdminReports, loadAdminTickets]);
 
   return (
     <SociaraxContext.Provider
@@ -852,6 +937,14 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         platformBreakdown,
         dailyTrend,
         loadAdminReports,
+
+        // Support Tickets
+        adminTickets,
+        adminOpenTicketsCount,
+        isAdminTicketsLoading,
+        loadAdminTickets,
+        adminReplyTicket,
+        updateAdminTicketStatus,
 
         maintenanceConfig,
         refreshMaintenanceConfig,

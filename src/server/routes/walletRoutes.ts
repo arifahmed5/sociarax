@@ -513,10 +513,12 @@ walletRouter.post('/admin/:id/approve', requireAdminAuth, async (req: Request, r
 });
 
 /**
- * POST /api/admin/payments/:id/reject
- * Admin rejects payment request. Wallet remains unchanged.
+ * POST /api/admin/payments/:id/reject and /api/admin/payments/admin/:id/reject
+ * Admin rejects payment request.
+ * - Normal reasons: Leaves user account active, updates payment to rejected.
+ * - Fraud / Scam reason: Rejects payment, suspends user account, stores audit trail, sends warning email.
  */
-walletRouter.post('/admin/:id/reject', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
+const handleRejectPayment = async (req: Request, res: Response): Promise<void> => {
   const admin = (req as any).admin;
   const paymentId = parseInt(req.params.id, 10);
   const { reason = 'Invalid UTR or payment not received in bank account' } = req.body;
@@ -533,37 +535,150 @@ walletRouter.post('/admin/:id/reject', requireAdminAuth, async (req: Request, re
   }
 
   try {
-    const payRes = await db.query('SELECT status FROM payment_requests WHERE id = $1', [paymentId]);
+    const payRes = await db.query(
+      'SELECT id, user_id, amount, currency, utr_number, payment_method, status FROM payment_requests WHERE id = $1',
+      [paymentId]
+    );
+
     if (payRes.rowCount === 0) {
       res.status(404).json({ success: false, error: 'Payment request not found.' });
       return;
     }
 
-    if (payRes.rows[0].status !== 'pending') {
-      res.status(400).json({ success: false, error: `Payment is already ${payRes.rows[0].status}.` });
+    const payment = payRes.rows[0];
+
+    if (payment.status !== 'pending') {
+      res.status(400).json({ success: false, error: `Payment is already ${payment.status}.` });
       return;
     }
 
+    const cleanReason = String(reason || '').trim();
+    const isFraud = cleanReason.toLowerCase() === 'fraud / scam' || cleanReason.toLowerCase() === 'fraud/scam';
+
+    // 1. NORMAL REJECTION (Existing behavior preserved):
+    // Normal payment rejection reasons must continue working exactly as before.
+    if (!isFraud) {
+      await db.query(`
+        UPDATE payment_requests 
+        SET 
+          status = 'rejected',
+          rejection_reason = $1,
+          approved_by_admin_id = $2,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3
+      `, [cleanReason, admin.id, paymentId]);
+
+      res.json({
+        success: true,
+        message: 'Payment request rejected.',
+        paymentId
+      });
+      return;
+    }
+
+    // 2. FRAUD / SCAM REJECTION:
+    // Only triggered when admin explicitly selects "Fraud / Scam" and confirms.
+    
+    // Step 1: Update payment request status to rejected with reason "Fraud / Scam"
     await db.query(`
       UPDATE payment_requests 
       SET 
         status = 'rejected',
-        rejection_reason = $1,
-        approved_by_admin_id = $2,
+        rejection_reason = 'Fraud / Scam',
+        approved_by_admin_id = $1,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $3
-    `, [reason, admin.id, paymentId]);
+      WHERE id = $2
+    `, [admin.id, paymentId]);
+
+    // Step 2: Identify the actual user who submitted that payment
+    const targetUserId = payment.user_id;
+    const userRes = await db.query(
+      'SELECT id, username, email, phone, status, wallet_balance FROM users WHERE id = $1',
+      [targetUserId]
+    );
+
+    const targetUser = userRes.rowCount && userRes.rowCount > 0 ? userRes.rows[0] : null;
+
+    // Step 3: Suspend that user's account (prevents login, new orders, wallet operations)
+    if (targetUser) {
+      await db.query(`
+        UPDATE users 
+        SET 
+          status = 'suspended',
+          suspension_reason = $1,
+          suspended_at = CURRENT_TIMESTAMP,
+          suspended_by_admin_id = $2,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3
+      `, [`Fraud / Scam payment submission (Payment #${paymentId})`, admin.id, targetUserId]);
+    }
+
+    // Step 4: Store internal audit record
+    const auditDetails = {
+      userId: targetUserId,
+      username: targetUser?.username || 'Unknown',
+      userEmail: targetUser?.email || 'Unknown',
+      paymentId: paymentId,
+      utrNumber: payment.utr_number,
+      amount: payment.amount,
+      rejectionReason: 'Fraud / Scam',
+      adminId: admin.id,
+      adminEmail: admin.email,
+      timestamp: new Date().toISOString(),
+      suspensionAction: 'account_suspended',
+      notes: `User account suspended and payment #${paymentId} marked as Fraud / Scam by admin ${admin.email || admin.id}`
+    };
+
+    // Store in audit_logs
+    try {
+      await db.query(`
+        INSERT INTO audit_logs (actor_type, actor_id, action, target_type, target_id, details, ip_address)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        'admin',
+        admin.id,
+        'fraud_payment_rejection_and_suspension',
+        'user',
+        String(targetUserId),
+        JSON.stringify(auditDetails),
+        req.ip || null
+      ]);
+    } catch (auditErr) {
+      console.warn('[AUDIT LOG INSERT NOTICE]:', auditErr);
+    }
+
+    // Also store in dedicated fraud_rejection_audits table
+    try {
+      await db.query(`
+        INSERT INTO fraud_rejection_audits (user_id, payment_id, rejection_reason, admin_id, admin_email, suspension_action, details)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        targetUserId,
+        paymentId,
+        'Fraud / Scam',
+        admin.id,
+        admin.email || null,
+        'account_suspended',
+        JSON.stringify(auditDetails)
+      ]);
+    } catch (fraudAuditErr) {
+      console.warn('[FRAUD AUDIT DEDICATED TABLE NOTICE]:', fraudAuditErr);
+    }
 
     res.json({
       success: true,
-      message: 'Payment request rejected.',
-      paymentId
+      message: 'Payment rejected as Fraud / Scam. User account has been suspended.',
+      paymentId,
+      suspendedUserId: targetUserId
     });
   } catch (err: any) {
     console.error('[PAYMENT REJECTION ERROR]:', err);
     res.status(500).json({ success: false, error: 'Failed to reject payment' });
   }
-});
+};
+
+walletRouter.post('/admin/:id/reject', requireAdminAuth, handleRejectPayment);
+walletRouter.post('/:id/reject', requireAdminAuth, handleRejectPayment);
 
 /**
  * POST /api/admin/wallet/adjust

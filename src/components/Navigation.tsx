@@ -49,7 +49,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   onOpenAdminAuth
 }) => {
   const { user, admin, logoutUser, logoutAdmin } = useAuth();
-  const { formatCurrency, adminPendingPayments, settings, maintenanceConfig } = useSociarax();
+  const { formatCurrency, adminPendingPayments, adminOpenTicketsCount, settings, maintenanceConfig } = useSociarax();
 
   const theme = getTheme(maintenanceConfig);
   const buttonRadius = getButtonRadius(maintenanceConfig);
@@ -79,6 +79,12 @@ export const Navigation: React.FC<NavigationProps> = ({
       label: 'Payments', 
       icon: CreditCard, 
       badge: adminPendingPayments.length > 0 ? adminPendingPayments.length : undefined 
+    },
+    { 
+      id: 'admin_support', 
+      label: 'Support Desk', 
+      icon: LifeBuoy, 
+      badge: adminOpenTicketsCount > 0 ? adminOpenTicketsCount : undefined 
     },
     { id: 'admin_services', label: 'Pricing & Catalog', icon: Sparkles },
     { id: 'admin_providers', label: 'API Providers', icon: Server },
