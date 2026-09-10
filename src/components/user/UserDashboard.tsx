@@ -121,7 +121,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpen
               )}
             </div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
-              {user ? `Welcome back, ${user.username}!` : (maintenanceConfig.heroHeadline || 'Power Your Social Media Growth')}
+              {user ? (
+                user.isNewRegistration
+                  ? `Welcome to SociaraX, ${user.username}!`
+                  : `Welcome back, ${user.username}!`
+              ) : (maintenanceConfig.heroHeadline || 'Power Your Social Media Growth')}
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
               {maintenanceConfig.heroSubtitle || 'High-speed, high-retention social media marketing services with real-time server delivery and 100% transparent pricing.'}

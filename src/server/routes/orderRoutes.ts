@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getDbPool } from '../db';
 import { requireUserAuth, requireAdminAuth } from '../auth';
 import { providerRegistry } from '../providers/providerRegistry';
+import { isCustomCommentsService } from '../../types';
 
 export const orderRouter = Router();
 
@@ -17,15 +18,23 @@ export const orderRouter = Router();
  */
 orderRouter.post('/', requireUserAuth, async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
-  const { serviceId, link, quantity, idempotencyKey } = req.body;
+  const { serviceId, link, quantity, comments, idempotencyKey } = req.body;
 
-  if (!serviceId || !link || !quantity) {
+  let effectiveQty = quantity;
+  if ((effectiveQty === undefined || effectiveQty === null || effectiveQty === '') && typeof comments === 'string') {
+    const derivedLines = comments.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    if (derivedLines.length > 0) {
+      effectiveQty = derivedLines.length;
+    }
+  }
+
+  if (!serviceId || !link || !effectiveQty) {
     res.status(400).json({ success: false, error: 'Service ID, link/URL, and quantity are required.' });
     return;
   }
 
   const cleanLink = String(link).trim();
-  const cleanQty = parseInt(String(quantity), 10);
+  const cleanQty = parseInt(String(effectiveQty), 10);
   const cleanServiceId = parseInt(String(serviceId), 10);
 
   if (isNaN(cleanQty) || cleanQty <= 0) {
@@ -54,6 +63,8 @@ orderRouter.post('/', requireUserAuth, async (req: Request, res: Response): Prom
         s.id, 
         s.name, 
         s.platform, 
+        s.description,
+        s.type,
         s.min_quantity, 
         s.max_quantity, 
         s.rate_per_1000, 
@@ -73,17 +84,80 @@ orderRouter.post('/', requireUserAuth, async (req: Request, res: Response): Prom
 
     const service = serviceRes.rows[0];
 
-    // 2. Validate quantity limits
-    if (cleanQty < service.min_quantity) {
-      await client.query('ROLLBACK');
-      res.status(400).json({ success: false, error: `Minimum quantity for this service is ${service.min_quantity}.` });
-      return;
-    }
+    // 2. Validate quantity limits & Custom Comments requirements
+    const isCustomComments = isCustomCommentsService(service);
+    let normalizedComments: string | undefined = undefined;
 
-    if (cleanQty > service.max_quantity) {
-      await client.query('ROLLBACK');
-      res.status(400).json({ success: false, error: `Maximum quantity for this service is ${service.max_quantity}.` });
-      return;
+    if (isCustomComments) {
+      if (!comments || typeof comments !== 'string' || !comments.trim()) {
+        await client.query('ROLLBACK');
+        res.status(400).json({
+          success: false,
+          error: 'Comments are required for this service. Please enter one comment per line.'
+        });
+        return;
+      }
+
+      const commentLines = comments
+        .split('\n')
+        .map((line: string) => line.trim())
+        .filter((line: string) => line.length > 0);
+
+      if (commentLines.length === 0) {
+        await client.query('ROLLBACK');
+        res.status(400).json({
+          success: false,
+          error: 'Comments are required for this service. Please enter at least one non-empty comment.'
+        });
+        return;
+      }
+
+      if (cleanQty !== commentLines.length) {
+        await client.query('ROLLBACK');
+        res.status(400).json({
+          success: false,
+          error: `Order quantity (${cleanQty}) does not match the number of comments provided (${commentLines.length}).`
+        });
+        return;
+      }
+
+      const minQty = Number(service.min_quantity);
+      const maxQty = Number(service.max_quantity);
+
+      if (commentLines.length < minQty) {
+        await client.query('ROLLBACK');
+        res.status(400).json({
+          success: false,
+          error: `Minimum quantity for this service is ${minQty.toLocaleString()}. You entered ${commentLines.length} comment(s).`
+        });
+        return;
+      }
+
+      if (commentLines.length > maxQty) {
+        await client.query('ROLLBACK');
+        res.status(400).json({
+          success: false,
+          error: `Maximum quantity for this service is ${maxQty.toLocaleString()}. You entered ${commentLines.length} comment(s).`
+        });
+        return;
+      }
+
+      normalizedComments = commentLines.join('\r\n');
+    } else {
+      const minQty = Number(service.min_quantity);
+      const maxQty = Number(service.max_quantity);
+
+      if (cleanQty < minQty) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ success: false, error: `Minimum quantity for this service is ${minQty.toLocaleString()}.` });
+        return;
+      }
+
+      if (cleanQty > maxQty) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ success: false, error: `Maximum quantity for this service is ${maxQty.toLocaleString()}.` });
+        return;
+      }
     }
 
     // 3. Server-side price calculation with precise USD and INR conversion & Loss Prevention
@@ -194,14 +268,20 @@ orderRouter.post('/', requireUserAuth, async (req: Request, res: Response): Prom
       try {
         const providerInfo = await providerRegistry.getActiveProvider(service.provider_id);
         if (providerInfo && providerInfo.apiKey) {
+          const providerOrderParams: any = {
+            service: service.provider_service_id,
+            link: cleanLink,
+            quantity: cleanQty
+          };
+
+          if (isCustomComments && normalizedComments) {
+            providerOrderParams.comments = normalizedComments;
+          }
+
           const providerResult = await providerInfo.adapter.createOrder(
             providerInfo.apiUrl,
             providerInfo.apiKey,
-            {
-              service: service.provider_service_id,
-              link: cleanLink,
-              quantity: cleanQty
-            }
+            providerOrderParams
           );
 
           if (providerResult.success && providerResult.orderId) {

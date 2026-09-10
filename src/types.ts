@@ -27,6 +27,7 @@ export interface UserProfile {
   referralCode?: string;
   referredById?: number | null;
   created_at?: string;
+  isNewRegistration?: boolean;
 }
 
 export interface ReferralReward {
@@ -84,6 +85,40 @@ export interface SociaraxService {
   cancel: boolean;
   dripfeed?: boolean;
   averageTime: string;
+}
+
+/**
+ * Helper to dynamically detect if an SMM service is a Custom Comments service
+ * based on provider metadata (type, name, description).
+ */
+export function isCustomCommentsService(service?: { type?: string; name?: string; description?: string } | null): boolean {
+  if (!service) return false;
+  const rawType = (service.type || '').trim().toLowerCase();
+  if (
+    rawType === 'custom comments' ||
+    rawType === 'custom comments package' ||
+    rawType.includes('custom comment') ||
+    rawType.includes('custom_comment')
+  ) {
+    return true;
+  }
+  const name = (service.name || '').toLowerCase();
+  if (
+    name.includes('custom comments') ||
+    name.includes('custom comment') ||
+    (name.includes('comments') && name.includes('custom'))
+  ) {
+    return true;
+  }
+  const desc = (service.description || '').toLowerCase();
+  if (
+    desc.includes('comments (1 per line)') ||
+    desc.includes('1 comment per line') ||
+    desc.includes('one comment per line')
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export interface AdminService extends SociaraxService {

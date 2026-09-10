@@ -126,7 +126,7 @@ export async function requireUserAuth(req: Request, res: Response, next: NextFun
     return;
   }
 
-  const payload = verifySessionToken<{ userId: number; role: string }>(token);
+  const payload = verifySessionToken<{ userId: number; role: string; isNewRegistration?: boolean }>(token);
   if (!payload || !payload.userId) {
     res.status(401).json({ success: false, error: 'Session expired or invalid. Please log in again.' });
     return;
@@ -158,7 +158,8 @@ export async function requireUserAuth(req: Request, res: Response, next: NextFun
       role: (row.role === 'admin' || row.email?.toLowerCase() === 'arifahmed87204@gmail.com' || row.username?.toLowerCase() === 'arifahmed56') ? 'admin' : row.role,
       walletBalance: parseFloat(row.wallet_balance) || 0,
       status: row.status,
-      created_at: row.created_at
+      created_at: row.created_at,
+      isNewRegistration: Boolean(payload.isNewRegistration)
     };
     next();
   } catch (err: any) {

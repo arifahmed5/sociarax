@@ -16,7 +16,7 @@ import {
   ShieldCheck,
   RotateCcw
 } from 'lucide-react';
-import { ReorderParams, ReorderData } from '../../types';
+import { ReorderParams, ReorderData, isCustomCommentsService } from '../../types';
 
 interface NewOrderViewProps {
   onNavigate: (tab: string) => void;
@@ -43,6 +43,7 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
   
   const [link, setLink] = useState('');
   const [quantity, setQuantity] = useState<number | ''>('');
+  const [customComments, setCustomComments] = useState('');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -189,6 +190,57 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
     return services.find(s => s.id === Number(selectedServiceId)) || null;
   }, [services, selectedServiceId]);
 
+  // Dynamic Custom Comments Detection (using LuvSMM provider metadata & service attributes)
+  const isCustomComments = useMemo(() => {
+    return isCustomCommentsService(selectedService);
+  }, [selectedService]);
+
+  const handleCommentsChange = (text: string) => {
+    setCustomComments(text);
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    setQuantity(lines.length > 0 ? lines.length : '');
+    if (errorMessage && (errorMessage.includes('quantity') || errorMessage.includes('comment') || errorMessage.includes('Minimum') || errorMessage.includes('Maximum'))) {
+      setErrorMessage('');
+    }
+  };
+
+  useEffect(() => {
+    if (isCustomComments) {
+      const lines = customComments.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      setQuantity(lines.length > 0 ? lines.length : '');
+    }
+  }, [isCustomComments, selectedServiceId]);
+
+  // Real-time Custom Comments minimum/maximum validation against actual service metadata
+  const commentsValidation = useMemo(() => {
+    if (!isCustomComments || !selectedService) return null;
+    const count = typeof quantity === 'number' ? quantity : 0;
+    if (count === 0 && !customComments.trim()) {
+      return null;
+    }
+    const min = selectedService.min;
+    const max = selectedService.max;
+    if (count < min) {
+      return {
+        isValid: false,
+        error: `Minimum quantity for this service is ${min.toLocaleString()}. You have entered ${count} comment(s).`,
+        type: 'below_min' as const
+      };
+    }
+    if (count > max) {
+      return {
+        isValid: false,
+        error: `Maximum quantity for this service is ${max.toLocaleString()}. You have entered ${count} comment(s).`,
+        type: 'above_max' as const
+      };
+    }
+    return {
+      isValid: true,
+      error: null,
+      type: 'valid' as const
+    };
+  }, [isCustomComments, selectedService, quantity, customComments]);
+
   // Live Price / Charge Calculation
   const calculatedCharge = useMemo(() => {
     if (!selectedService || !quantity || Number(quantity) <= 0) return 0;
@@ -212,6 +264,10 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
     }
 
     if (!selectedServiceId || !link || !quantity) {
+      if (isCustomComments && (!customComments || !customComments.trim())) {
+        setErrorMessage('Please enter your custom comments (one comment per line).');
+        return;
+      }
       setErrorMessage('Please fill in all order fields.');
       return;
     }
@@ -219,14 +275,29 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
     const qty = Number(quantity);
     if (!selectedService) return;
 
-    if (qty < selectedService.min) {
-      setErrorMessage(`Minimum quantity for this service is ${selectedService.min.toLocaleString()}.`);
-      return;
-    }
-
-    if (qty > selectedService.max) {
-      setErrorMessage(`Maximum quantity for this service is ${selectedService.max.toLocaleString()}.`);
-      return;
+    if (isCustomComments) {
+      const commentLines = customComments.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      if (commentLines.length === 0) {
+        setErrorMessage('Please enter your custom comments (one comment per line).');
+        return;
+      }
+      if (commentLines.length < selectedService.min) {
+        setErrorMessage(`Minimum quantity for this service is ${selectedService.min.toLocaleString()}. You have entered ${commentLines.length} comment(s).`);
+        return;
+      }
+      if (commentLines.length > selectedService.max) {
+        setErrorMessage(`Maximum quantity for this service is ${selectedService.max.toLocaleString()}. You have entered ${commentLines.length} comment(s).`);
+        return;
+      }
+    } else {
+      if (qty < selectedService.min) {
+        setErrorMessage(`Minimum quantity for this service is ${selectedService.min.toLocaleString()}.`);
+        return;
+      }
+      if (qty > selectedService.max) {
+        setErrorMessage(`Maximum quantity for this service is ${selectedService.max.toLocaleString()}.`);
+        return;
+      }
     }
 
     if (link.trim().length < 3) {
@@ -240,13 +311,19 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
     }
 
     setIsSubmitting(true);
-    const res = await placeOrder(Number(selectedServiceId), link.trim(), qty);
+    const res = await placeOrder(
+      Number(selectedServiceId),
+      link.trim(),
+      qty,
+      isCustomComments ? customComments.trim() : undefined
+    );
     setIsSubmitting(false);
 
     if (res.success && res.order) {
       setSuccessOrder(res.order);
       setLink('');
       setQuantity('');
+      setCustomComments('');
     } else {
       setErrorMessage(res.error || 'Failed to place order. Please try again.');
     }
@@ -495,35 +572,134 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
             <p className="text-[11px] text-slate-500 mt-1">Make sure the account or post is public.</p>
           </div>
 
-          {/* Quantity Input & Charge Calculation */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                5. Quantity
-              </label>
-              <div className="relative">
-                <Hash className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
-                <input
-                  type="number"
+          {/* Quantity Input / Custom Comments Input & Charge Calculation */}
+          {isCustomComments ? (
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    5. Comments (1 per line)
+                  </label>
+                  <span className="text-[11px] text-indigo-400 font-mono font-medium">
+                    1 comment per line
+                  </span>
+                </div>
+                <textarea
                   required
-                  min={selectedService?.min || 10}
-                  max={selectedService?.max || 100000}
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                  placeholder={`Min: ${selectedService?.min || 10}`}
-                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono"
+                  rows={5}
+                  value={customComments}
+                  onChange={(e) => handleCommentsChange(e.target.value)}
+                  placeholder="Enter your comments, one per line:&#10;Great post!&#10;Loved this picture 🔥&#10;Very informative!"
+                  className={`w-full bg-slate-950 border rounded-xl p-3.5 text-sm text-white placeholder-slate-500 focus:outline-hidden transition-all font-mono leading-relaxed ${
+                    commentsValidation && !commentsValidation.isValid
+                      ? 'border-amber-500/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500'
+                      : commentsValidation && commentsValidation.isValid
+                      ? 'border-emerald-500/80 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+                      : 'border-slate-700/80 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                  }`}
                 />
-              </div>
-            </div>
+                <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-400 mt-1.5 px-1">
+                  <span>Enter each comment on a new line. Empty lines are ignored.</span>
+                  <span>
+                    Min: <strong className="text-slate-200">{selectedService?.min.toLocaleString()}</strong> • Max: <strong className="text-slate-200">{selectedService?.max.toLocaleString()}</strong>
+                  </span>
+                </div>
 
-            {/* Live Charge Box */}
-            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-center">
-              <div className="text-[11px] text-slate-400 font-medium">Total Charge (Server Calculated)</div>
-              <div className="text-2xl font-black text-emerald-400 font-mono tracking-tight mt-0.5">
-                {formatCurrency(calculatedCharge)}
+                {/* Real-time Validation Message Banner */}
+                {commentsValidation && !commentsValidation.isValid && (
+                  <div className="mt-2.5 flex items-start gap-2.5 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3.5 py-2.5">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                    <div>
+                      <span className="font-semibold block">{commentsValidation.error}</span>
+                      <span className="text-[11px] text-amber-400/80">
+                        {commentsValidation.type === 'below_min'
+                          ? `Please add at least ${(selectedService?.min || 0) - (typeof quantity === 'number' ? quantity : 0)} more comment(s) to reach the minimum of ${selectedService?.min.toLocaleString()}.`
+                          : `Please remove ${(typeof quantity === 'number' ? quantity : 0) - (selectedService?.max || 0)} comment(s) to stay within the maximum limit of ${selectedService?.max.toLocaleString()}.`}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {commentsValidation && commentsValidation.isValid && (typeof quantity === 'number' && quantity > 0) && (
+                  <div className="mt-2.5 flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3.5 py-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>
+                      Valid: <strong>{quantity} comments</strong> entered (Meets min {selectedService?.min.toLocaleString()} / max {selectedService?.max.toLocaleString()})
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Automatic Calculated Quantity & Live Charge Box */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={`bg-slate-950 border rounded-xl p-3.5 flex flex-col justify-center transition-colors ${
+                  commentsValidation && !commentsValidation.isValid
+                    ? 'border-amber-500/40 bg-amber-950/10'
+                    : commentsValidation && commentsValidation.isValid
+                    ? 'border-emerald-500/40 bg-emerald-950/10'
+                    : 'border-slate-800'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] text-slate-400 font-medium">Calculated Quantity</div>
+                    {commentsValidation && !commentsValidation.isValid && (
+                      <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded">
+                        {commentsValidation.type === 'below_min' ? 'BELOW MIN' : 'EXCEEDS MAX'}
+                      </span>
+                    )}
+                    {commentsValidation && commentsValidation.isValid && (
+                      <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded">
+                        VALID
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className={`text-2xl font-black font-mono tracking-tight ${
+                      commentsValidation && !commentsValidation.isValid ? 'text-amber-400' : 'text-white'
+                    }`}>
+                      {quantity || 0}
+                    </span>
+                    <span className="text-xs text-slate-400">comments</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-center">
+                  <div className="text-[11px] text-slate-400 font-medium">Total Charge (Server Calculated)</div>
+                  <div className="text-2xl font-black text-emerald-400 font-mono tracking-tight mt-0.5">
+                    {formatCurrency(calculatedCharge)}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  5. Quantity
+                </label>
+                <div className="relative">
+                  <Hash className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                  <input
+                    type="number"
+                    required
+                    min={selectedService?.min || 10}
+                    max={selectedService?.max || 100000}
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                    placeholder={`Min: ${selectedService?.min || 10}`}
+                    className="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Live Charge Box */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-center">
+                <div className="text-[11px] text-slate-400 font-medium">Total Charge (Server Calculated)</div>
+                <div className="text-2xl font-black text-emerald-400 font-mono tracking-tight mt-0.5">
+                  {formatCurrency(calculatedCharge)}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Submit Button */}
           <div className="pt-2">
@@ -550,7 +726,14 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
             ) : (
               <button
                 type="submit"
-                disabled={isSubmitting || !selectedService || !quantity || Number(quantity) <= 0}
+                disabled={
+                  isSubmitting || 
+                  !selectedService || 
+                  !quantity || 
+                  Number(quantity) <= 0 ||
+                  (isCustomComments && (Number(quantity) < selectedService.min || Number(quantity) > selectedService.max)) ||
+                  (!isCustomComments && (Number(quantity) < selectedService.min || Number(quantity) > selectedService.max))
+                }
                 className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {isSubmitting ? (

@@ -69,7 +69,7 @@ interface SociaraxContextType {
   isOrdersLoading: boolean;
   loadUserOrders: (status?: string, platform?: string, search?: string) => Promise<void>;
   loadAdminOrders: (status?: string, platform?: string, search?: string) => Promise<void>;
-  placeOrder: (serviceId: number, link: string, quantity: number) => Promise<{ success: boolean; order?: any; error?: string }>;
+  placeOrder: (serviceId: number, link: string, quantity: number, comments?: string) => Promise<{ success: boolean; order?: any; error?: string }>;
   updateAdminOrderStatus: (orderId: number, newStatus: string, refund?: boolean) => Promise<{ success: boolean; error?: string }>;
   syncAdminOrderStatus: () => Promise<{ success: boolean; message?: string; error?: string }>;
 
@@ -374,16 +374,20 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [userToken]);
 
-  const placeOrder = async (serviceId: number, link: string, quantity: number) => {
+  const placeOrder = async (serviceId: number, link: string, quantity: number, comments?: string) => {
     try {
       const token = userToken || localStorage.getItem('sociarax_user_token');
+      const payload: Record<string, any> = { serviceId, link, quantity };
+      if (comments && typeof comments === 'string' && comments.trim()) {
+        payload.comments = comments.trim();
+      }
       const data = await safeFetchJson('/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ serviceId, link, quantity })
+        body: JSON.stringify(payload)
       });
       if (data && data.success) {
         if (data.newBalance !== undefined) {

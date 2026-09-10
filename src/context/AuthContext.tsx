@@ -170,10 +170,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await fetchAuth('/api/auth/me', token, 1);
       if (data?.unauthorized) {
         localStorage.removeItem('sociarax_user_token');
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          window.sessionStorage.removeItem('sociarax_new_registration');
+        }
         setUser(null);
         setUserToken(null);
       } else if (data && data.success && data.user) {
-        setUser(data.user);
+        const isSessionNewReg = typeof window !== 'undefined' && window.sessionStorage?.getItem('sociarax_new_registration') === String(data.user.id);
+        const isNewReg = Boolean(data.user.isNewRegistration && isSessionNewReg);
+        setUser({ ...data.user, isNewRegistration: isNewReg });
         if (data.adminToken && data.admin) {
           localStorage.setItem('sociarax_admin_token', data.adminToken);
           setAdminToken(data.adminToken);
@@ -258,9 +263,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       const data = await res.json();
       if (data.success && data.token) {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          window.sessionStorage.removeItem('sociarax_new_registration');
+        }
         localStorage.setItem('sociarax_user_token', data.token);
         setUserToken(data.token);
-        setUser(data.user);
+        setUser({ ...data.user, isNewRegistration: false });
 
         if (data.adminToken && data.admin) {
           localStorage.setItem('sociarax_admin_token', data.adminToken);
@@ -300,6 +308,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       const data = await res.json();
       if (data.success && data.token) {
+        if (data.user?.isNewRegistration) {
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.setItem('sociarax_new_registration', String(data.user.id));
+          }
+        } else {
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.removeItem('sociarax_new_registration');
+          }
+        }
         localStorage.setItem('sociarax_user_token', data.token);
         setUserToken(data.token);
         setUser(data.user);
@@ -339,9 +356,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       const data = await res.json();
       if (data.success && data.token) {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          window.sessionStorage.setItem('sociarax_new_registration', String(data.user.id));
+        }
         localStorage.setItem('sociarax_user_token', data.token);
         setUserToken(data.token);
-        setUser(data.user);
+        setUser({ ...data.user, isNewRegistration: true });
 
         if (data.adminToken && data.admin) {
           localStorage.setItem('sociarax_admin_token', data.adminToken);
@@ -551,6 +571,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {}
     localStorage.removeItem('sociarax_user_token');
     localStorage.removeItem('sociarax_admin_token');
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.removeItem('sociarax_new_registration');
+    }
     setUser(null);
     setUserToken(null);
     setAdmin(null);

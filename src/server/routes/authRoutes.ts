@@ -145,8 +145,13 @@ authRouter.post('/google', async (req: Request, res: Response): Promise<void> =>
       }
     }
 
+    const isNewUser = (userRes.rowCount === 0);
     const effectiveRole = (isOwner || user.role === 'admin') ? 'admin' : user.role;
-    const token = signSessionToken({ userId: user.id, role: effectiveRole }, 168);
+    const token = signSessionToken({ 
+      userId: user.id, 
+      role: effectiveRole, 
+      ...(isNewUser ? { isNewRegistration: true } : {}) 
+    }, 168);
 
     res.cookie('sociarax_user_token', token, {
       httpOnly: true,
@@ -186,7 +191,8 @@ authRouter.post('/google', async (req: Request, res: Response): Promise<void> =>
         role: effectiveRole,
         walletBalance: parseFloat(user.wallet_balance) || 0,
         status: user.status,
-        created_at: user.created_at
+        created_at: user.created_at,
+        isNewRegistration: isNewUser
       },
       admin: adminObj
     });
@@ -408,8 +414,8 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
       }
     }
 
-    // Create session token
-    const token = signSessionToken({ userId: newUser.id, role: newUser.role }, 168); // 7 days
+    // Create session token with isNewRegistration flag for first-time welcome
+    const token = signSessionToken({ userId: newUser.id, role: newUser.role, isNewRegistration: true }, 168); // 7 days
 
     res.cookie('sociarax_user_token', token, {
       httpOnly: true,
@@ -449,7 +455,8 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
         role: newUser.role,
         walletBalance: parseFloat(newUser.wallet_balance) || 0,
         status: newUser.status,
-        created_at: newUser.created_at
+        created_at: newUser.created_at,
+        isNewRegistration: true
       },
       admin: adminObj
     });
@@ -589,7 +596,8 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
         role: effectiveRole,
         walletBalance: parseFloat(user.wallet_balance) || 0,
         status: user.status,
-        created_at: user.created_at
+        created_at: user.created_at,
+        isNewRegistration: false
       },
       admin: adminObj
     });
