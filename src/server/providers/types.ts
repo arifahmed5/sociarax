@@ -42,6 +42,7 @@ export interface ProviderOrderStatusResult {
 export interface ProviderBalanceResult {
   success: boolean;
   balance?: number;
+  rawBalanceString?: string;
   currency?: string;
   error?: string;
 }
@@ -50,7 +51,7 @@ export interface ProviderAdapter {
   readonly name: string;
   readonly type: string;
   
-  testConnection(apiUrl: string, apiKey: string): Promise<{ success: boolean; message: string; balance?: number }>;
+  testConnection(apiUrl: string, apiKey: string): Promise<{ success: boolean; message: string; balance?: number; rawBalanceString?: string; currency?: string }>;
   getBalance(apiUrl: string, apiKey: string): Promise<ProviderBalanceResult>;
   getServices(apiUrl: string, apiKey: string): Promise<{ success: boolean; services: ProviderServiceItem[]; error?: string }>;
   createOrder(apiUrl: string, apiKey: string, params: ProviderCreateOrderParams): Promise<ProviderCreateOrderResult>;

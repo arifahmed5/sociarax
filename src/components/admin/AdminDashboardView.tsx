@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSociarax } from '../../context/SociaraxContext';
+import { formatExactProviderBalance } from '../../utils/formatters';
+import { AdminBannerManager } from './AdminBannerManager';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -33,18 +35,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
     adminOpenTicketsCount, 
     syncAdminOrderStatus, 
     adminProviders, 
-    loadAdminProviders 
+    loadAdminProviders,
+    settings 
   } = useSociarax();
 
   const [liveBalanceData, setLiveBalanceData] = useState<{
-    totalInr: number;
-    totalUsd: number;
-    exchangeRate: number;
-    rawPrimaryBalance: number;
+    rawPrimaryBalance: number | string;
+    rawPrimaryBalanceString: string;
     rawPrimaryCurrency: string;
-    providers: any[];
+    inrEquivalent: number;
+    exchangeRate: number;
+    rateSource?: string;
+    rateFetchedAt?: string;
+    lastCheckedAt?: string;
+    providerName?: string;
   } | null>(null);
   const [isFetchingLiveBalance, setIsFetchingLiveBalance] = useState(false);
+  const [liveBalanceError, setLiveBalanceError] = useState<string | null>(null);
 
   const fetchLiveBalance = async () => {
     const token = adminToken || localStorage.getItem('sociarax_admin_token') || localStorage.getItem('sociarax_user_token');
@@ -54,8 +61,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
     }
 
     setIsFetchingLiveBalance(true);
+    setLiveBalanceError(null);
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const res = await fetch('/api/admin/providers/live-balance', {
@@ -64,49 +73,38 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
       });
       clearTimeout(timeoutId);
 
-      if (!res.ok) {
-        // Fallback gracefully from adminProviders cache if available
-        if (adminProviders && adminProviders.length > 0) {
-          const p = adminProviders[0];
-          setLiveBalanceData({
-            totalInr: Number(p.balance || 0) * 88,
-            totalUsd: Number(p.balance || 0),
-            exchangeRate: 88,
-            rawPrimaryBalance: Number(p.balance || 0),
-            rawPrimaryCurrency: String(p.currency || 'USD').toUpperCase(),
-            providers: adminProviders
-          });
-        }
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data || !data.success) {
+        // Explicit failure: DO NOT fallback to any demo or cached data
+        setLiveBalanceData(null);
+        setLiveBalanceError(data?.error || 'Unable to fetch live LuvSMM balance');
         return;
       }
 
-      const data = await res.json();
-      if (data && data.success) {
-        setLiveBalanceData({
-          totalInr: Number(data.totalLiveBalanceInr ?? data.totalInrBalance ?? 0),
-          totalUsd: Number(data.totalLiveBalanceUsd ?? data.primaryProvider?.rawBalance ?? 0),
-          exchangeRate: Number(data.usdToInrRate ?? 88),
-          rawPrimaryBalance: Number(data.rawPrimaryBalance ?? data.primaryProvider?.rawBalance ?? 0),
-          rawPrimaryCurrency: String(data.rawPrimaryCurrency ?? data.primaryProvider?.currency ?? 'USD').toUpperCase(),
-          providers: data.providers || []
-        });
-        loadAdminProviders();
-      }
+      const rawBalStr = String(data.rawPrimaryBalanceString || (data.rawPrimaryBalance !== undefined ? data.rawPrimaryBalance : '0'));
+      const currency = String(data.rawPrimaryCurrency || data.currency || 'USD').toUpperCase();
+      const rate = Number(data.exchangeRate ?? data.usdToInrRate ?? 89.5);
+      const rawNum = parseFloat(rawBalStr) || 0;
+      const inrEquiv = Number(data.inrEquivalent ?? (currency === 'USD' ? rawNum * rate : rawNum));
+
+      setLiveBalanceData({
+        rawPrimaryBalance: data.rawPrimaryBalance,
+        rawPrimaryBalanceString: rawBalStr,
+        rawPrimaryCurrency: currency,
+        inrEquivalent: inrEquiv,
+        exchangeRate: rate,
+        rateSource: data.rateSource,
+        rateFetchedAt: data.rateFetchedAt,
+        lastCheckedAt: data.lastCheckedAt || new Date().toISOString(),
+        providerName: data.providerName || 'LuvSMM'
+      });
+      setLiveBalanceError(null);
+      loadAdminProviders();
     } catch (err: any) {
       clearTimeout(timeoutId);
-      // Gracefully fall back to local provider data if available
-      if (adminProviders && adminProviders.length > 0) {
-        const p = adminProviders[0];
-        setLiveBalanceData({
-          totalInr: Number(p.balance || 0) * 88,
-          totalUsd: Number(p.balance || 0),
-          exchangeRate: 88,
-          rawPrimaryBalance: Number(p.balance || 0),
-          rawPrimaryCurrency: String(p.currency || 'USD').toUpperCase(),
-          providers: adminProviders
-        });
-      }
-      console.warn('[ADMIN LIVE BALANCE] Notice:', err?.message || err);
+      setLiveBalanceData(null);
+      setLiveBalanceError(err.name === 'AbortError' ? 'LuvSMM API request timed out' : (err.message || 'Unable to fetch live LuvSMM balance'));
     } finally {
       setIsFetchingLiveBalance(false);
     }
@@ -240,13 +238,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
               <h3 className="text-base font-bold text-white tracking-tight">
                 LuvSMM Provider Live API Balance
               </h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live Upstream Sync
-              </span>
+              {liveBalanceData && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Live Upstream Sync
+                </span>
+              )}
+              {liveBalanceError && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Sync Issue
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Real-time wallet balance fetched directly from your LuvSMM provider account.
+              Real-time wallet balance fetched directly from your LuvSMM provider API account.
             </p>
           </div>
         </div>
@@ -256,23 +262,47 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
             <div className="text-xs text-slate-400 font-medium">
               Exact Upstream Balance:
             </div>
-            <div className="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight flex items-baseline gap-1.5">
-              <span>
-                {liveBalanceData 
-                  ? (liveBalanceData.rawPrimaryCurrency === 'INR' 
-                      ? `₹${(Number(liveBalanceData.rawPrimaryBalance) || 0).toFixed(2)}` 
-                      : `$${(Number(liveBalanceData.rawPrimaryBalance) || 0).toFixed(2)}`)
-                  : (adminProviders.length > 0 
-                      ? `$${(Number(adminProviders[0]?.balance) || 0).toFixed(2)}` 
-                      : '$0.00')}
-              </span>
-              <span className="text-xs font-bold text-emerald-300">
-                {liveBalanceData?.rawPrimaryCurrency || 'USD'}
-              </span>
-            </div>
-            <div className="text-[11px] text-indigo-300 font-mono font-medium mt-0.5">
-              ≈ {liveBalanceData ? formatCurrency(liveBalanceData.totalInr || 0) : '₹0.00'} INR (Rate: ₹{liveBalanceData?.exchangeRate || 88}/$)
-            </div>
+
+            {isFetchingLiveBalance && !liveBalanceData ? (
+              <div className="py-1 flex items-center gap-2 text-sm text-indigo-300 font-medium justify-start sm:justify-end">
+                <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+                <span>Fetching live balance from LuvSMM...</span>
+              </div>
+            ) : liveBalanceError ? (
+              <div className="py-1">
+                <div className="text-sm font-semibold text-rose-400 flex items-center gap-1.5 justify-start sm:justify-end">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{liveBalanceError}</span>
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  No demo or cached balance displayed.
+                </div>
+              </div>
+            ) : liveBalanceData ? (
+              <>
+                <div className="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight flex items-baseline gap-1.5 justify-start sm:justify-end">
+                  <span>
+                    {liveBalanceData.rawPrimaryCurrency === 'USD' ? '$' : '₹'}
+                    {liveBalanceData.rawPrimaryBalanceString}
+                  </span>
+                  <span className="text-xs font-bold text-emerald-300">
+                    {liveBalanceData.rawPrimaryCurrency}
+                  </span>
+                </div>
+                <div className="text-[11px] text-indigo-300 font-mono font-medium mt-0.5">
+                  {liveBalanceData.rawPrimaryCurrency === 'USD' ? (
+                    <>
+                      ≈ ₹{liveBalanceData.inrEquivalent.toFixed(2)} INR
+                      <span className="text-slate-400 ml-1.5 font-sans">
+                        (Live Rate: 1 USD = ₹{liveBalanceData.exchangeRate.toFixed(2)} INR{liveBalanceData.rateSource ? ` via ${liveBalanceData.rateSource}` : ''})
+                      </span>
+                    </>
+                  ) : (
+                    <>Indian Rupee (₹ INR) - Exact Upstream Balance</>
+                  )}
+                </div>
+              </>
+            ) : null}
           </div>
 
           <button
@@ -371,6 +401,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
           <div className="text-xl font-bold text-indigo-400 font-mono">{metrics.totalUsers}</div>
         </div>
       </div>
+
+      {/* User Announcement Banner Management Section */}
+      <AdminBannerManager />
 
       {/* Quick Navigation Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

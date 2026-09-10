@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useSociarax } from '../../context/SociaraxContext';
 import { SupportTicket, TicketMessage } from '../../types';
 import { 
   LifeBuoy, 
@@ -17,6 +18,7 @@ import {
 
 export const SupportView: React.FC = () => {
   const { userToken } = useAuth();
+  const { settings } = useSociarax();
 
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
@@ -157,49 +159,63 @@ export const SupportView: React.FC = () => {
       </div>
 
       {/* Direct WhatsApp & Telegram Quick Help Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <a
-          href="https://t.me/arifahmed5_6"
-          target="_blank"
-          rel="noreferrer"
-          className="bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 rounded-2xl p-4.5 flex items-center justify-between transition-all group shadow-lg"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-              <Send className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-[11px] text-slate-400 uppercase font-semibold tracking-wider">Direct Telegram Support</div>
-              <div className="text-sm font-bold text-white group-hover:text-sky-400 transition-colors">@arifahmed5_6</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 text-xs text-sky-400 font-semibold bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-500/20">
-            <span>Chat Live</span>
-            <ExternalLink className="w-3 h-3" />
-          </div>
-        </a>
+      {(() => {
+        const rawTg = (settings.telegram_support || '').replace(/^@/, '').trim();
+        const rawWa = (settings.whatsapp_support || '').replace(/[^0-9+]/g, '').trim();
+        const tgDisplay = rawTg ? `@${rawTg}` : '@SociaraX_Support';
+        const tgHref = rawTg ? `https://t.me/${rawTg}` : 'https://t.me/SociaraX_Support';
+        const waDisplay = rawWa ? (rawWa.startsWith('+') ? rawWa : `+${rawWa}`) : '+91 Official Support';
+        const waDigits = rawWa ? rawWa.replace(/[^0-9]/g, '') : '';
+        const waHref = waDigits 
+          ? `https://wa.me/${waDigits}?text=${encodeURIComponent('Hello SociaraX Support')}`
+          : 'https://wa.me/?text=Hello%20SociaraX%20Support';
 
-        <a
-          href="https://wa.me/916001768808?text=Hello%20SociaraX%20Support%20@arifahmed56"
-          target="_blank"
-          rel="noreferrer"
-          className="bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-4.5 flex items-center justify-between transition-all group shadow-lg"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <MessageCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-[11px] text-slate-400 uppercase font-semibold tracking-wider">Direct WhatsApp Support</div>
-              <div className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">@arifahmed56</div>
-            </div>
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <a
+              href={tgHref}
+              target="_blank"
+              rel="noreferrer"
+              className="bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 rounded-2xl p-4.5 flex items-center justify-between transition-all group shadow-lg"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                  <Send className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-[11px] text-slate-400 uppercase font-semibold tracking-wider">Direct Telegram Support</div>
+                  <div className="text-sm font-bold text-white group-hover:text-sky-400 transition-colors">{tgDisplay}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-sky-400 font-semibold bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-500/20">
+                <span>Chat Live</span>
+                <ExternalLink className="w-3 h-3" />
+              </div>
+            </a>
+
+            <a
+              href={waHref}
+              target="_blank"
+              rel="noreferrer"
+              className="bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-4.5 flex items-center justify-between transition-all group shadow-lg"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-[11px] text-slate-400 uppercase font-semibold tracking-wider">Direct WhatsApp Support</div>
+                  <div className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{waDisplay}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                <span>WhatsApp</span>
+                <ExternalLink className="w-3 h-3" />
+              </div>
+            </a>
           </div>
-          <div className="flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-            <span>WhatsApp</span>
-            <ExternalLink className="w-3 h-3" />
-          </div>
-        </a>
-      </div>
+        );
+      })()}
 
       {isCreating ? (
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-2xl mx-auto shadow-2xl">
@@ -320,7 +336,7 @@ export const SupportView: React.FC = () => {
                 >
                   <div className="text-[11px] font-semibold mb-1 flex items-center justify-between gap-4">
                     <span className={isAdmin ? 'text-indigo-400' : 'text-slate-400'}>
-                      {isAdmin ? '🛡️ SociaraX Support Agent' : '👤 You'}
+                      {isAdmin ? '🛡️ SociaraX Team' : '👤 You'}
                     </span>
                     <span className="text-[10px] text-slate-500 font-mono">
                       {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

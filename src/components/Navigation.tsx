@@ -99,9 +99,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   // Admin panel is visible when admin is active, or if user is owner / admin role
   const isOwnerOrAdmin = Boolean(
     admin || 
-    user?.role === 'admin' || 
-    user?.email?.toLowerCase() === 'arifahmed87204@gmail.com' || 
-    user?.username?.toLowerCase() === 'arifahmed56'
+    user?.role === 'admin'
   );
 
   return (
@@ -189,7 +187,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <div className="hidden md:flex items-center gap-2 bg-rose-950/40 border border-rose-500/30 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs shrink-0">
                   <ShieldCheck className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                  <span className="text-slate-300 font-mono font-medium truncate max-w-[180px]">{admin.email || 'arifahmed87204@gmail.com'}</span>
+                  <span className="text-slate-300 font-mono font-medium truncate max-w-[180px]">{admin.email || 'admin@sociarax.com'}</span>
                 </div>
                 <button
                   onClick={() => {

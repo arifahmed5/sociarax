@@ -60,9 +60,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
 
   const isOwnerOrAdmin = Boolean(
     admin || 
-    user?.role === 'admin' || 
-    user?.email?.toLowerCase() === 'arifahmed87204@gmail.com' || 
-    user?.username?.toLowerCase() === 'arifahmed56'
+    user?.role === 'admin'
   );
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -296,7 +294,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                    placeholder="+91 6001768808"
+                    placeholder="+91 98765 43210"
                   />
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1">Optional. Used for WhatsApp order support and transaction alerts.</p>

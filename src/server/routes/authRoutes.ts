@@ -243,73 +243,35 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
   }
 
   try {
-    // Check existing user
+    // Check existing user case-insensitively - public registration must NEVER overwrite existing accounts
     const existing = await db.query(
-      'SELECT id, username, email, phone, role, wallet_balance, status, created_at FROM users WHERE username = $1 OR email = $2',
+      'SELECT id, username, email FROM users WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($2)',
       [cleanUsername, cleanEmail]
     );
 
     if (existing.rowCount && existing.rowCount > 0) {
       const match = existing.rows[0];
 
-      // If email matches existing account (e.g. created via Google), update password & username
-      if (match.email === cleanEmail) {
-        const isOwner = cleanEmail === 'arifahmed87204@gmail.com' || cleanUsername === 'arifahmed56';
-        const role = isOwner ? 'admin' : (match.role || 'user');
-        const passwordHash = await bcrypt.hash(rawPassword, 10);
-
-        await db.query(`
-          UPDATE users 
-          SET password_hash = $1, username = $2, phone = COALESCE($3, phone), role = $4
-          WHERE id = $5
-        `, [passwordHash, cleanUsername, cleanPhone, role, match.id]);
-
-        const token = signSessionToken({ userId: match.id, role }, 168);
-        res.cookie('sociarax_user_token', token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 7 * 24 * 3600 * 1000
-        });
-
-        let adminToken: string | undefined;
-        let adminObj: any | undefined;
-        if (isOwner || role === 'admin') {
-          adminToken = signSessionToken({ adminId: match.id, email: match.email, role: 'admin', totpVerified: true }, 168);
-          res.cookie('sociarax_admin_token', adminToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 7 * 24 * 3600 * 1000
-          });
-          adminObj = { id: match.id, email: match.email, role: 'admin', totpEnabled: true };
-        }
-
-        res.json({
-          success: true,
-          message: 'Password set successfully! Entering SociaraX...',
-          token,
-          adminToken,
-          user: {
-            id: match.id,
-            username: cleanUsername,
-            email: match.email,
-            phone: cleanPhone || match.phone || null,
-            role,
-            walletBalance: parseFloat(match.wallet_balance) || 0,
-            status: match.status,
-            created_at: match.created_at
-          },
-          admin: adminObj
+      if (match.email && match.email.toLowerCase() === cleanEmail.toLowerCase()) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'An account with this email already exists. Please sign in.' 
         });
         return;
       }
 
-      if (match.username === cleanUsername) {
-        res.status(400).json({ success: false, error: 'Username is already taken. Please choose another username.' });
+      if (match.username && match.username.toLowerCase() === cleanUsername.toLowerCase()) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'Username is already taken. Please choose another username.' 
+        });
         return;
       }
-      res.status(400).json({ success: false, error: 'Email is already registered. Please sign in or use Set Password.' });
+
+      res.status(400).json({ 
+        success: false, 
+        error: 'An account with this email or username already exists. Please sign in.' 
+      });
       return;
     }
 

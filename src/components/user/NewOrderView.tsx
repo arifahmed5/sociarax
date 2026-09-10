@@ -13,19 +13,25 @@ import {
   Info, 
   ArrowRight,
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  RotateCcw
 } from 'lucide-react';
+import { ReorderParams, ReorderData } from '../../types';
 
 interface NewOrderViewProps {
   onNavigate: (tab: string) => void;
   onOpenAuthModal: () => void;
   preselectedServiceId?: number | null;
+  reorderData?: ReorderData | ReorderParams | null;
+  onClearReorderData?: () => void;
 }
 
 export const NewOrderView: React.FC<NewOrderViewProps> = ({ 
   onNavigate, 
   onOpenAuthModal, 
-  preselectedServiceId 
+  preselectedServiceId,
+  reorderData,
+  onClearReorderData
 }) => {
   const { user } = useAuth();
   const { services, placeOrder, formatCurrency } = useSociarax();
@@ -133,8 +139,33 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
     return platformFilteredServices.filter(s => s.category === selectedCategory);
   }, [platformFilteredServices, selectedCategory]);
 
-  // 5. Set default service when category or services change
+  // 5. Pre-fill from reorderData or preselectedServiceId
   useEffect(() => {
+    if (reorderData) {
+      if (reorderData.link) {
+        setLink(reorderData.link);
+      }
+      if (reorderData.quantity) {
+        setQuantity(reorderData.quantity);
+      }
+      if (reorderData.serviceId) {
+        const match = services.find(s => s.id === reorderData.serviceId);
+        if (match) {
+          setSelectedPlatform(match.platform || 'all');
+          setSelectedCategory(match.category);
+          setSelectedServiceId(match.id);
+          return;
+        }
+      }
+      if (reorderData.category) {
+        setSelectedCategory(reorderData.category);
+      }
+      if (reorderData.platform) {
+        setSelectedPlatform(reorderData.platform);
+      }
+      return;
+    }
+
     if (preselectedServiceId) {
       const match = services.find(s => s.id === preselectedServiceId);
       if (match) {
@@ -151,7 +182,7 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
     } else {
       setSelectedServiceId('');
     }
-  }, [availableServices, selectedServiceId, preselectedServiceId, services]);
+  }, [reorderData, preselectedServiceId, availableServices, selectedServiceId, services]);
 
   // Selected Service Object
   const selectedService = useMemo(() => {
@@ -284,6 +315,29 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
 
       {/* Main Order Form Card */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+        {reorderData && (
+          <div className="mb-6 p-4 rounded-2xl bg-indigo-950/60 border border-indigo-500/30 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-semibold text-white">Reorder Configuration Loaded</p>
+                <p className="text-[11px] sm:text-xs text-indigo-300">Previous service, category & quantity pre-selected. Enter/review your target URL and place order.</p>
+              </div>
+            </div>
+            {onClearReorderData && (
+              <button
+                type="button"
+                onClick={onClearReorderData}
+                className="text-xs text-slate-400 hover:text-slate-200 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors shrink-0 cursor-pointer"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Platform Selection Bar */}
         <div className="mb-6">
           <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2.5">

@@ -36,7 +36,19 @@ ticketRouter.get('/', async (req: Request, res: Response): Promise<void> => {
   
   const token = (authHeader && authHeader.startsWith('Bearer ')) ? authHeader.substring(7) : (cookieAdmin || cookieUser);
   const payload = token ? verifySessionToken<any>(token) : null;
+
+  if (!token || !payload) {
+    res.status(401).json({ success: false, error: 'Authentication required. Please log in.' });
+    return;
+  }
+
   const isAdmin = isUserAdmin(payload);
+  const sessionUserId = payload.userId || payload.id;
+
+  if (!isAdmin && !sessionUserId) {
+    res.status(401).json({ success: false, error: 'Invalid session token. Please log in again.' });
+    return;
+  }
 
   try {
     let queryText = `
@@ -60,10 +72,10 @@ ticketRouter.get('/', async (req: Request, res: Response): Promise<void> => {
 
     const queryParams: any[] = [];
 
-    // If regular authenticated user (not admin), only fetch their own tickets
-    if (!isAdmin && payload?.userId) {
+    // If regular authenticated user (not admin), strictly fetch only their own tickets
+    if (!isAdmin) {
       queryText += ` WHERE t.user_id = $1 `;
-      queryParams.push(payload.userId);
+      queryParams.push(sessionUserId);
     }
 
     queryText += `
@@ -193,12 +205,31 @@ ticketRouter.post('/', requireUserAuth, async (req: Request, res: Response): Pro
 
 /**
  * GET /api/tickets/:id
- * Get single ticket details and chronological message thread
+ * Get single ticket details and chronological message thread (Strict IDOR Protected)
  */
 ticketRouter.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const ticketId = parseInt(req.params.id, 10);
   if (isNaN(ticketId)) {
     res.status(400).json({ success: false, error: 'Invalid ticket ID' });
+    return;
+  }
+
+  const authHeader = req.headers.authorization;
+  const cookieUser = req.cookies?.sociarax_user_token;
+  const cookieAdmin = req.cookies?.sociarax_admin_token;
+  const token = (authHeader && authHeader.startsWith('Bearer ')) ? authHeader.substring(7) : (cookieAdmin || cookieUser);
+  const payload = token ? verifySessionToken<any>(token) : null;
+
+  if (!token || !payload) {
+    res.status(401).json({ success: false, error: 'Authentication required. Please log in.' });
+    return;
+  }
+
+  const isAdmin = isUserAdmin(payload);
+  const sessionUserId = payload.userId || payload.id;
+
+  if (!isAdmin && !sessionUserId) {
+    res.status(401).json({ success: false, error: 'Invalid session token. Please log in again.' });
     return;
   }
 
@@ -222,6 +253,12 @@ ticketRouter.get('/:id', async (req: Request, res: Response): Promise<void> => {
     }
 
     const t = ticketRes.rows[0];
+
+    // Strict IDOR Protection: Non-admin users can ONLY access their own ticket
+    if (!isAdmin && t.user_id !== sessionUserId) {
+      res.status(403).json({ success: false, error: 'Forbidden. You do not have permission to view this ticket.' });
+      return;
+    }
 
     const messagesRes = await db.query(`
       SELECT * FROM ticket_messages WHERE ticket_id = $1 ORDER BY created_at ASC
@@ -260,14 +297,33 @@ ticketRouter.get('/:id', async (req: Request, res: Response): Promise<void> => {
 
 /**
  * POST /api/tickets/:id/reply
- * Reply to ticket (Admin or User)
+ * Reply to ticket (Admin or verified Ticket Owner only)
  */
 ticketRouter.post('/:id/reply', async (req: Request, res: Response): Promise<void> => {
   const ticketId = parseInt(req.params.id, 10);
-  const { message, senderRole } = req.body;
+  const { message } = req.body;
 
   if (isNaN(ticketId) || !message || !String(message).trim()) {
     res.status(400).json({ success: false, error: 'Valid ticket ID and reply message are required.' });
+    return;
+  }
+
+  const authHeader = req.headers.authorization;
+  const cookieUser = req.cookies?.sociarax_user_token;
+  const cookieAdmin = req.cookies?.sociarax_admin_token;
+  const token = (authHeader && authHeader.startsWith('Bearer ')) ? authHeader.substring(7) : (cookieAdmin || cookieUser);
+  const payload = token ? verifySessionToken<any>(token) : null;
+
+  if (!token || !payload) {
+    res.status(401).json({ success: false, error: 'Authentication required. Please log in.' });
+    return;
+  }
+
+  const isAdmin = isUserAdmin(payload);
+  const sessionUserId = payload.userId || payload.id;
+
+  if (!isAdmin && !sessionUserId) {
+    res.status(401).json({ success: false, error: 'Invalid session token. Please log in again.' });
     return;
   }
 
@@ -277,18 +333,23 @@ ticketRouter.post('/:id/reply', async (req: Request, res: Response): Promise<voi
     return;
   }
 
-  // Detect role from auth header or body
-  const authHeader = req.headers.authorization;
-  const cookieUser = req.cookies?.sociarax_user_token;
-  const cookieAdmin = req.cookies?.sociarax_admin_token;
-  const token = (authHeader && authHeader.startsWith('Bearer ')) ? authHeader.substring(7) : (cookieAdmin || cookieUser);
-  const payload = token ? verifySessionToken<any>(token) : null;
-  const isAdmin = isUserAdmin(payload) || senderRole === 'admin';
-
-  const role = isAdmin ? 'admin' : 'user';
-  const senderId = isAdmin ? (payload?.adminId || 1) : (payload?.userId || 1);
-
   try {
+    // Verify ticket exists and user has authorization to reply
+    const ticketCheck = await db.query('SELECT id, user_id FROM support_tickets WHERE id = $1', [ticketId]);
+    if (ticketCheck.rowCount === 0) {
+      res.status(404).json({ success: false, error: 'Ticket not found' });
+      return;
+    }
+
+    if (!isAdmin && ticketCheck.rows[0].user_id !== sessionUserId) {
+      res.status(403).json({ success: false, error: 'Forbidden. You do not have permission to reply to this ticket.' });
+      return;
+    }
+
+    // Role and senderId determined strictly server-side
+    const role = isAdmin ? 'admin' : 'user';
+    const senderId = isAdmin ? (payload.adminId || payload.userId || 1) : sessionUserId;
+
     await db.query(`
       INSERT INTO ticket_messages (ticket_id, sender_role, sender_id, message)
       VALUES ($1, $2, $3, $4)
@@ -329,6 +390,20 @@ ticketRouter.patch('/:id/status', async (req: Request, res: Response): Promise<v
     return;
   }
 
+  const authHeader = req.headers.authorization;
+  const cookieUser = req.cookies?.sociarax_user_token;
+  const cookieAdmin = req.cookies?.sociarax_admin_token;
+  const token = (authHeader && authHeader.startsWith('Bearer ')) ? authHeader.substring(7) : (cookieAdmin || cookieUser);
+  const payload = token ? verifySessionToken<any>(token) : null;
+
+  if (!token || !payload) {
+    res.status(401).json({ success: false, error: 'Authentication required. Please log in.' });
+    return;
+  }
+
+  const isAdmin = isUserAdmin(payload);
+  const sessionUserId = payload.userId || payload.id;
+
   const db = getDbPool();
   if (!db) {
     res.status(503).json({ success: false, error: 'Database service unavailable' });
@@ -336,6 +411,17 @@ ticketRouter.patch('/:id/status', async (req: Request, res: Response): Promise<v
   }
 
   try {
+    const ticketCheck = await db.query('SELECT id, user_id FROM support_tickets WHERE id = $1', [ticketId]);
+    if (ticketCheck.rowCount === 0) {
+      res.status(404).json({ success: false, error: 'Ticket not found' });
+      return;
+    }
+
+    if (!isAdmin && ticketCheck.rows[0].user_id !== sessionUserId) {
+      res.status(403).json({ success: false, error: 'Forbidden. You do not have permission to modify this ticket.' });
+      return;
+    }
+
     await db.query(`
       UPDATE support_tickets
       SET status = $1, updated_at = CURRENT_TIMESTAMP

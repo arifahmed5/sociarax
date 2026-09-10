@@ -92,7 +92,7 @@ interface SociaraxContextType {
   loadAdminProviders: () => Promise<void>;
   createAdminProvider: (data: any) => Promise<{ success: boolean; error?: string }>;
   updateAdminProvider: (id: number, data: any) => Promise<{ success: boolean; error?: string }>;
-  testAdminProvider: (id: number) => Promise<{ success: boolean; message?: string; balance?: number; error?: string }>;
+  testAdminProvider: (id: number) => Promise<{ success: boolean; message?: string; balance?: number; rawBalanceString?: string; error?: string }>;
 
   // Users
   adminUsers: ManagedUser[];
@@ -672,7 +672,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
       if (data && data.success) {
         await loadAdminProviders();
-        return { success: true, message: data.message, balance: data.balance };
+        return { success: true, message: data.message, balance: data.balance, rawBalanceString: data.rawBalanceString };
       }
       return { success: false, error: data?.error || 'Provider test failed' };
     } catch (err: any) {

@@ -32,6 +32,7 @@ import { settingsRouter } from './src/server/routes/settingsRoutes';
 import { referralRouter } from './src/server/routes/referralRoutes';
 import { monitoringRouter } from './src/server/routes/monitoringRoutes';
 import { maintenanceRouter } from './src/server/routes/maintenanceRoutes';
+import { bannerRouter } from './src/server/routes/bannerRoutes';
 import { loadConfigFromDatabase } from './src/server/maintenance/maintenanceEngine';
 import { metricsTracker } from './src/server/monitoring/metricsTracker';
 import { selfHealingEngine } from './src/server/monitoring/selfHealingEngine';
@@ -247,6 +248,8 @@ async function startServer() {
   app.use('/api/monitoring', monitoringRouter);
   app.use('/api/admin/maintenance', maintenanceRouter);
   app.use('/api/maintenance', maintenanceRouter);
+  app.use('/api/banner', bannerRouter);
+  app.use('/api/admin/banner', bannerRouter);
 
   // Global API Error Handler (Never let an API route throw an unhandled 500 error)
   app.use('/api', (err: any, req: Request, res: Response, next: NextFunction) => {

@@ -54,19 +54,19 @@ export const WalletView: React.FC<WalletViewProps> = ({ onOpenAuthModal }) => {
   const [copiedUsdtAddr, setCopiedUsdtAddr] = useState<boolean>(false);
 
   const minDeposit = parseFloat(settings.min_deposit || '10');
-  const upiId = settings.upi_id || '6001768808@axisbank';
-  const secondaryUpiId = settings.upi_secondary_id || '6001768808@ybl';
-  const merchantName = settings.upi_merchant_name || 'ARIF UDDIN AHMED';
+  const upiId = settings.upi_id || 'merchant@axisbank';
+  const secondaryUpiId = settings.upi_secondary_id || '';
+  const merchantName = settings.upi_merchant_name || 'SociaraX Official';
 
-  const bankName = settings.bank_name || 'State Bank of India / Axis Bank';
-  const bankAccNo = settings.bank_account_number || '6001768808';
-  const bankHolder = settings.bank_account_holder || 'ARIF UDDIN AHMED';
-  const bankIfsc = settings.bank_ifsc_code || 'UTIB0000123';
-  const bankBranch = settings.bank_branch || 'Guwahati Branch (Current A/c)';
+  const bankName = settings.bank_name || 'Bank Transfer';
+  const bankAccNo = settings.bank_account_number || '';
+  const bankHolder = settings.bank_account_holder || 'SociaraX Official';
+  const bankIfsc = settings.bank_ifsc_code || '';
+  const bankBranch = settings.bank_branch || '';
   const bankInstructions = settings.bank_instructions || 'Transfer amount via IMPS / NEFT / RTGS and submit the UTR / Transaction Ref number below.';
 
   const usdtNetwork = settings.usdt_network || 'TRC20';
-  const usdtWalletAddress = settings.usdt_wallet_address || 'TY2D3vWaQkG98bA7K1xVq99mZ21LuvSMM99';
+  const usdtWalletAddress = settings.usdt_wallet_address || '';
   const usdtQrImage = settings.usdt_qr_image_url || '';
   const usdtToInrRate = parseFloat(settings.usdt_to_inr_rate || '92.0');
   const usdtInstructions = settings.usdt_instructions || 'Send exact USDT on the TRC20 network. Copy and paste the Transaction Hash (TXID) below.';

@@ -59,26 +59,26 @@ export const AdminSettingsView: React.FC = () => {
     usd_to_inr_rate: settings.usd_to_inr_rate || '88.0',
     default_markup_percentage: settings.default_markup_percentage || '35.0',
     min_deposit: settings.min_deposit || '10',
-    upi_id: settings.upi_id || '6001768808@axisbank',
-    upi_secondary_id: settings.upi_secondary_id || '6001768808@ybl',
-    upi_merchant_name: settings.upi_merchant_name || 'ARIF UDDIN AHMED',
+    upi_id: settings.upi_id || 'merchant@axisbank',
+    upi_secondary_id: settings.upi_secondary_id || '',
+    upi_merchant_name: settings.upi_merchant_name || 'SociaraX Official',
     custom_qr_image_url: settings.custom_qr_image_url || '',
     bank_transfer_enabled: settings.bank_transfer_enabled ?? 'true',
     bank_name: settings.bank_name || 'State Bank of India / Axis Bank',
-    bank_account_number: settings.bank_account_number || '6001768808',
-    bank_account_holder: settings.bank_account_holder || 'ARIF UDDIN AHMED',
-    bank_ifsc_code: settings.bank_ifsc_code || 'UTIB0000123',
-    bank_branch: settings.bank_branch || 'Guwahati Branch (Current A/c)',
+    bank_account_number: settings.bank_account_number || '',
+    bank_account_holder: settings.bank_account_holder || 'SociaraX Official',
+    bank_ifsc_code: settings.bank_ifsc_code || '',
+    bank_branch: settings.bank_branch || '',
     bank_instructions: settings.bank_instructions || 'Transfer amount via IMPS / NEFT / RTGS and submit the UTR / Transaction Ref number below.',
     usdt_enabled: settings.usdt_enabled ?? 'true',
     usdt_network: settings.usdt_network || 'TRC20',
-    usdt_wallet_address: settings.usdt_wallet_address || 'TY2D3vWaQkG98bA7K1xVq99mZ21LuvSMM99',
+    usdt_wallet_address: settings.usdt_wallet_address || '',
     usdt_qr_image_url: settings.usdt_qr_image_url || '',
     usdt_to_inr_rate: settings.usdt_to_inr_rate || '92.0',
     usdt_instructions: settings.usdt_instructions || 'Send exact USDT on the TRC20 network. Copy and paste the Transaction Hash (TXID) below.',
-    support_email: settings.support_email || 'arifahmed87204@gmail.com',
-    telegram_support: settings.telegram_support || '@arifahmed5_6',
-    whatsapp_support: settings.whatsapp_support || '@arifahmed56',
+    support_email: settings.support_email || 'support@sociarax.com',
+    telegram_support: settings.telegram_support || '@SociaraX_Support',
+    whatsapp_support: settings.whatsapp_support || '',
     announcement: settings.announcement || '',
     // Production Domain & URL
     app_url: settings.app_url || 'https://sociarax.onrender.com',
@@ -513,7 +513,7 @@ export const AdminSettingsView: React.FC = () => {
 
   // SMTP & Domain Test State
   const [showSmtpPass, setShowSmtpPass] = useState(false);
-  const [testEmailRecipient, setTestEmailRecipient] = useState(admin?.email || 'arifahmed87204@gmail.com');
+  const [testEmailRecipient, setTestEmailRecipient] = useState(admin?.email || 'admin@sociarax.com');
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
   const [testEmailNotice, setTestEmailNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -847,7 +847,7 @@ export const AdminSettingsView: React.FC = () => {
             <div>
               <h3 className="text-sm font-semibold text-white">Primary Administrator 2FA Status</h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Protected Account: <strong className="text-indigo-300 font-mono">{admin?.email || 'arifahmed87204@gmail.com'}</strong>
+                Protected Account: <strong className="text-indigo-300 font-mono">{admin?.email || 'admin@sociarax.com'}</strong>
               </p>
               <p className="text-xs text-slate-500 mt-1">
                 You can generate a new QR code anytime to scan into your Google Authenticator app on Android / iPhone.
@@ -1024,7 +1024,7 @@ export const AdminSettingsView: React.FC = () => {
                 required
                 value={formData.upi_id}
                 onChange={(e) => setFormData({ ...formData, upi_id: e.target.value })}
-                placeholder="e.g. 6001768808@axisbank"
+                placeholder="e.g. merchant@axisbank or pay@upi"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
               />
               <p className="text-[11px] text-slate-500 mt-1">Primary VPA address for customer payments.</p>
@@ -1038,7 +1038,7 @@ export const AdminSettingsView: React.FC = () => {
                 type="text"
                 value={formData.upi_secondary_id}
                 onChange={(e) => setFormData({ ...formData, upi_secondary_id: e.target.value })}
-                placeholder="e.g. 6001768808@ybl"
+                placeholder="e.g. backup@ybl"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
               />
               <p className="text-[11px] text-slate-500 mt-1">Secondary UPI ID shown to users if needed.</p>
@@ -1053,7 +1053,7 @@ export const AdminSettingsView: React.FC = () => {
                 required
                 value={formData.upi_merchant_name}
                 onChange={(e) => setFormData({ ...formData, upi_merchant_name: e.target.value })}
-                placeholder="e.g. ARIF UDDIN AHMED"
+                placeholder="e.g. SociaraX Official"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500"
               />
             </div>
@@ -1210,7 +1210,7 @@ export const AdminSettingsView: React.FC = () => {
                 type="text"
                 value={formData.bank_account_holder}
                 onChange={(e) => setFormData({ ...formData, bank_account_holder: e.target.value })}
-                placeholder="e.g. ARIF UDDIN AHMED"
+                placeholder="e.g. SociaraX Official or Business Name"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500"
               />
               <p className="text-[11px] text-slate-500 mt-1">Exact name registered with bank.</p>
@@ -1224,7 +1224,7 @@ export const AdminSettingsView: React.FC = () => {
                 type="text"
                 value={formData.bank_account_number}
                 onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
-                placeholder="e.g. 6001768808 or 919876543210"
+                placeholder="e.g. 1234567890123456"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
               />
               <p className="text-[11px] text-slate-500 mt-1">Receiving savings or current account number.</p>
@@ -1316,7 +1316,7 @@ export const AdminSettingsView: React.FC = () => {
                 type="text"
                 value={formData.usdt_wallet_address}
                 onChange={(e) => setFormData({ ...formData, usdt_wallet_address: e.target.value })}
-                placeholder="e.g. TY2D3vWaQkG98bA7K1xVq99mZ21LuvSMM99"
+                placeholder="e.g. TY2D3vWaQkG98bA7K1xVq99mZ21Trc20Usdt"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 font-mono"
               />
               <p className="text-[11px] text-slate-500 mt-1">Your Binance, TrustWallet, or TronLink USDT deposit address.</p>
@@ -1501,7 +1501,7 @@ export const AdminSettingsView: React.FC = () => {
                 type="text"
                 value={formData.telegram_support}
                 onChange={(e) => setFormData({ ...formData, telegram_support: e.target.value })}
-                placeholder="@arifahmed5_6"
+                placeholder="@SociaraX_Support"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500"
               />
             </div>
@@ -1512,7 +1512,7 @@ export const AdminSettingsView: React.FC = () => {
                 type="text"
                 value={formData.whatsapp_support}
                 onChange={(e) => setFormData({ ...formData, whatsapp_support: e.target.value })}
-                placeholder="@arifahmed56"
+                placeholder="+91 9876543210 or @SociaraX"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500"
               />
             </div>
@@ -2064,7 +2064,7 @@ export const AdminSettingsView: React.FC = () => {
             <div className="sm:col-span-2 p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/20 text-xs text-amber-200/90 flex items-start gap-2.5">
               <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <span className="font-semibold text-white">Resend Domain Verification Notice:</span> When using the free sandbox address (<code className="text-amber-300">onboarding@resend.dev</code>), Resend only permits sending test emails to your registered account owner address (<code className="text-amber-300">arifahmed87204@gmail.com</code>). To send password resets to other recipients, verify your custom domain at <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">resend.com/domains</a> and set Sender From Address to your domain (e.g. <code className="text-indigo-300">noreply@yourdomain.com</code>).
+                <span className="font-semibold text-white">Resend Domain Verification Notice:</span> When using the free sandbox address (<code className="text-amber-300">onboarding@resend.dev</code>), Resend only permits sending test emails to your registered Resend account owner email address. To send password resets to other recipients, verify your custom domain at <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">resend.com/domains</a> and set Sender From Address to your domain (e.g. <code className="text-indigo-300">noreply@yourdomain.com</code>).
               </div>
             </div>
 

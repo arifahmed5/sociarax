@@ -521,25 +521,47 @@ serviceRouter.post('/admin/sync', requireAdminAuth, async (req: Request, res: Re
     }
 
     const fetchedServices = providerResult.services;
-    let addedCount = 0;
-    let updatedCount = 0;
     const markupPct = Math.max(0, parseFloat(defaultMarkupPct) || 35);
 
     const client = await db.connect();
     try {
       await client.query('BEGIN');
 
-      // Pre-load all existing services for this provider in a single query (O(1) in-memory lookup)
-      const existingServicesRes = await client.query(
-        'SELECT id, provider_service_id, rate_per_1000, markup_percentage FROM services WHERE provider_id = $1',
-        [providerInfo.id]
-      );
-      const existingMap = new Map<string, { id: number; rate_per_1000: any; markup_percentage: any }>();
-      for (const row of existingServicesRes.rows) {
-        if (row.provider_service_id) {
-          existingMap.set(String(row.provider_service_id).trim(), row);
-        }
-      }
+      // Create temporary staging table for bulk operations
+      await client.query(`
+        CREATE TEMP TABLE tmp_services (
+          provider_service_id text,
+          name text,
+          category_name text,
+          platform text,
+          description text,
+          type text,
+          min_quantity int,
+          max_quantity int,
+          provider_rate numeric,
+          provider_rate_usd numeric,
+          rate_per_1000 numeric,
+          markup_percentage numeric,
+          refill_available boolean,
+          cancel_available boolean
+        ) ON COMMIT DROP;
+      `);
+
+      // Prepare unnest arrays
+      const provServiceIds: string[] = [];
+      const names: string[] = [];
+      const categories: string[] = [];
+      const platforms: string[] = [];
+      const descriptions: string[] = [];
+      const types: string[] = [];
+      const mins: number[] = [];
+      const maxs: number[] = [];
+      const provRates: number[] = [];
+      const provRatesUsd: number[] = [];
+      const sellingPrices: number[] = [];
+      const markupPcts: number[] = [];
+      const refills: boolean[] = [];
+      const cancels: boolean[] = [];
 
       for (const item of fetchedServices) {
         const provServiceId = String(item.service).trim();
@@ -547,7 +569,7 @@ serviceRouter.post('/admin/sync', requireAdminAuth, async (req: Request, res: Re
         const provRateInr = Number((provRateUsd * usdRate).toFixed(4));
         const sellingPrice = provRateInr > 0 ? Number((provRateInr * (1 + markupPct / 100)).toFixed(4)) : 10;
         const categoryName = item.category || 'General Services';
-        
+
         // Detect platform from category or service name with exhaustive aliases
         const lowerName = `${item.name} ${categoryName}`.toLowerCase();
         let platform = 'other';
@@ -566,85 +588,121 @@ serviceRouter.post('/admin/sync', requireAdminAuth, async (req: Request, res: Re
         else if (lowerName.includes('traffic') || lowerName.includes('website visitor')) platform = 'traffic';
         else if (lowerName.includes('google') || lowerName.includes('review') || lowerName.includes('play store')) platform = 'google';
 
-        const existing = existingMap.get(provServiceId);
-
-        if (existing) {
-          // Update provider rate in INR & USD & apply margin
-          await client.query(`
-            UPDATE services 
-            SET 
-              provider_rate = $1,
-              provider_rate_usd = $2,
-              rate_per_1000 = $3,
-              markup_percentage = $4,
-              name = $5,
-              category_name = $6,
-              platform = $7,
-              min_quantity = $8,
-              max_quantity = $9,
-              refill_available = $10,
-              cancel_available = $11,
-              status = 'active',
-              updated_at = CURRENT_TIMESTAMP
-            WHERE id = $12
-          `, [
-            provRateInr,
-            provRateUsd,
-            sellingPrice,
-            markupPct,
-            item.name,
-            categoryName,
-            platform,
-            parseInt(String(item.min), 10) || 10,
-            parseInt(String(item.max), 10) || 100000,
-            Boolean(item.refill),
-            Boolean(item.cancel),
-            existing.id
-          ]);
-          updatedCount++;
-        } else {
-          // Insert new service with exact USD and INR rates
-          await client.query(`
-            INSERT INTO services (
-              category_name, platform, name, description, type,
-              min_quantity, max_quantity, provider_id, provider_service_id,
-              provider_rate, provider_rate_usd, rate_per_1000, markup_percentage,
-              refill_available, cancel_available, average_time, status
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'Instant - 1 Hour', 'active')
-          `, [
-            categoryName,
-            platform,
-            item.name,
-            item.description || (item as any).desc || '',
-            item.type || 'Default',
-            parseInt(String(item.min), 10) || 10,
-            parseInt(String(item.max), 10) || 100000,
-            providerInfo.id,
-            provServiceId,
-            provRateInr,
-            provRateUsd,
-            sellingPrice,
-            markupPct,
-            Boolean(item.refill),
-            Boolean(item.cancel)
-          ]);
-          addedCount++;
-        }
+        provServiceIds.push(provServiceId);
+        names.push(item.name || '');
+        categories.push(categoryName);
+        platforms.push(platform);
+        descriptions.push(item.description || (item as any).desc || '');
+        types.push(item.type || 'Default');
+        mins.push(parseInt(String(item.min), 10) || 10);
+        maxs.push(parseInt(String(item.max), 10) || 100000);
+        provRates.push(provRateInr);
+        provRatesUsd.push(provRateUsd);
+        sellingPrices.push(sellingPrice);
+        markupPcts.push(markupPct);
+        refills.push(Boolean(item.refill));
+        cancels.push(Boolean(item.cancel));
       }
 
-      // Update provider last checked timestamp
+      // Populate temporary staging table in a single bulk unnest call
+      await client.query(`
+        INSERT INTO tmp_services (
+          provider_service_id, name, category_name, platform, description,
+          type, min_quantity, max_quantity, provider_rate, provider_rate_usd,
+          rate_per_1000, markup_percentage, refill_available, cancel_available
+        )
+        SELECT * FROM UNNEST(
+          $1::text[], $2::text[], $3::text[], $4::text[], $5::text[],
+          $6::text[], $7::int[], $8::int[], $9::numeric[], $10::numeric[],
+          $11::numeric[], $12::numeric[], $13::boolean[], $14::boolean[]
+        );
+      `, [
+        provServiceIds, names, categories, platforms, descriptions,
+        types, mins, maxs, provRates, provRatesUsd,
+        sellingPrices, markupPcts, refills, cancels
+      ]);
+
+      // 1. Insert new services from upstream provider
+      const insRes = await client.query(`
+        INSERT INTO services (
+          provider_id, provider_service_id, name, category_name, platform, description,
+          type, min_quantity, max_quantity, provider_rate, provider_rate_usd,
+          rate_per_1000, markup_percentage, refill_available, cancel_available, average_time, status
+        )
+        SELECT 
+          $1, t.provider_service_id, t.name, t.category_name, t.platform, t.description,
+          t.type, t.min_quantity, t.max_quantity, t.provider_rate, t.provider_rate_usd,
+          t.rate_per_1000, t.markup_percentage, t.refill_available, t.cancel_available, 'Instant - 1 Hour', 'active'
+        FROM tmp_services t
+        WHERE NOT EXISTS (
+          SELECT 1 FROM services s 
+          WHERE s.provider_id = $1 AND s.provider_service_id = t.provider_service_id
+        );
+      `, [providerInfo.id]);
+
+      // 2. Bulk update existing services with fresh rates, limits and details
+      const updRes = await client.query(`
+        UPDATE services s
+        SET 
+          name = t.name,
+          category_name = t.category_name,
+          platform = t.platform,
+          description = t.description,
+          type = t.type,
+          min_quantity = t.min_quantity,
+          max_quantity = t.max_quantity,
+          provider_rate = t.provider_rate,
+          provider_rate_usd = t.provider_rate_usd,
+          rate_per_1000 = t.rate_per_1000,
+          markup_percentage = t.markup_percentage,
+          refill_available = t.refill_available,
+          cancel_available = t.cancel_available,
+          status = 'active',
+          updated_at = CURRENT_TIMESTAMP
+        FROM tmp_services t
+        WHERE s.provider_id = $1 AND s.provider_service_id = t.provider_service_id;
+      `, [providerInfo.id]);
+
+      // 3. Delete stale services that upstream removed and have no user orders
+      const delRes = await client.query(`
+        DELETE FROM services s
+        WHERE s.provider_id = $1
+          AND NOT EXISTS (SELECT 1 FROM tmp_services t WHERE t.provider_service_id = s.provider_service_id)
+          AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.service_id = s.id);
+      `, [providerInfo.id]);
+
+      // 4. Deactivate stale services that upstream removed and have existing user orders (preserves FK constraints)
+      const deactRes = await client.query(`
+        UPDATE services s
+        SET status = 'inactive', updated_at = CURRENT_TIMESTAMP
+        WHERE s.provider_id = $1
+          AND NOT EXISTS (SELECT 1 FROM tmp_services t WHERE t.provider_service_id = s.provider_service_id)
+          AND EXISTS (SELECT 1 FROM orders o WHERE o.service_id = s.id);
+      `, [providerInfo.id]);
+
+      // 5. Update provider last checked timestamp
       await client.query('UPDATE api_providers SET last_checked_at = CURRENT_TIMESTAMP, last_error = NULL WHERE id = $1', [providerInfo.id]);
 
       await client.query('COMMIT');
 
+      const addedCount = insRes.rowCount || 0;
+      const updatedCount = updRes.rowCount || 0;
+      const deletedCount = delRes.rowCount || 0;
+      const deactivatedCount = deactRes.rowCount || 0;
+
+      const removalText = (deletedCount > 0 || deactivatedCount > 0)
+        ? ` (${deletedCount} deleted upstream services removed, ${deactivatedCount} archived)`
+        : '';
+
       res.json({
         success: true,
-        message: `Sync completed: ${addedCount} new services added, ${updatedCount} services updated with INR conversion (Rate: ₹${usdRate}/USD, Margin: +${markupPct}%).`,
+        message: `Sync completed: ${addedCount} new added, ${updatedCount} updated${removalText}. Current upstream total: ${fetchedServices.length}.`,
         stats: {
           totalFetched: fetchedServices.length,
           added: addedCount,
           updated: updatedCount,
+          deleted: deletedCount,
+          deactivated: deactivatedCount,
           usdToInrRate: usdRate,
           markupPct
         }

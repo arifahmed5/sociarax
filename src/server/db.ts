@@ -31,6 +31,7 @@ interface FallbackData {
   fraud_rejection_audits: Array<any>;
   notifications: Array<any>;
   password_resets: Array<any>;
+  user_banners: Array<any>;
 }
 
 const initialPasswordHash = bcrypt.hashSync(process.env.ADMIN_INITIAL_PASSWORD || 'AdminSecure2026!SociaraX', 10);
@@ -42,13 +43,13 @@ const fallbackStore: FallbackData = {
     ['currency', { key: 'currency', value: 'INR', updated_at: new Date().toISOString() }],
     ['currency_symbol', { key: 'currency_symbol', value: '₹', updated_at: new Date().toISOString() }],
     ['min_deposit', { key: 'min_deposit', value: '10', updated_at: new Date().toISOString() }],
-    ['upi_id', { key: 'upi_id', value: '6001768808@axisbank', updated_at: new Date().toISOString() }],
-    ['upi_id_secondary', { key: 'upi_id_secondary', value: '6001768808-3@ybl', updated_at: new Date().toISOString() }],
-    ['upi_merchant_name', { key: 'upi_merchant_name', value: 'ARIF UDDIN AHMED', updated_at: new Date().toISOString() }],
+    ['upi_id', { key: 'upi_id', value: 'merchant@axisbank', updated_at: new Date().toISOString() }],
+    ['upi_id_secondary', { key: 'upi_id_secondary', value: '', updated_at: new Date().toISOString() }],
+    ['upi_merchant_name', { key: 'upi_merchant_name', value: 'SociaraX Official', updated_at: new Date().toISOString() }],
     ['qr_code_url', { key: 'qr_code_url', value: '', updated_at: new Date().toISOString() }],
-    ['support_email', { key: 'support_email', value: 'arifahmed87204@gmail.com', updated_at: new Date().toISOString() }],
-    ['telegram_support', { key: 'telegram_support', value: '@arifahmed5_6', updated_at: new Date().toISOString() }],
-    ['whatsapp_support', { key: 'whatsapp_support', value: '@arifahmed56', updated_at: new Date().toISOString() }],
+    ['support_email', { key: 'support_email', value: 'support@sociarax.com', updated_at: new Date().toISOString() }],
+    ['telegram_support', { key: 'telegram_support', value: '@SociaraX_Support', updated_at: new Date().toISOString() }],
+    ['whatsapp_support', { key: 'whatsapp_support', value: '', updated_at: new Date().toISOString() }],
     ['announcement', { key: 'announcement', value: 'Welcome to SociaraX! Real-time automated delivery active across Instagram, YouTube, Telegram, Snapchat, Facebook & X with 100% Non-Drop Refill Guarantee.', updated_at: new Date().toISOString() }]
   ]),
   users: [],
@@ -950,7 +951,8 @@ const fallbackStore: FallbackData = {
   audit_logs: [],
   fraud_rejection_audits: [],
   notifications: [],
-  password_resets: []
+  password_resets: [],
+  user_banners: []
 };
 
 let nextIds = {
@@ -2051,7 +2053,7 @@ export async function initializeDatabaseSchema(): Promise<void> {
           api_key_encrypted TEXT NOT NULL,
           masked_key VARCHAR(30) NOT NULL,
           status VARCHAR(20) DEFAULT 'active' NOT NULL,
-          balance NUMERIC(14, 4) DEFAULT 0.0000,
+          balance NUMERIC(20, 8) DEFAULT 0.00000000,
           currency VARCHAR(10) DEFAULT 'INR',
           priority INT DEFAULT 1,
           last_checked_at TIMESTAMP WITH TIME ZONE,
@@ -2260,6 +2262,20 @@ export async function initializeDatabaseSchema(): Promise<void> {
         );
         CREATE INDEX IF NOT EXISTS idx_fraud_audits_user_id ON fraud_rejection_audits(user_id);
         CREATE INDEX IF NOT EXISTS idx_fraud_audits_payment_id ON fraud_rejection_audits(payment_id);
+
+        -- 15. User Banners Table (Optional Temporary Admin Announcement Banner)
+        CREATE TABLE IF NOT EXISTS user_banners (
+          id SERIAL PRIMARY KEY,
+          image_url TEXT,
+          target_url TEXT,
+          duration_hours INT DEFAULT 24 NOT NULL,
+          published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          is_active BOOLEAN DEFAULT TRUE NOT NULL,
+          created_by INT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_user_banners_active_expires ON user_banners(is_active, expires_at);
       `);
 
       // Indexes

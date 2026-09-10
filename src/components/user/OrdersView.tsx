@@ -10,13 +10,15 @@ import {
   LogIn,
   PlusCircle
 } from 'lucide-react';
+import { SociaraxOrder } from '../../types';
 
 interface OrdersViewProps {
   onNavigate: (tab: string) => void;
   onOpenAuthModal?: () => void;
+  onReorder?: (order: SociaraxOrder) => void;
 }
 
-export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthModal }) => {
+export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthModal, onReorder }) => {
   const { userOrders, formatCurrency, isOrdersLoading, loadUserOrders } = useSociarax();
   const { user, userToken } = useAuth();
   const isAuthenticated = Boolean(userToken || user || localStorage.getItem('sociarax_user_token'));
@@ -219,7 +221,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthMo
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <button
-                            onClick={() => onNavigate('new_order')}
+                            onClick={() => onReorder ? onReorder(ord) : onNavigate('new_order')}
                             className="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition-colors cursor-pointer"
                             title="Reorder this service"
                           >

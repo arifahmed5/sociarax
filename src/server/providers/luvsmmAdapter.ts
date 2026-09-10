@@ -57,14 +57,17 @@ export class LuvsmmAdapter implements ProviderAdapter {
     }
   }
 
-  async testConnection(apiUrl: string, apiKey: string): Promise<{ success: boolean; message: string; balance?: number }> {
+  async testConnection(apiUrl: string, apiKey: string): Promise<{ success: boolean; message: string; balance?: number; rawBalanceString?: string; currency?: string }> {
     try {
       const balanceRes = await this.getBalance(apiUrl, apiKey);
       if (balanceRes.success) {
+        const balDisplay = balanceRes.rawBalanceString || String(balanceRes.balance ?? 0);
         return {
           success: true,
-          message: `Connection successful! Provider balance: ${balanceRes.balance} ${balanceRes.currency || ''}`,
+          message: `Connection successful! Provider balance: ${balDisplay} ${balanceRes.currency || 'USD'}`,
           balance: balanceRes.balance,
+          rawBalanceString: balanceRes.rawBalanceString,
+          currency: balanceRes.currency
         };
       }
       return {
@@ -82,20 +85,37 @@ export class LuvsmmAdapter implements ProviderAdapter {
   async getBalance(apiUrl: string, apiKey: string): Promise<ProviderBalanceResult> {
     try {
       const data = await this.makeRequest(apiUrl, apiKey, { action: 'balance' });
-      if (data && data.error) {
+      if (!data || typeof data !== 'object') {
+        return { success: false, error: 'Provider returned an empty or invalid response' };
+      }
+      if (data.error) {
         return { success: false, error: String(data.error) };
       }
-      if (data && (data.balance !== undefined || data.balance_formatted !== undefined)) {
-        const balance = parseFloat(data.balance || data.balance_formatted || '0');
-        return {
-          success: true,
-          balance: isNaN(balance) ? 0 : balance,
-          currency: data.currency || 'USD',
-        };
+      
+      const rawVal = data.balance !== undefined ? data.balance : data.balance_formatted;
+      if (rawVal === undefined || rawVal === null) {
+        return { success: false, error: 'Provider response does not contain a balance field' };
       }
-      return { success: false, error: 'Invalid balance format from provider' };
+
+      const rawBalStr = String(rawVal).trim();
+      const balance = parseFloat(rawBalStr);
+
+      if (!Number.isFinite(balance) || isNaN(balance) || balance < 0) {
+        return { success: false, error: `Invalid balance value returned by provider: "${rawBalStr}"` };
+      }
+
+      const currency = (data.currency && typeof data.currency === 'string' && data.currency.trim())
+        ? data.currency.trim().toUpperCase()
+        : 'USD';
+
+      return {
+        success: true,
+        balance,
+        rawBalanceString: rawBalStr,
+        currency,
+      };
     } catch (err: any) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.message || 'Error fetching balance from provider' };
     }
   }
 

@@ -432,6 +432,7 @@ orderRouter.get('/', requireUserAuth, async (req: Request, res: Response): Promi
     let query = `
       SELECT 
         o.id,
+        o.service_id,
         o.service_name,
         o.platform,
         o.link,
@@ -441,8 +442,10 @@ orderRouter.get('/', requireUserAuth, async (req: Request, res: Response): Promi
         o.start_count,
         o.remains,
         o.created_at,
-        o.updated_at
+        o.updated_at,
+        COALESCE(s.category_name, '') AS category_name
       FROM orders o
+      LEFT JOIN services s ON o.service_id = s.id
       WHERE o.user_id = $1
     `;
     const params: any[] = [user.id];
@@ -470,7 +473,9 @@ orderRouter.get('/', requireUserAuth, async (req: Request, res: Response): Promi
       success: true,
       orders: result.rows.map(row => ({
         id: row.id,
+        serviceId: row.service_id ? parseInt(row.service_id, 10) : undefined,
         serviceName: row.service_name,
+        category: row.category_name || undefined,
         platform: row.platform,
         link: row.link,
         quantity: row.quantity,

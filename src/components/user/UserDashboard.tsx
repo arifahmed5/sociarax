@@ -40,9 +40,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpen
   const recentOrders = userOrders.slice(0, 5);
 
   const isOwnerOrAdmin = Boolean(
-    user?.role === 'admin' || 
-    user?.email?.toLowerCase() === 'arifahmed87204@gmail.com' || 
-    user?.username?.toLowerCase() === 'arifahmed56'
+    user?.role === 'admin'
   );
 
   const activeAnnouncement = (maintenanceConfig.announcementBannerActive && maintenanceConfig.announcementBannerText) 
@@ -69,7 +67,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpen
                 Full Management Access to SociaraX Backend
               </h2>
               <p className="text-xs text-slate-300 truncate">
-                LuvSMM API Active • 2,680 Services • Provider Dispatch & Catalog Control
+                Upstream Provider API Active • Live Services Synchronized • Provider Dispatch & Catalog Control
               </p>
             </div>
           </div>

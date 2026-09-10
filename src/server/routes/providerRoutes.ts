@@ -3,12 +3,13 @@ import { getDbPool } from '../db';
 import { requireAdminAuth } from '../auth';
 import { encryptSecret, decryptSecret } from '../totp';
 import { providerRegistry } from '../providers/providerRegistry';
+import { getLiveUsdToInrRate } from '../services/liveExchangeRate';
 
 export const providerRouter = Router();
 
 /**
  * GET /api/admin/providers/live-balance
- * Live-checks balance directly from upstream providers (e.g. LuvSMM) and converts to INR based on usd_to_inr_rate
+ * Live-checks balance directly from upstream providers (e.g. LuvSMM) and converts to INR based on current live exchange rate
  */
 providerRouter.get('/live-balance', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
   const db = getDbPool();
@@ -18,57 +19,112 @@ providerRouter.get('/live-balance', requireAdminAuth, async (req: Request, res: 
   }
 
   try {
-    // Get exchange rate from system_settings
+    // 1. Get current live USD to INR exchange rate from live exchange-rate API
     const settingsRes = await db.query("SELECT value FROM system_settings WHERE key = 'usd_to_inr_rate'");
-    const usdToInrRate = settingsRes.rowCount && settingsRes.rows[0].value ? parseFloat(settingsRes.rows[0].value) : 88.0;
+    const fallbackRate = settingsRes.rowCount && settingsRes.rows[0].value ? parseFloat(settingsRes.rows[0].value) : 89.5;
+    const liveRateObj = await getLiveUsdToInrRate(fallbackRate);
+    const liveExchangeRate = liveRateObj.rate;
 
+    // 2. Fetch active providers
     const provRes = await db.query('SELECT * FROM api_providers WHERE status = $1 ORDER BY priority ASC, id ASC', ['active']);
+    if (provRes.rowCount === 0) {
+      res.status(404).json({ success: false, error: 'No active API provider configured' });
+      return;
+    }
+
     const providerList: any[] = [];
+    let primarySuccessResult: any = null;
+    let primaryError: string | null = null;
     let totalInr = 0;
 
     for (const prov of provRes.rows) {
       try {
         const apiKey = decryptSecret(prov.api_key_encrypted);
-        const adapter = providerRegistry.getAdapter(prov.adapter_type);
-        const balResult = await adapter.getBalance(prov.api_url, apiKey);
-        
-        let liveBalance = parseFloat(prov.balance || '0');
-        let currency = prov.currency || 'USD';
-
-        if (balResult.success && balResult.balance !== undefined) {
-          liveBalance = balResult.balance;
-          currency = balResult.currency || 'USD';
-
-          await db.query(`
-            UPDATE api_providers 
-            SET balance = $1, currency = $2, last_checked_at = CURRENT_TIMESTAMP, last_error = NULL 
-            WHERE id = $3
-          `, [liveBalance, currency, prov.id]);
+        if (!apiKey) {
+          throw new Error('API key could not be decrypted or is missing');
         }
 
-        const isUsd = currency.toUpperCase() === 'USD' || currency === '$';
-        const inrEquivalent = isUsd ? parseFloat((liveBalance * usdToInrRate).toFixed(2)) : liveBalance;
+        const adapter = providerRegistry.getAdapter(prov.adapter_type);
+        if (!adapter) {
+          throw new Error(`No adapter found for provider type: ${prov.adapter_type}`);
+        }
+
+        // Live call to LuvSMM API: action = "balance"
+        const balResult = await adapter.getBalance(prov.api_url, apiKey);
+
+        if (!balResult.success || balResult.balance === undefined || !Number.isFinite(balResult.balance) || balResult.balance < 0) {
+          const errMsg = balResult.error || 'Invalid or malformed balance data returned by provider';
+          await db.query(`
+            UPDATE api_providers 
+            SET last_checked_at = CURRENT_TIMESTAMP, last_error = $1 
+            WHERE id = $2
+          `, [errMsg, prov.id]);
+
+          if (!primaryError) primaryError = errMsg;
+
+          providerList.push({
+            id: prov.id,
+            name: prov.name,
+            adapterType: prov.adapter_type,
+            apiUrl: prov.api_url,
+            maskedKey: prov.masked_key,
+            status: prov.status,
+            rawBalance: null,
+            rawBalanceString: null,
+            currency: prov.currency || 'USD',
+            inrEquivalent: null,
+            lastCheckedAt: prov.last_checked_at,
+            fetchSuccess: false,
+            lastError: errMsg
+          });
+          continue;
+        }
+
+        // Exact values from LuvSMM API
+        const rawBalance = balResult.balance;
+        const rawBalanceString = balResult.rawBalanceString || String(rawBalance);
+        const providerCurrency = (balResult.currency || 'USD').toUpperCase();
+
+        // Calculate converted INR display value using LIVE exchange rate
+        const isUsd = providerCurrency === 'USD' || providerCurrency === '$';
+        const inrEquivalent = isUsd ? (rawBalance * liveExchangeRate) : rawBalance;
         totalInr += inrEquivalent;
 
-        providerList.push({
+        // Persist the real live balance and currency in DB for records
+        await db.query(`
+          UPDATE api_providers 
+          SET balance = $1, currency = $2, last_checked_at = CURRENT_TIMESTAMP, last_error = NULL 
+          WHERE id = $3
+        `, [rawBalanceString, providerCurrency, prov.id]);
+
+        const provItem = {
           id: prov.id,
           name: prov.name,
           adapterType: prov.adapter_type,
           apiUrl: prov.api_url,
           maskedKey: prov.masked_key,
           status: prov.status,
-          rawBalance: liveBalance,
-          currency: currency.toUpperCase(),
+          rawBalance,
+          rawBalanceString,
+          currency: providerCurrency,
           inrEquivalent,
-          lastCheckedAt: new Date().toISOString()
-        });
+          lastCheckedAt: new Date().toISOString(),
+          fetchSuccess: true
+        };
+
+        providerList.push(provItem);
+        if (!primarySuccessResult) {
+          primarySuccessResult = provItem;
+        }
       } catch (pErr: any) {
         console.warn(`[PROVIDER LIVE BALANCE FETCH ERROR for ${prov.name}]:`, pErr.message);
-        const liveBalance = parseFloat(prov.balance || '0');
-        const currency = prov.currency || 'USD';
-        const isUsd = currency.toUpperCase() === 'USD' || currency === '$';
-        const inrEquivalent = isUsd ? parseFloat((liveBalance * usdToInrRate).toFixed(2)) : liveBalance;
-        totalInr += inrEquivalent;
+        await db.query(`
+          UPDATE api_providers 
+          SET last_checked_at = CURRENT_TIMESTAMP, last_error = $1 
+          WHERE id = $2
+        `, [pErr.message, prov.id]);
+
+        if (!primaryError) primaryError = pErr.message;
 
         providerList.push({
           id: prov.id,
@@ -77,34 +133,55 @@ providerRouter.get('/live-balance', requireAdminAuth, async (req: Request, res: 
           apiUrl: prov.api_url,
           maskedKey: prov.masked_key,
           status: prov.status,
-          rawBalance: liveBalance,
-          currency: currency.toUpperCase(),
-          inrEquivalent,
+          rawBalance: null,
+          rawBalanceString: null,
+          currency: prov.currency || 'USD',
+          inrEquivalent: null,
           lastCheckedAt: prov.last_checked_at,
+          fetchSuccess: false,
           lastError: pErr.message
         });
       }
     }
 
-    const primaryProv = providerList[0] || null;
-    const primaryRawBal = primaryProv ? (primaryProv.rawBalance || 0) : 0;
-    const primaryCurrency = primaryProv ? (primaryProv.currency || 'USD') : 'USD';
-    const totalUsd = primaryCurrency === 'USD' ? primaryRawBal : (totalInr / usdToInrRate);
+    if (!primarySuccessResult) {
+      res.status(502).json({
+        success: false,
+        fetchSuccess: false,
+        error: `Unable to fetch live LuvSMM balance: ${primaryError || 'Provider API unreachable'}`,
+        lastCheckedAt: provRes.rows[0]?.last_checked_at || null,
+        providers: providerList
+      });
+      return;
+    }
 
     res.json({
       success: true,
-      providers: providerList,
-      totalInrBalance: parseFloat(totalInr.toFixed(2)),
-      totalLiveBalanceInr: parseFloat(totalInr.toFixed(2)),
-      totalLiveBalanceUsd: parseFloat(totalUsd.toFixed(2)),
-      rawPrimaryBalance: primaryRawBal,
-      rawPrimaryCurrency: primaryCurrency,
-      usdToInrRate,
-      primaryProvider: primaryProv
+      fetchSuccess: true,
+      providerName: primarySuccessResult.name,
+      rawBalance: primarySuccessResult.rawBalance,
+      rawBalanceString: primarySuccessResult.rawBalanceString,
+      rawPrimaryBalance: primarySuccessResult.rawBalance,
+      rawPrimaryBalanceString: primarySuccessResult.rawBalanceString,
+      currency: primarySuccessResult.currency,
+      rawPrimaryCurrency: primarySuccessResult.currency,
+      inrEquivalent: primarySuccessResult.inrEquivalent,
+      totalInrBalance: totalInr,
+      totalLiveBalanceInr: totalInr,
+      totalInrString: primarySuccessResult.rawBalanceString,
+      totalLiveBalanceUsd: primarySuccessResult.currency === 'USD' ? primarySuccessResult.rawBalance : (totalInr / liveExchangeRate),
+      usdToInrRate: liveExchangeRate,
+      exchangeRate: liveExchangeRate,
+      rateSource: liveRateObj.source,
+      rateFetchedAt: liveRateObj.fetchedAt,
+      isLiveRate: liveRateObj.isLive,
+      lastCheckedAt: primarySuccessResult.lastCheckedAt,
+      primaryProvider: primarySuccessResult,
+      providers: providerList
     });
   } catch (err: any) {
     console.error('[LIVE PROVIDER BALANCE ERROR]:', err);
-    res.status(500).json({ success: false, error: 'Failed to retrieve live provider balance' });
+    res.status(500).json({ success: false, error: 'Failed to retrieve live provider balance: ' + err.message });
   }
 });
 
@@ -120,6 +197,7 @@ providerRouter.get('/', requireAdminAuth, async (req: Request, res: Response): P
   }
 
   try {
+    const liveRateObj = await getLiveUsdToInrRate();
     const result = await db.query(`
       SELECT 
         id, 
@@ -140,20 +218,29 @@ providerRouter.get('/', requireAdminAuth, async (req: Request, res: Response): P
 
     res.json({
       success: true,
-      providers: result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        adapterType: row.adapter_type,
-        apiUrl: row.api_url,
-        maskedKey: row.masked_key,
-        status: row.status,
-        balance: parseFloat(row.balance || '0'),
-        currency: row.currency || 'USD',
-        priority: row.priority,
-        lastCheckedAt: row.last_checked_at,
-        lastError: row.last_error,
-        createdAt: row.created_at
-      }))
+      liveExchangeRate: liveRateObj.rate,
+      rateSource: liveRateObj.source,
+      providers: result.rows.map(row => {
+        const rawBal = parseFloat(row.balance || '0');
+        const curr = (row.currency || 'USD').toUpperCase();
+        const inrEquiv = curr === 'USD' ? (rawBal * liveRateObj.rate) : rawBal;
+        return {
+          id: row.id,
+          name: row.name,
+          adapterType: row.adapter_type,
+          apiUrl: row.api_url,
+          maskedKey: row.masked_key,
+          status: row.status,
+          balance: rawBal,
+          rawBalanceString: row.balance !== null && row.balance !== undefined ? String(row.balance) : '0',
+          currency: curr,
+          inrEquivalent: inrEquiv,
+          priority: row.priority,
+          lastCheckedAt: row.last_checked_at,
+          lastError: row.last_error,
+          createdAt: row.created_at
+        };
+      })
     });
   } catch (err: any) {
     console.error('[ADMIN PROVIDERS FETCH ERROR]:', err);
@@ -166,7 +253,7 @@ providerRouter.get('/', requireAdminAuth, async (req: Request, res: Response): P
  * Add a new SMM API Provider (e.g. Luvsmm, SMM Provider B)
  */
 providerRouter.post('/', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
-  const { name, adapterType = 'luvsmm', apiUrl, apiKey, priority = 1 } = req.body;
+  const { name, adapterType = 'luvsmm', apiUrl, apiKey, priority = 1, currency = 'INR' } = req.body;
 
   if (!name || !apiUrl || !apiKey) {
     res.status(400).json({ success: false, error: 'Provider name, API URL, and API Key are required.' });
@@ -186,17 +273,18 @@ providerRouter.post('/', requireAdminAuth, async (req: Request, res: Response): 
   try {
     const insertRes = await db.query(`
       INSERT INTO api_providers (
-        name, adapter_type, api_url, api_key_encrypted, masked_key, status, priority
+        name, adapter_type, api_url, api_key_encrypted, masked_key, status, priority, currency
       )
-      VALUES ($1, $2, $3, $4, $5, 'active', $6)
-      RETURNING id, name, adapter_type, api_url, masked_key, status, priority, created_at
+      VALUES ($1, $2, $3, $4, $5, 'active', $6, $7)
+      RETURNING id, name, adapter_type, api_url, masked_key, status, priority, currency, balance, created_at
     `, [
       name.trim(),
       adapterType.trim().toLowerCase(),
       apiUrl.trim(),
       encrypted,
       masked,
-      parseInt(String(priority), 10) || 1
+      parseInt(String(priority), 10) || 1,
+      String(currency).trim().toUpperCase() === 'USD' ? 'USD' : 'INR'
     ]);
 
     res.json({
@@ -221,7 +309,7 @@ providerRouter.put('/:id', requireAdminAuth, async (req: Request, res: Response)
     return;
   }
 
-  const { name, adapterType, apiUrl, apiKey, status, priority } = req.body;
+  const { name, adapterType, apiUrl, apiKey, status, priority, currency } = req.body;
 
   const db = getDbPool();
   if (!db) {
@@ -253,6 +341,10 @@ providerRouter.put('/:id', requireAdminAuth, async (req: Request, res: Response)
       params.push(parseInt(String(priority), 10) || 1);
       updateKeyClause += `, priority = $${params.length}`;
     }
+    if (currency) {
+      params.push(String(currency).trim().toUpperCase() === 'USD' ? 'USD' : 'INR');
+      updateKeyClause += `, currency = $${params.length}`;
+    }
     if (apiKey && String(apiKey).trim().length > 0 && !String(apiKey).includes('••••')) {
       const cleanKey = String(apiKey).trim();
       const masked = cleanKey.length > 4 ? `••••••••••••${cleanKey.slice(-4)}` : '••••••••••••';
@@ -269,7 +361,7 @@ providerRouter.put('/:id', requireAdminAuth, async (req: Request, res: Response)
       UPDATE api_providers
       SET updated_at = CURRENT_TIMESTAMP ${updateKeyClause}
       WHERE id = $1
-      RETURNING id, name, adapter_type, api_url, masked_key, status, priority
+      RETURNING id, name, adapter_type, api_url, masked_key, status, priority, currency, balance
     `;
 
     const result = await db.query(query, params);
@@ -315,33 +407,48 @@ providerRouter.post('/:id/test', requireAdminAuth, async (req: Request, res: Res
 
     const testResult = await adapter.testConnection(prov.api_url, apiKey);
 
-    if (testResult.success) {
+    if (testResult.success && testResult.balance !== undefined && Number.isFinite(testResult.balance)) {
+      const balToStore = testResult.rawBalanceString || String(testResult.balance);
+      const provCurrency = (testResult.currency || 'USD').toUpperCase();
+
       await db.query(`
         UPDATE api_providers 
         SET 
-          balance = COALESCE($1, balance),
+          balance = $1::NUMERIC,
+          currency = $2,
           last_checked_at = CURRENT_TIMESTAMP,
           last_error = NULL
-        WHERE id = $2
-      `, [testResult.balance !== undefined ? testResult.balance : null, providerId]);
+        WHERE id = $3
+      `, [balToStore, provCurrency, providerId]);
+
+      const liveRateObj = await getLiveUsdToInrRate();
+      const inrEquiv = provCurrency === 'USD' ? (testResult.balance * liveRateObj.rate) : testResult.balance;
+      const curSymbol = provCurrency === 'USD' ? '$' : '₹';
+      const balDisplay = testResult.rawBalanceString || String(testResult.balance);
+      const customMessage = `Connection successful! Provider balance: ${curSymbol}${balDisplay} ${provCurrency} (≈ ₹${inrEquiv.toFixed(2)} INR at live rate ₹${liveRateObj.rate.toFixed(2)}/$)`;
 
       res.json({
         success: true,
-        message: testResult.message,
-        balance: testResult.balance
+        message: customMessage,
+        balance: testResult.balance,
+        rawBalanceString: testResult.rawBalanceString,
+        currency: provCurrency,
+        inrEquivalent: inrEquiv,
+        liveExchangeRate: liveRateObj.rate
       });
     } else {
+      const errMsg = testResult.message || 'Connection test failed with provider';
       await db.query(`
         UPDATE api_providers 
         SET 
           last_checked_at = CURRENT_TIMESTAMP,
           last_error = $1
         WHERE id = $2
-      `, [testResult.message, providerId]);
+      `, [errMsg, providerId]);
 
       res.status(400).json({
         success: false,
-        error: testResult.message
+        error: errMsg
       });
     }
   } catch (err: any) {

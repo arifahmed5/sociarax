@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSociarax } from '../../context/SociaraxContext';
 import { ApiProvider } from '../../types';
+import { formatExactProviderBalance } from '../../utils/formatters';
 import { 
   Server, 
   Plus, 
@@ -22,11 +23,14 @@ export const AdminProvidersView: React.FC = () => {
     loadAdminProviders, 
     createAdminProvider, 
     updateAdminProvider, 
-    testAdminProvider 
+    testAdminProvider,
+    settings 
   } = useSociarax();
 
+  const exchangeRate = Number(settings?.usd_to_inr_rate) || 89.5;
+
   const [testingId, setTestingId] = useState<number | null>(null);
-  const [testResult, setTestResult] = useState<{ id: number; success: boolean; message: string; balance?: number } | null>(null);
+  const [testResult, setTestResult] = useState<{ id: number; success: boolean; message: string; balance?: number; rawBalanceString?: string } | null>(null);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<ApiProvider | null>(null);
@@ -37,6 +41,7 @@ export const AdminProvidersView: React.FC = () => {
   const [apiUrl, setApiUrl] = useState('https://luvsmm.com/api/v2');
   const [apiKey, setApiKey] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
+  const [currency, setCurrency] = useState<'INR' | 'USD'>('USD');
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -50,7 +55,8 @@ export const AdminProvidersView: React.FC = () => {
       id,
       success: res.success,
       message: res.success ? (res.message || 'Connection successful') : (res.error || 'Connection failed'),
-      balance: res.balance
+      balance: res.balance,
+      rawBalanceString: res.rawBalanceString
     });
   };
 
@@ -64,7 +70,8 @@ export const AdminProvidersView: React.FC = () => {
         name,
         apiUrl,
         apiKey: apiKey || undefined,
-        status
+        status,
+        currency
       });
       setIsSaving(false);
       if (res.success) {
@@ -84,7 +91,8 @@ export const AdminProvidersView: React.FC = () => {
         adapterType,
         apiUrl,
         apiKey,
-        status
+        status,
+        currency
       });
       setIsSaving(false);
       if (res.success) {
@@ -103,6 +111,7 @@ export const AdminProvidersView: React.FC = () => {
     setApiUrl(p.apiUrl);
     setApiKey('');
     setStatus(p.status);
+    setCurrency(p.currency?.toUpperCase() === 'USD' ? 'USD' : 'INR');
     setFormError('');
   };
 
@@ -182,19 +191,19 @@ export const AdminProvidersView: React.FC = () => {
                     {provider.currency?.toUpperCase() === 'INR' ? (
                       <>
                         <span className="font-mono font-bold text-emerald-400 text-sm block">
-                          ₹{(Number(provider.balance) || 0).toFixed(2)} INR
+                          ₹{formatExactProviderBalance(provider.rawBalanceString || provider.balance)} INR
                         </span>
                         <span className="text-[10px] text-slate-400 font-mono">
-                          (≈ ${((Number(provider.balance) || 0) / 88).toFixed(2)} USD)
+                          (≈ ${formatExactProviderBalance((Number(provider.balance) || 0) / exchangeRate)} USD)
                         </span>
                       </>
                     ) : (
                       <>
                         <span className="font-mono font-bold text-emerald-400 text-sm block">
-                          ${(Number(provider.balance) || 0).toFixed(2)} USD
+                          ${formatExactProviderBalance(provider.rawBalanceString || provider.balance)} USD
                         </span>
                         <span className="text-[10px] text-emerald-300 font-mono font-medium">
-                          (≈ ₹{((Number(provider.balance) || 0) * 88).toFixed(2)} INR)
+                          (≈ ₹{((Number(provider.balance) || 0) * exchangeRate).toFixed(2)} INR)
                         </span>
                       </>
                     )}
@@ -210,7 +219,7 @@ export const AdminProvidersView: React.FC = () => {
                     : 'bg-rose-500/10 border border-rose-500/30 text-rose-200'
                 }`}>
                   {testResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />}
-                  <span>{testResult.message} {testResult.balance !== undefined ? `(Live Balance: ${testResult.balance})` : ''}</span>
+                  <span>{testResult.message}</span>
                 </div>
               )}
             </div>
@@ -303,16 +312,29 @@ export const AdminProvidersView: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Status</label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Status</label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Currency</label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-medium"
+                  >
+                    <option value="INR">INR (₹ Rupee)</option>
+                    <option value="USD">USD ($ Dollar)</option>
+                  </select>
+                </div>
               </div>
 
               <button

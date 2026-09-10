@@ -15,6 +15,7 @@ import { SupportView } from './components/user/SupportView';
 import { ProfileView } from './components/user/ProfileView';
 import { ReferAndEarnView } from './components/user/ReferAndEarnView';
 import { AuthModal } from './components/user/AuthModal';
+import { UserAnnouncementBanner } from './components/user/UserAnnouncementBanner';
 
 // Admin Views
 import { AdminAuthModal } from './components/admin/AdminAuthModal';
@@ -33,6 +34,7 @@ import { AdminMaintenanceView } from './components/admin/AdminMaintenanceView';
 import { AuthGate } from './components/AuthGate';
 
 import { ShieldCheck, Zap, Lock, Mail, Send, Heart } from 'lucide-react';
+import { SociaraxOrder, ReorderData, ReorderParams } from './types';
 
 const MainLayout: React.FC = () => {
   const { user, admin, isUserLoading, isAdminLoading, userToken, adminToken } = useAuth();
@@ -63,6 +65,7 @@ const MainLayout: React.FC = () => {
   const [isUserAuthOpen, setIsUserAuthOpen] = useState<boolean>(false);
   const [isAdminAuthOpen, setIsAdminAuthOpen] = useState<boolean>(false);
   const [selectedServiceIdForOrder, setSelectedServiceIdForOrder] = useState<number | null>(null);
+  const [reorderData, setReorderData] = useState<ReorderData | ReorderParams | null>(null);
 
   // Synchronize browser history / hash navigation with customer tabs only
   React.useEffect(() => {
@@ -75,15 +78,27 @@ const MainLayout: React.FC = () => {
   }, []);
 
   const handleSelectServiceForOrder = (serviceId: number) => {
+    setReorderData(null);
     setSelectedServiceIdForOrder(serviceId);
+    handleTabChange('new_order');
+  };
+
+  const handleReorder = (order: SociaraxOrder) => {
+    setReorderData({
+      serviceId: order.serviceId || 0,
+      serviceName: order.serviceName,
+      category: order.category,
+      platform: order.platform,
+      link: order.link,
+      quantity: order.quantity
+    });
+    setSelectedServiceIdForOrder(order.serviceId || null);
     handleTabChange('new_order');
   };
 
   const isOwnerOrAdmin = Boolean(
     admin || 
-    user?.role === 'admin' || 
-    user?.email?.toLowerCase() === 'arifahmed87204@gmail.com' || 
-    user?.username?.toLowerCase() === 'arifahmed56'
+    user?.role === 'admin'
   );
 
   const handleTabChange = (tab: string) => {
@@ -202,6 +217,11 @@ const MainLayout: React.FC = () => {
 
       {/* Main Content Area */}
       <main className={`relative z-10 flex-1 max-w-7xl w-full mx-auto ${maintenanceConfig.compactMobileLayout ? 'px-3 sm:px-6 py-4 sm:py-6' : 'px-4 sm:px-6 py-6 sm:py-8'}`}>
+        {/* Customer Portal Top Announcement Banner (Active & unexpired only, zero UI footprint when inactive) */}
+        {!currentTab.startsWith('admin_') && (
+          <UserAnnouncementBanner />
+        )}
+
         {/* Customer Portal Views */}
         {currentTab === 'dashboard' && (
           <UserDashboard
@@ -215,6 +235,8 @@ const MainLayout: React.FC = () => {
             onNavigate={handleTabChange}
             onOpenAuthModal={() => setIsUserAuthOpen(true)}
             preselectedServiceId={selectedServiceIdForOrder}
+            reorderData={reorderData}
+            onClearReorderData={() => setReorderData(null)}
           />
         )}
 
@@ -225,7 +247,8 @@ const MainLayout: React.FC = () => {
         {currentTab === 'orders' && (
           <OrdersView 
             onNavigate={handleTabChange} 
-            onOpenAuthModal={() => setIsUserAuthOpen(true)} 
+            onOpenAuthModal={() => setIsUserAuthOpen(true)}
+            onReorder={handleReorder}
           />
         )}
 

@@ -104,7 +104,9 @@ export interface AdminService extends SociaraxService {
 
 export interface SociaraxOrder {
   id: number;
+  serviceId?: number;
   serviceName: string;
+  category?: string;
   platform: PlatformType;
   link: string;
   quantity: number;
@@ -114,6 +116,23 @@ export interface SociaraxOrder {
   remains?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ReorderParams {
+  serviceId?: number;
+  category?: string;
+  platform?: PlatformType | string;
+  link?: string;
+  quantity?: number;
+}
+
+export interface ReorderData {
+  serviceId: number;
+  serviceName: string;
+  category?: string;
+  platform: PlatformType;
+  link: string;
+  quantity: number;
 }
 
 export interface AdminOrder extends SociaraxOrder {
@@ -171,6 +190,7 @@ export interface ApiProvider {
   maskedKey: string;
   status: 'active' | 'inactive';
   balance: number;
+  rawBalanceString?: string;
   currency: string;
   priority: number;
   lastCheckedAt?: string;
