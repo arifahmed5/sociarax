@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSociarax } from '../../context/SociaraxContext';
-import { PlatformBadge } from '../Badges';
+import { PlatformBadge, resolvePlatform } from '../Badges';
 import { 
   Search, 
   Sparkles, 
@@ -29,15 +29,32 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceForOr
 
   // Platforms available
   const platforms = useMemo(() => {
-    const set = new Set(services.map(s => s.platform.toLowerCase()));
-    return ['all', ...Array.from(set)];
+    const list = [
+      { id: 'all', label: 'All Platforms' },
+      { id: 'instagram', label: 'Instagram' },
+      { id: 'youtube', label: 'YouTube' },
+      { id: 'telegram', label: 'Telegram' },
+      { id: 'snapchat', label: 'Snapchat' },
+      { id: 'facebook', label: 'Facebook' },
+      { id: 'twitter', label: 'X / Twitter' },
+      { id: 'spotify', label: 'Spotify' },
+      { id: 'tiktok', label: 'TikTok' },
+      { id: 'discord', label: 'Discord' },
+      { id: 'traffic', label: 'Website Traffic' },
+    ];
+    const actualPlatforms = new Set(services.map(s => resolvePlatform(s)));
+    const activeStandard = list.filter(p => p.id === 'all' || actualPlatforms.has(p.id as any));
+    const extra = Array.from(actualPlatforms)
+      .filter(p => !list.some(item => item.id === p) && p !== 'other')
+      .map(p => ({ id: p, label: p.charAt(0).toUpperCase() + p.slice(1) }));
+    return [...activeStandard, ...extra];
   }, [services]);
 
   // Categories available based on platform
   const categories = useMemo(() => {
     let list = services;
     if (selectedPlatform !== 'all') {
-      list = list.filter(s => s.platform.toLowerCase() === selectedPlatform.toLowerCase());
+      list = list.filter(s => resolvePlatform(s) === selectedPlatform.toLowerCase());
     }
     return ['all', ...Array.from(new Set(list.map(s => s.category)))];
   }, [services, selectedPlatform]);
@@ -45,7 +62,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceForOr
   // Filtered services
   const filteredServices = useMemo(() => {
     return services.filter(srv => {
-      const matchPlatform = selectedPlatform === 'all' || srv.platform.toLowerCase() === selectedPlatform.toLowerCase();
+      const matchPlatform = selectedPlatform === 'all' || resolvePlatform(srv) === selectedPlatform.toLowerCase();
       const matchCategory = selectedCategory === 'all' || srv.category === selectedCategory;
       const matchSearch = !searchQuery.trim() || 
         srv.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -99,15 +116,15 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceForOr
       <div className="flex flex-wrap items-center gap-2">
         {platforms.map(p => (
           <button
-            key={p}
-            onClick={() => { setSelectedPlatform(p); setSelectedCategory('all'); }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all cursor-pointer ${
-              selectedPlatform === p
+            key={p.id}
+            onClick={() => { setSelectedPlatform(p.id); setSelectedCategory('all'); }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              selectedPlatform === p.id
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                 : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700'
             }`}
           >
-            {p === 'all' ? 'All Platforms' : p}
+            {p.label}
           </button>
         ))}
       </div>
@@ -164,7 +181,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceForOr
                     </td>
                     <td className="py-3.5 px-4 max-w-sm">
                       <div className="flex items-center gap-2 mb-1">
-                        <PlatformBadge platform={srv.platform} />
+                        <PlatformBadge service={srv} />
                         <span className="text-[11px] text-slate-400 truncate">{srv.category}</span>
                       </div>
                       <div className="font-semibold text-slate-100">{srv.name}</div>

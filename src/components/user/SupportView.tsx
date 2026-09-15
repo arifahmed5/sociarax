@@ -16,7 +16,11 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-export const SupportView: React.FC = () => {
+interface SupportViewProps {
+  initialOrderId?: number | string | null;
+}
+
+export const SupportView: React.FC<SupportViewProps> = ({ initialOrderId }) => {
   const { userToken } = useAuth();
   const { settings } = useSociarax();
 
@@ -33,6 +37,16 @@ export const SupportView: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (initialOrderId) {
+      setIsCreating(true);
+      setSelectedTicket(null);
+      setOrderId(String(initialOrderId));
+      setCategory('order');
+      setSubject(`Issue / Complaint regarding Order #${initialOrderId}`);
+    }
+  }, [initialOrderId]);
 
   const fetchTickets = async () => {
     try {

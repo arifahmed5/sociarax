@@ -66,6 +66,7 @@ const MainLayout: React.FC = () => {
   const [isAdminAuthOpen, setIsAdminAuthOpen] = useState<boolean>(false);
   const [selectedServiceIdForOrder, setSelectedServiceIdForOrder] = useState<number | null>(null);
   const [reorderData, setReorderData] = useState<ReorderData | ReorderParams | null>(null);
+  const [supportOrderId, setSupportOrderId] = useState<number | null>(null);
 
   // Synchronize browser history / hash navigation with customer tabs only
   React.useEffect(() => {
@@ -94,6 +95,11 @@ const MainLayout: React.FC = () => {
     });
     setSelectedServiceIdForOrder(order.serviceId || null);
     handleTabChange('new_order');
+  };
+
+  const handleReportOrder = (order: SociaraxOrder) => {
+    setSupportOrderId(order.id);
+    handleTabChange('support');
   };
 
   const isOwnerOrAdmin = Boolean(
@@ -249,6 +255,7 @@ const MainLayout: React.FC = () => {
             onNavigate={handleTabChange} 
             onOpenAuthModal={() => setIsUserAuthOpen(true)}
             onReorder={handleReorder}
+            onReport={handleReportOrder}
           />
         )}
 
@@ -268,7 +275,7 @@ const MainLayout: React.FC = () => {
         )}
 
         {currentTab === 'support' && (
-          <SupportView />
+          <SupportView initialOrderId={supportOrderId} />
         )}
 
         {/* Admin Portal Views (Requires 2FA or Owner Privileges) */}

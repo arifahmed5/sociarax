@@ -16,6 +16,7 @@ import {
   SupportTicket
 } from '../types';
 import { useAuth } from './AuthContext';
+import { resolvePlatform } from '../components/Badges';
 
 export const DEFAULT_MAINTENANCE_CONFIG: WebsiteMaintenanceConfig = {
   themeColor: 'indigo',
@@ -218,7 +219,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       const data = await safeFetchJson(`/api/services?${params.toString()}`);
       if (data && data.success) {
-        setServices(data.services || []);
+        const normalized = (data.services || []).map((srv: SociaraxService) => ({
+          ...srv,
+          platform: resolvePlatform(srv)
+        }));
+        setServices(normalized);
         if (data.categories) setCategories(data.categories);
         if (data.platforms) setPlatforms(data.platforms);
       }
@@ -242,7 +247,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (data && data.success) {
-        setAdminServices(data.services || []);
+        const normalized = (data.services || []).map((srv: AdminService) => ({
+          ...srv,
+          platform: resolvePlatform(srv)
+        }));
+        setAdminServices(normalized);
       }
     } catch (err) {
       console.error('[LOAD ADMIN SERVICES ERROR]:', err);
@@ -365,7 +374,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (data && data.success) {
-        setUserOrders(data.orders || []);
+        const normalized = (data.orders || []).map((ord: SociaraxOrder) => ({
+          ...ord,
+          platform: resolvePlatform(ord)
+        }));
+        setUserOrders(normalized);
       }
     } catch (err) {
       console.error('[LOAD USER ORDERS ERROR]:', err);
@@ -420,7 +433,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (data && data.success) {
-        setAdminOrders(data.orders || []);
+        const normalized = (data.orders || []).map((ord: AdminOrder) => ({
+          ...ord,
+          platform: resolvePlatform(ord)
+        }));
+        setAdminOrders(normalized);
       }
     } catch (err) {
       console.error('[LOAD ADMIN ORDERS ERROR]:', err);

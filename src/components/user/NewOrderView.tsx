@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSociarax } from '../../context/SociaraxContext';
-import { PlatformBadge } from '../Badges';
+import { PlatformBadge, resolvePlatform } from '../Badges';
 import { 
   Zap, 
   Link as LinkIcon, 
@@ -49,67 +49,12 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [successOrder, setSuccessOrder] = useState<any | null>(null);
 
-  // Bulletproof platform matching engine: category has priority over secondary mention tags
+  // Robust platform matching engine using the canonical resolvePlatform resolver
   const isServiceMatchingPlatform = (s: any, plat: string) => {
     if (!plat || plat === 'all') return true;
-    const cat = (s.category || '').toLowerCase();
-    const name = (s.name || '').toLowerCase();
-    const p = (s.platform || '').toLowerCase();
     const target = plat.trim().toLowerCase();
-
-    // 1. Strict YouTube check
-    const isYt = (cat.includes('youtube') || cat.includes('yt ')) || 
-                 (name.includes('youtube') && !cat.includes('facebook') && !cat.includes('instagram'));
-    if (target === 'youtube') return isYt;
-    if (isYt) return false; // Never leak YouTube services to other platforms
-
-    // 2. Strict Instagram check
-    const isInsta = (cat.includes('instagram') || cat.includes('ig ') || cat.includes('insta') || cat.includes('reels') || cat.includes('threads')) ||
-                    (name.includes('instagram') && !cat.includes('facebook'));
-    if (target === 'instagram') return isInsta;
-    if (isInsta) return false; // Never leak Instagram services to other platforms
-
-    // 3. Strict Telegram check
-    const isTg = (cat.includes('telegram') || cat.includes('tg ')) || name.includes('telegram');
-    if (target === 'telegram') return isTg;
-    if (isTg) return false;
-
-    // 4. Strict Facebook check
-    const isFb = (cat.includes('facebook') || cat.includes('fb ') || cat.includes('page likes') || name.includes('facebook page') || name.includes('facebook likes') || name.includes('facebook followers') || p === 'facebook');
-    if (target === 'facebook') return isFb;
-    if (isFb) return false;
-
-    // 5. Strict Twitter / X check
-    const isTw = (cat.includes('twitter') || cat.includes('tweet') || cat.includes(' x ') || name.includes('twitter') || p === 'twitter');
-    if (target === 'twitter') return isTw;
-    if (isTw) return false;
-
-    // 6. Strict Spotify check
-    const isSp = (cat.includes('spotify') || name.includes('spotify') || p === 'spotify');
-    if (target === 'spotify') return isSp;
-    if (isSp) return false;
-
-    // 7. Strict TikTok check
-    const isTt = (cat.includes('tiktok') || name.includes('tiktok') || p === 'tiktok');
-    if (target === 'tiktok') return isTt;
-    if (isTt) return false;
-
-    // 8. Strict Snapchat check
-    const isSc = (cat.includes('snapchat') || cat.includes('snap ') || name.includes('snapchat') || p === 'snapchat');
-    if (target === 'snapchat') return isSc;
-    if (isSc) return false;
-
-    // 9. Strict Discord check
-    const isDc = (cat.includes('discord') || name.includes('discord') || p === 'discord');
-    if (target === 'discord') return isDc;
-    if (isDc) return false;
-
-    // 10. Strict Traffic check
-    const isTraffic = (cat.includes('traffic') || cat.includes('website') || cat.includes('seo') || name.includes('traffic') || p === 'traffic');
-    if (target === 'traffic') return isTraffic;
-    if (isTraffic) return false;
-
-    return p === target;
+    const resolved = resolvePlatform(s);
+    return resolved === target;
   };
 
   // 1. Services strictly matching the selected platform
@@ -514,7 +459,7 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
             <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
                 <div className="flex items-center gap-2">
-                  <PlatformBadge platform={selectedService.platform} />
+                  <PlatformBadge service={selectedService} />
                   <span className="text-xs text-slate-400 font-mono">ID: #{selectedService.id}</span>
                 </div>
                 <div className="flex items-center gap-4 text-xs">

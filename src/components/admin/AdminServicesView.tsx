@@ -460,7 +460,7 @@ export const AdminServicesView: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 max-w-sm">
                       <div className="flex items-center gap-1.5 mb-1">
-                        <PlatformBadge platform={srv.platform} />
+                        <PlatformBadge service={srv} />
                         <span className="text-[11px] text-slate-400 truncate">{srv.category}</span>
                       </div>
                       <div className="font-semibold text-white line-clamp-1">{srv.name}</div>

@@ -246,7 +246,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpen
                   className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-indigo-500/40 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <PlatformBadge platform={srv.platform} />
+                    <PlatformBadge service={srv} />
                     <span className="text-xs font-bold text-emerald-400 font-mono">
                       {formatCurrency(srv.rate)} / 1k
                     </span>

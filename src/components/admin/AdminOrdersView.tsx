@@ -250,7 +250,7 @@ export const AdminOrdersView: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 max-w-xs">
                       <div className="flex items-center gap-1.5 mb-1">
-                        <PlatformBadge platform={ord.platform} />
+                        <PlatformBadge service={ord} />
                       </div>
                       <div className="font-medium text-slate-200 truncate">{ord.serviceName}</div>
                       <a
