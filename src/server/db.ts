@@ -2,6 +2,44 @@ import pg from 'pg';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
+import { firestoreAdapter } from './firestore/firestoreAdapter';
+import { executeFirestoreQuery, setFirestoreFallbackHandler } from './firestore/firestoreSqlBridge';
+
+export { firestoreAdapter };
+
+export type DataBackendType = 'neon' | 'firestore';
+
+let firestoreCircuitBreaker = false;
+let firestoreCircuitBreakerReason = '';
+
+export function tripFirestoreCircuitBreaker(reason: string) {
+  if (!firestoreCircuitBreaker) {
+    console.warn(`[DATABASE FAILOVER ACTIVATED]: Firestore unavailable or quota exceeded (${reason}). Failing over active authority to Neon PostgreSQL.`);
+    firestoreCircuitBreaker = true;
+    firestoreCircuitBreakerReason = reason;
+  }
+}
+
+export function resetFirestoreCircuitBreaker() {
+  firestoreCircuitBreaker = false;
+  firestoreCircuitBreakerReason = '';
+}
+
+export function isFirestoreCircuitBreakerTripped(): boolean {
+  return firestoreCircuitBreaker;
+}
+
+/**
+ * Returns the currently active data backend authority.
+ * Automatically falls over to Neon if Firestore circuit breaker is tripped.
+ */
+export function getActiveDataBackend(): DataBackendType {
+  if (firestoreCircuitBreaker) {
+    return 'neon';
+  }
+  const backend = (process.env.DATA_BACKEND || 'neon').toLowerCase().trim();
+  return backend === 'firestore' ? 'firestore' : 'neon';
+}
 
 dotenv.config();
 
@@ -1713,7 +1751,7 @@ export async function reconnectDatabasePool(): Promise<boolean> {
   }
 }
 
-export function getDbPool(): pg.Pool | any {
+export function getPostgresPool(): { query: (text: string, params?: any[]) => Promise<any>; connect: () => Promise<any>; on: (event: any, handler: (...args: any[]) => void) => void } {
   if (!process.env.DATABASE_URL) {
     isUsingFallback = true;
     return fallbackDbClient;
@@ -1792,6 +1830,46 @@ export function getDbPool(): pg.Pool | any {
   };
 }
 
+// Wire up Firestore SQL bridge fallback handler to automatically failover to Neon
+setFirestoreFallbackHandler(async (text: string, params: any[], err: Error) => {
+  tripFirestoreCircuitBreaker(err?.message || 'Firestore query failure');
+  return await getPostgresPool().query(text, params);
+});
+
+export function getDbPool(): pg.Pool | any {
+  if (getActiveDataBackend() === 'firestore') {
+    return {
+      query: async (text: string, params?: any[]) => {
+        try {
+          return await executeFirestoreQuery(text, params);
+        } catch (err: any) {
+          tripFirestoreCircuitBreaker(err?.message || 'Firestore query failure');
+          return await getPostgresPool().query(text, params);
+        }
+      },
+      connect: async () => {
+        if (firestoreCircuitBreaker) {
+          return getPostgresPool().connect();
+        }
+        return {
+          query: async (text: string, params?: any[]) => {
+            try {
+              return await executeFirestoreQuery(text, params);
+            } catch (err: any) {
+              tripFirestoreCircuitBreaker(err?.message || 'Firestore query failure');
+              return await getPostgresPool().query(text, params);
+            }
+          },
+          release: () => {}
+        };
+      },
+      on: () => {}
+    };
+  }
+
+  return getPostgresPool();
+}
+
 
 // Schema cache to prevent repetitive catalog scanning during health checks
 let cachedTables: string[] = [];
@@ -1808,12 +1886,30 @@ let totalPrunedRowsCount = 0;
  * Used by 24/7 background monitors to ensure zero pressure on the database.
  */
 export async function pingDatabaseFast(): Promise<{ connected: boolean; latencyMs: number; message: string }> {
+  if (getActiveDataBackend() === 'firestore') {
+    const start = Date.now();
+    try {
+      const status = await firestoreAdapter.getStatus();
+      if (status.connected) {
+        return {
+          connected: true,
+          latencyMs: Date.now() - start,
+          message: 'Firebase Firestore operational (17 active collections)'
+        };
+      }
+      // Firestore unreachable or quota exhausted: trip circuit breaker and fallback to Postgres
+      tripFirestoreCircuitBreaker('Firestore ping reported not connected');
+    } catch (err: any) {
+      tripFirestoreCircuitBreaker(err?.message || 'Firestore ping failed');
+    }
+  }
+
   if (!process.env.DATABASE_URL) {
     return { connected: true, latencyMs: 0, message: 'Local embedded database operational' };
   }
   const start = Date.now();
   try {
-    const db = getDbPool();
+    const db = getPostgresPool();
     await db.query('SELECT 1;');
     return { 
       connected: true, 
@@ -1892,7 +1988,31 @@ setTimeout(() => {
   runDatabaseStorageMaintenance().catch(() => {});
 }, 20000);
 
-export async function checkDbConnection(): Promise<{ connected: boolean; message: string; tables?: string[] }> {
+export async function checkDbConnection(): Promise<{ connected: boolean; message: string; tables?: string[]; backend?: string }> {
+  const activeBackend = getActiveDataBackend();
+  if (activeBackend === 'firestore') {
+    try {
+      const fsStatus = await firestoreAdapter.getStatus();
+      if (fsStatus.connected) {
+        return {
+          connected: true,
+          backend: 'firestore',
+          message: `Connected to Firebase Firestore (${fsStatus.databaseId}) with ${fsStatus.collectionsCovered} active collections`,
+          tables: [
+            'system_settings', 'users', 'admin_security', 'api_providers',
+            'service_categories', 'services', 'orders', 'wallet_transactions',
+            'payment_requests', 'support_tickets', 'ticket_messages', 'user_banners',
+            'referral_rewards', 'audit_logs', 'fraud_rejection_audits', 'notifications',
+            'password_resets'
+          ]
+        };
+      }
+      tripFirestoreCircuitBreaker('Firestore connection check reported disconnected');
+    } catch (err: any) {
+      tripFirestoreCircuitBreaker(err?.message || 'Firestore connection check failed');
+    }
+  }
+
   if (!process.env.DATABASE_URL) {
     return {
       connected: true,

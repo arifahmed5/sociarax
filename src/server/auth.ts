@@ -24,30 +24,17 @@ export interface AuthenticatedAdmin {
   totpEnabled: boolean;
 }
 
-// In-memory rate limiting map for login attempts
-const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
+import { 
+  checkRateLimit as checkSecurityRateLimit, 
+  resetRateLimit as resetSecurityRateLimit 
+} from './security/rateLimiter';
 
-export function checkRateLimit(ip: string, maxAttempts: number = 10, windowMs: number = 15 * 60 * 1000): boolean {
-  const now = Date.now();
-  const entry = loginAttempts.get(ip);
-  if (!entry) {
-    loginAttempts.set(ip, { count: 1, lastAttempt: now });
-    return true;
-  }
-  if (now - entry.lastAttempt > windowMs) {
-    loginAttempts.set(ip, { count: 1, lastAttempt: now });
-    return true;
-  }
-  if (entry.count >= maxAttempts) {
-    return false;
-  }
-  entry.count += 1;
-  entry.lastAttempt = now;
-  return true;
+export function checkRateLimit(key: string, maxAttempts: number = 10, windowMs: number = 15 * 60 * 1000): boolean {
+  return checkSecurityRateLimit(key, maxAttempts, windowMs);
 }
 
-export function resetRateLimit(ip: string): void {
-  loginAttempts.delete(ip);
+export function resetRateLimit(key: string): void {
+  resetSecurityRateLimit(key);
 }
 
 /**

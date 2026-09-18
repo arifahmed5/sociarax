@@ -1,0 +1,3672 @@
+{
+  "timestamp": "2026-09-17T16:09:57.773Z",
+  "tables": [
+    "AdminLog",
+    "ApiProvider",
+    "Category",
+    "FundRequest",
+    "Notification",
+    "Order",
+    "OrderStatusHistory",
+    "Payment",
+    "Service",
+    "SupportMessage",
+    "SupportTicket",
+    "Transaction",
+    "User",
+    "Wallet",
+    "admin_security",
+    "api_providers",
+    "audit_logs",
+    "fraud_rejection_audits",
+    "notifications",
+    "orders",
+    "password_resets",
+    "payment_requests",
+    "referral_rewards",
+    "service_categories",
+    "services",
+    "support_tickets",
+    "system_settings",
+    "ticket_messages",
+    "user_banners",
+    "users",
+    "wallet_transactions"
+  ],
+  "counts": {
+    "AdminLog": 0,
+    "ApiProvider": 0,
+    "Category": 235,
+    "FundRequest": 0,
+    "Notification": 0,
+    "Order": 0,
+    "OrderStatusHistory": 0,
+    "Payment": 0,
+    "Service": 2680,
+    "SupportMessage": 0,
+    "SupportTicket": 0,
+    "Transaction": 0,
+    "User": 1,
+    "Wallet": 0,
+    "admin_security": 2,
+    "api_providers": 1,
+    "audit_logs": 0,
+    "fraud_rejection_audits": 0,
+    "notifications": 0,
+    "orders": 89,
+    "password_resets": 0,
+    "payment_requests": 29,
+    "referral_rewards": 0,
+    "service_categories": 235,
+    "services": 2362,
+    "support_tickets": 7,
+    "system_settings": 47,
+    "ticket_messages": 13,
+    "user_banners": 18,
+    "users": 49,
+    "wallet_transactions": 141
+  },
+  "columns": [
+    {
+      "table_name": "AdminLog",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "AdminLog",
+      "column_name": "adminId",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "AdminLog",
+      "column_name": "action",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "AdminLog",
+      "column_name": "details",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "AdminLog",
+      "column_name": "createdAt",
+      "ordinal_position": 5,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "ApiProvider",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "ApiProvider",
+      "column_name": "name",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "ApiProvider",
+      "column_name": "apiUrl",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "ApiProvider",
+      "column_name": "apiKey",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "ApiProvider",
+      "column_name": "isActive",
+      "ordinal_position": 5,
+      "column_default": "true",
+      "is_nullable": "NO",
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "udt_name": "bool"
+    },
+    {
+      "table_name": "ApiProvider",
+      "column_name": "createdAt",
+      "ordinal_position": 6,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "ApiProvider",
+      "column_name": "updatedAt",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Category",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Category",
+      "column_name": "name",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Category",
+      "column_name": "description",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Category",
+      "column_name": "createdAt",
+      "ordinal_position": 4,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Category",
+      "column_name": "updatedAt",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "FundRequest",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "FundRequest",
+      "column_name": "userId",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "FundRequest",
+      "column_name": "amount",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "double precision",
+      "character_maximum_length": null,
+      "udt_name": "float8"
+    },
+    {
+      "table_name": "FundRequest",
+      "column_name": "utr",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "FundRequest",
+      "column_name": "status",
+      "ordinal_position": 5,
+      "column_default": "'PENDING'::text",
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "FundRequest",
+      "column_name": "createdAt",
+      "ordinal_position": 6,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "FundRequest",
+      "column_name": "updatedAt",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Notification",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Notification",
+      "column_name": "userId",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Notification",
+      "column_name": "title",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Notification",
+      "column_name": "message",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Notification",
+      "column_name": "read",
+      "ordinal_position": 5,
+      "column_default": "false",
+      "is_nullable": "NO",
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "udt_name": "bool"
+    },
+    {
+      "table_name": "Notification",
+      "column_name": "createdAt",
+      "ordinal_position": 6,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Order",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Order",
+      "column_name": "userId",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Order",
+      "column_name": "serviceId",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Order",
+      "column_name": "link",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Order",
+      "column_name": "quantity",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "Order",
+      "column_name": "charge",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "double precision",
+      "character_maximum_length": null,
+      "udt_name": "float8"
+    },
+    {
+      "table_name": "Order",
+      "column_name": "status",
+      "ordinal_position": 7,
+      "column_default": "'PENDING'::\"OrderStatus\"",
+      "is_nullable": "NO",
+      "data_type": "USER-DEFINED",
+      "character_maximum_length": null,
+      "udt_name": "OrderStatus"
+    },
+    {
+      "table_name": "Order",
+      "column_name": "providerOrderId",
+      "ordinal_position": 8,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Order",
+      "column_name": "createdAt",
+      "ordinal_position": 9,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Order",
+      "column_name": "updatedAt",
+      "ordinal_position": 10,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "OrderStatusHistory",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "OrderStatusHistory",
+      "column_name": "orderId",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "OrderStatusHistory",
+      "column_name": "status",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "USER-DEFINED",
+      "character_maximum_length": null,
+      "udt_name": "OrderStatus"
+    },
+    {
+      "table_name": "OrderStatusHistory",
+      "column_name": "note",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "OrderStatusHistory",
+      "column_name": "createdAt",
+      "ordinal_position": 5,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Payment",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Payment",
+      "column_name": "userId",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Payment",
+      "column_name": "amount",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "double precision",
+      "character_maximum_length": null,
+      "udt_name": "float8"
+    },
+    {
+      "table_name": "Payment",
+      "column_name": "currency",
+      "ordinal_position": 4,
+      "column_default": "'INR'::text",
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Payment",
+      "column_name": "status",
+      "ordinal_position": 5,
+      "column_default": "'PENDING'::\"PaymentStatus\"",
+      "is_nullable": "NO",
+      "data_type": "USER-DEFINED",
+      "character_maximum_length": null,
+      "udt_name": "PaymentStatus"
+    },
+    {
+      "table_name": "Payment",
+      "column_name": "gateway",
+      "ordinal_position": 6,
+      "column_default": "'MODULAR'::text",
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Payment",
+      "column_name": "gatewayOrderId",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Payment",
+      "column_name": "paymentId",
+      "ordinal_position": 8,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Payment",
+      "column_name": "createdAt",
+      "ordinal_position": 9,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Payment",
+      "column_name": "updatedAt",
+      "ordinal_position": 10,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "name",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "categoryId",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "description",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "minQuantity",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "maxQuantity",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "price",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "double precision",
+      "character_maximum_length": null,
+      "udt_name": "float8"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "avgTime",
+      "ordinal_position": 8,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "active",
+      "ordinal_position": 9,
+      "column_default": "true",
+      "is_nullable": "NO",
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "udt_name": "bool"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "providerId",
+      "ordinal_position": 10,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "createdAt",
+      "ordinal_position": 11,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "updatedAt",
+      "ordinal_position": 12,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "SupportMessage",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "SupportMessage",
+      "column_name": "ticketId",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "SupportMessage",
+      "column_name": "senderId",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "SupportMessage",
+      "column_name": "message",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "SupportMessage",
+      "column_name": "createdAt",
+      "ordinal_position": 5,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "SupportTicket",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "SupportTicket",
+      "column_name": "userId",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "SupportTicket",
+      "column_name": "subject",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "SupportTicket",
+      "column_name": "priority",
+      "ordinal_position": 4,
+      "column_default": "'MEDIUM'::\"TicketPriority\"",
+      "is_nullable": "NO",
+      "data_type": "USER-DEFINED",
+      "character_maximum_length": null,
+      "udt_name": "TicketPriority"
+    },
+    {
+      "table_name": "SupportTicket",
+      "column_name": "status",
+      "ordinal_position": 5,
+      "column_default": "'OPEN'::\"TicketStatus\"",
+      "is_nullable": "NO",
+      "data_type": "USER-DEFINED",
+      "character_maximum_length": null,
+      "udt_name": "TicketStatus"
+    },
+    {
+      "table_name": "SupportTicket",
+      "column_name": "createdAt",
+      "ordinal_position": 6,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "SupportTicket",
+      "column_name": "updatedAt",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Transaction",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Transaction",
+      "column_name": "userId",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Transaction",
+      "column_name": "amount",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "double precision",
+      "character_maximum_length": null,
+      "udt_name": "float8"
+    },
+    {
+      "table_name": "Transaction",
+      "column_name": "type",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "USER-DEFINED",
+      "character_maximum_length": null,
+      "udt_name": "TransactionType"
+    },
+    {
+      "table_name": "Transaction",
+      "column_name": "description",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Transaction",
+      "column_name": "createdAt",
+      "ordinal_position": 6,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "User",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "User",
+      "column_name": "name",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "User",
+      "column_name": "email",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "User",
+      "column_name": "password",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "User",
+      "column_name": "role",
+      "ordinal_position": 5,
+      "column_default": "'USER'::\"Role\"",
+      "is_nullable": "NO",
+      "data_type": "USER-DEFINED",
+      "character_maximum_length": null,
+      "udt_name": "Role"
+    },
+    {
+      "table_name": "User",
+      "column_name": "createdAt",
+      "ordinal_position": 6,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "User",
+      "column_name": "updatedAt",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Wallet",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Wallet",
+      "column_name": "userId",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Wallet",
+      "column_name": "balance",
+      "ordinal_position": 3,
+      "column_default": "0.0",
+      "is_nullable": "NO",
+      "data_type": "double precision",
+      "character_maximum_length": null,
+      "udt_name": "float8"
+    },
+    {
+      "table_name": "Wallet",
+      "column_name": "currency",
+      "ordinal_position": 4,
+      "column_default": "'INR'::text",
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "Wallet",
+      "column_name": "createdAt",
+      "ordinal_position": 5,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "Wallet",
+      "column_name": "updatedAt",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamp"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('admin_security_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "email",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "password_hash",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "totp_secret_encrypted",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "totp_enabled",
+      "ordinal_position": 5,
+      "column_default": "false",
+      "is_nullable": "YES",
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "udt_name": "bool"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "backup_codes_encrypted",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "failed_attempts",
+      "ordinal_position": 7,
+      "column_default": "0",
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "locked_until",
+      "ordinal_position": 8,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "last_login_at",
+      "ordinal_position": 9,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "created_at",
+      "ordinal_position": 10,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "updated_at",
+      "ordinal_position": 11,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('api_providers_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "name",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "adapter_type",
+      "ordinal_position": 3,
+      "column_default": "'luvsmm'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "api_url",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "api_key_encrypted",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "masked_key",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 30,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "status",
+      "ordinal_position": 7,
+      "column_default": "'active'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "balance",
+      "ordinal_position": 8,
+      "column_default": "0.0000",
+      "is_nullable": "YES",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "currency",
+      "ordinal_position": 9,
+      "column_default": "'INR'::character varying",
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 10,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "priority",
+      "ordinal_position": 10,
+      "column_default": "1",
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "last_checked_at",
+      "ordinal_position": 11,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "last_error",
+      "ordinal_position": 12,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "created_at",
+      "ordinal_position": 13,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "updated_at",
+      "ordinal_position": 14,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "audit_logs",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('audit_logs_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "audit_logs",
+      "column_name": "actor_type",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "audit_logs",
+      "column_name": "actor_id",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "audit_logs",
+      "column_name": "action",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "audit_logs",
+      "column_name": "target_type",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "audit_logs",
+      "column_name": "target_id",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "audit_logs",
+      "column_name": "details",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "jsonb",
+      "character_maximum_length": null,
+      "udt_name": "jsonb"
+    },
+    {
+      "table_name": "audit_logs",
+      "column_name": "ip_address",
+      "ordinal_position": 8,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 45,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "audit_logs",
+      "column_name": "created_at",
+      "ordinal_position": 9,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "fraud_rejection_audits",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('fraud_rejection_audits_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "fraud_rejection_audits",
+      "column_name": "user_id",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "fraud_rejection_audits",
+      "column_name": "payment_id",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "fraud_rejection_audits",
+      "column_name": "rejection_reason",
+      "ordinal_position": 4,
+      "column_default": "'Fraud / Scam'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "fraud_rejection_audits",
+      "column_name": "admin_id",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "fraud_rejection_audits",
+      "column_name": "admin_email",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "fraud_rejection_audits",
+      "column_name": "suspension_action",
+      "ordinal_position": 7,
+      "column_default": "'account_suspended'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "fraud_rejection_audits",
+      "column_name": "details",
+      "ordinal_position": 8,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "jsonb",
+      "character_maximum_length": null,
+      "udt_name": "jsonb"
+    },
+    {
+      "table_name": "fraud_rejection_audits",
+      "column_name": "created_at",
+      "ordinal_position": 9,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "notifications",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('notifications_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "notifications",
+      "column_name": "user_id",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "notifications",
+      "column_name": "title",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "notifications",
+      "column_name": "message",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "notifications",
+      "column_name": "type",
+      "ordinal_position": 5,
+      "column_default": "'info'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "notifications",
+      "column_name": "is_read",
+      "ordinal_position": 6,
+      "column_default": "false",
+      "is_nullable": "YES",
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "udt_name": "bool"
+    },
+    {
+      "table_name": "notifications",
+      "column_name": "link",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "notifications",
+      "column_name": "created_at",
+      "ordinal_position": 8,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('orders_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "user_id",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "service_id",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "service_name",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "platform",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "link",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "quantity",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "charge",
+      "ordinal_position": 8,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "provider_cost",
+      "ordinal_position": 9,
+      "column_default": "0.0000",
+      "is_nullable": "YES",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "profit",
+      "ordinal_position": 10,
+      "column_default": "0.0000",
+      "is_nullable": "YES",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "currency",
+      "ordinal_position": 11,
+      "column_default": "'INR'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 10,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "provider_id",
+      "ordinal_position": 12,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "provider_order_id",
+      "ordinal_position": 13,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "provider_status",
+      "ordinal_position": 14,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "provider_error",
+      "ordinal_position": 15,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "status",
+      "ordinal_position": 16,
+      "column_default": "'pending'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 30,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "start_count",
+      "ordinal_position": 17,
+      "column_default": "0",
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "remains",
+      "ordinal_position": 18,
+      "column_default": "0",
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "idempotency_key",
+      "ordinal_position": 19,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "created_at",
+      "ordinal_position": 20,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "updated_at",
+      "ordinal_position": 21,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "provider_cost_usd",
+      "ordinal_position": 22,
+      "column_default": "0",
+      "is_nullable": "YES",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "exchange_rate_used",
+      "ordinal_position": 23,
+      "column_default": "88.0",
+      "is_nullable": "YES",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('password_resets_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "user_id",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "identifier",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "otp_code",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 10,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "channel",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "destination",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "expires_at",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "verified",
+      "ordinal_position": 8,
+      "column_default": "false",
+      "is_nullable": "YES",
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "udt_name": "bool"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "attempts",
+      "ordinal_position": 9,
+      "column_default": "0",
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "created_at",
+      "ordinal_position": 10,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "token",
+      "ordinal_position": 11,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('payment_requests_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "user_id",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "amount",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "currency",
+      "ordinal_position": 4,
+      "column_default": "'INR'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 10,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "payment_method",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "utr_number",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "payer_vpa_or_account",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "status",
+      "ordinal_position": 8,
+      "column_default": "'pending'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "rejection_reason",
+      "ordinal_position": 9,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "approved_by_admin_id",
+      "ordinal_position": 10,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "approved_at",
+      "ordinal_position": 11,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "created_at",
+      "ordinal_position": 12,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "updated_at",
+      "ordinal_position": 13,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "referral_rewards",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('referral_rewards_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "referral_rewards",
+      "column_name": "referrer_id",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "referral_rewards",
+      "column_name": "referred_user_id",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "referral_rewards",
+      "column_name": "bonus_amount",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "referral_rewards",
+      "column_name": "currency",
+      "ordinal_position": 5,
+      "column_default": "'INR'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 10,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "referral_rewards",
+      "column_name": "status",
+      "ordinal_position": 6,
+      "column_default": "'credited'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "referral_rewards",
+      "column_name": "deposit_id",
+      "ordinal_position": 7,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "referral_rewards",
+      "column_name": "notes",
+      "ordinal_position": 8,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "referral_rewards",
+      "column_name": "created_at",
+      "ordinal_position": 9,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "service_categories",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('service_categories_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "service_categories",
+      "column_name": "name",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "service_categories",
+      "column_name": "platform",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "service_categories",
+      "column_name": "display_order",
+      "ordinal_position": 4,
+      "column_default": "0",
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "service_categories",
+      "column_name": "status",
+      "ordinal_position": 5,
+      "column_default": "'active'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "service_categories",
+      "column_name": "created_at",
+      "ordinal_position": 6,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "services",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('services_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "services",
+      "column_name": "category_id",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "services",
+      "column_name": "category_name",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "services",
+      "column_name": "platform",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "services",
+      "column_name": "name",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "services",
+      "column_name": "description",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "services",
+      "column_name": "type",
+      "ordinal_position": 7,
+      "column_default": "'Default'::character varying",
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "services",
+      "column_name": "min_quantity",
+      "ordinal_position": 8,
+      "column_default": "10",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "services",
+      "column_name": "max_quantity",
+      "ordinal_position": 9,
+      "column_default": "100000",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "services",
+      "column_name": "provider_id",
+      "ordinal_position": 10,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "services",
+      "column_name": "provider_service_id",
+      "ordinal_position": 11,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "services",
+      "column_name": "provider_rate",
+      "ordinal_position": 12,
+      "column_default": "0.0000",
+      "is_nullable": "NO",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "services",
+      "column_name": "rate_per_1000",
+      "ordinal_position": 13,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "services",
+      "column_name": "markup_percentage",
+      "ordinal_position": 14,
+      "column_default": "30.00",
+      "is_nullable": "YES",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "services",
+      "column_name": "markup_fixed",
+      "ordinal_position": 15,
+      "column_default": "0.00",
+      "is_nullable": "YES",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "services",
+      "column_name": "refill_available",
+      "ordinal_position": 16,
+      "column_default": "false",
+      "is_nullable": "YES",
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "udt_name": "bool"
+    },
+    {
+      "table_name": "services",
+      "column_name": "cancel_available",
+      "ordinal_position": 17,
+      "column_default": "false",
+      "is_nullable": "YES",
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "udt_name": "bool"
+    },
+    {
+      "table_name": "services",
+      "column_name": "dripfeed_available",
+      "ordinal_position": 18,
+      "column_default": "false",
+      "is_nullable": "YES",
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "udt_name": "bool"
+    },
+    {
+      "table_name": "services",
+      "column_name": "average_time",
+      "ordinal_position": 19,
+      "column_default": "'Instant - 1 hour'::character varying",
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "services",
+      "column_name": "status",
+      "ordinal_position": 20,
+      "column_default": "'active'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "services",
+      "column_name": "display_order",
+      "ordinal_position": 21,
+      "column_default": "0",
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "services",
+      "column_name": "created_at",
+      "ordinal_position": 22,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "services",
+      "column_name": "updated_at",
+      "ordinal_position": 23,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "services",
+      "column_name": "provider_rate_usd",
+      "ordinal_position": 24,
+      "column_default": "0",
+      "is_nullable": "YES",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "support_tickets",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('support_tickets_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "support_tickets",
+      "column_name": "user_id",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "support_tickets",
+      "column_name": "order_id",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "support_tickets",
+      "column_name": "subject",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "support_tickets",
+      "column_name": "category",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "support_tickets",
+      "column_name": "status",
+      "ordinal_position": 6,
+      "column_default": "'open'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "support_tickets",
+      "column_name": "priority",
+      "ordinal_position": 7,
+      "column_default": "'medium'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "support_tickets",
+      "column_name": "created_at",
+      "ordinal_position": 8,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "support_tickets",
+      "column_name": "updated_at",
+      "ordinal_position": 9,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "key",
+      "ordinal_position": 1,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "value",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "description",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "updated_at",
+      "ordinal_position": 4,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "ticket_messages",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('ticket_messages_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "ticket_messages",
+      "column_name": "ticket_id",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "ticket_messages",
+      "column_name": "sender_role",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "ticket_messages",
+      "column_name": "sender_id",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "ticket_messages",
+      "column_name": "message",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "ticket_messages",
+      "column_name": "created_at",
+      "ordinal_position": 6,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "user_banners",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('user_banners_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "user_banners",
+      "column_name": "image_url",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "user_banners",
+      "column_name": "target_url",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "user_banners",
+      "column_name": "duration_hours",
+      "ordinal_position": 4,
+      "column_default": "24",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "user_banners",
+      "column_name": "published_at",
+      "ordinal_position": 5,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "user_banners",
+      "column_name": "expires_at",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "user_banners",
+      "column_name": "is_active",
+      "ordinal_position": 7,
+      "column_default": "true",
+      "is_nullable": "NO",
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "udt_name": "bool"
+    },
+    {
+      "table_name": "user_banners",
+      "column_name": "created_by",
+      "ordinal_position": 8,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "user_banners",
+      "column_name": "created_at",
+      "ordinal_position": 9,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "NO",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "users",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('users_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "users",
+      "column_name": "username",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "users",
+      "column_name": "email",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "users",
+      "column_name": "password_hash",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "users",
+      "column_name": "role",
+      "ordinal_position": 5,
+      "column_default": "'user'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "users",
+      "column_name": "wallet_balance",
+      "ordinal_position": 6,
+      "column_default": "0.0000",
+      "is_nullable": "NO",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "users",
+      "column_name": "currency",
+      "ordinal_position": 7,
+      "column_default": "'INR'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 10,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "users",
+      "column_name": "status",
+      "ordinal_position": 8,
+      "column_default": "'active'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 20,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "users",
+      "column_name": "api_key",
+      "ordinal_position": 9,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "users",
+      "column_name": "custom_discount_pct",
+      "ordinal_position": 10,
+      "column_default": "0.00",
+      "is_nullable": "YES",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "users",
+      "column_name": "created_at",
+      "ordinal_position": 11,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "users",
+      "column_name": "updated_at",
+      "ordinal_position": 12,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "users",
+      "column_name": "phone",
+      "ordinal_position": 13,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "users",
+      "column_name": "referral_code",
+      "ordinal_position": 14,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "users",
+      "column_name": "referred_by_id",
+      "ordinal_position": 15,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "users",
+      "column_name": "referred_by",
+      "ordinal_position": 16,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "users",
+      "column_name": "suspension_reason",
+      "ordinal_position": 17,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "users",
+      "column_name": "suspended_at",
+      "ordinal_position": 18,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "users",
+      "column_name": "suspended_by_admin_id",
+      "ordinal_position": 19,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "users",
+      "column_name": "last_reminder_sent_at",
+      "ordinal_position": 20,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "id",
+      "ordinal_position": 1,
+      "column_default": "nextval('wallet_transactions_id_seq'::regclass)",
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "user_id",
+      "ordinal_position": 2,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "type",
+      "ordinal_position": 3,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "amount",
+      "ordinal_position": 4,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "balance_before",
+      "ordinal_position": 5,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "balance_after",
+      "ordinal_position": 6,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "udt_name": "numeric"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "currency",
+      "ordinal_position": 7,
+      "column_default": "'INR'::character varying",
+      "is_nullable": "NO",
+      "data_type": "character varying",
+      "character_maximum_length": 10,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "reference_type",
+      "ordinal_position": 8,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "reference_id",
+      "ordinal_position": 9,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "udt_name": "varchar"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "description",
+      "ordinal_position": 10,
+      "column_default": null,
+      "is_nullable": "NO",
+      "data_type": "text",
+      "character_maximum_length": null,
+      "udt_name": "text"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "admin_id",
+      "ordinal_position": 11,
+      "column_default": null,
+      "is_nullable": "YES",
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "udt_name": "int4"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "created_at",
+      "ordinal_position": 12,
+      "column_default": "CURRENT_TIMESTAMP",
+      "is_nullable": "YES",
+      "data_type": "timestamp with time zone",
+      "character_maximum_length": null,
+      "udt_name": "timestamptz"
+    }
+  ],
+  "primaryKeys": [
+    {
+      "table_name": "User",
+      "column_name": "id",
+      "constraint_name": "User_pkey"
+    },
+    {
+      "table_name": "Wallet",
+      "column_name": "id",
+      "constraint_name": "Wallet_pkey"
+    },
+    {
+      "table_name": "Category",
+      "column_name": "id",
+      "constraint_name": "Category_pkey"
+    },
+    {
+      "table_name": "Service",
+      "column_name": "id",
+      "constraint_name": "Service_pkey"
+    },
+    {
+      "table_name": "Order",
+      "column_name": "id",
+      "constraint_name": "Order_pkey"
+    },
+    {
+      "table_name": "OrderStatusHistory",
+      "column_name": "id",
+      "constraint_name": "OrderStatusHistory_pkey"
+    },
+    {
+      "table_name": "Transaction",
+      "column_name": "id",
+      "constraint_name": "Transaction_pkey"
+    },
+    {
+      "table_name": "Payment",
+      "column_name": "id",
+      "constraint_name": "Payment_pkey"
+    },
+    {
+      "table_name": "Notification",
+      "column_name": "id",
+      "constraint_name": "Notification_pkey"
+    },
+    {
+      "table_name": "SupportTicket",
+      "column_name": "id",
+      "constraint_name": "SupportTicket_pkey"
+    },
+    {
+      "table_name": "SupportMessage",
+      "column_name": "id",
+      "constraint_name": "SupportMessage_pkey"
+    },
+    {
+      "table_name": "AdminLog",
+      "column_name": "id",
+      "constraint_name": "AdminLog_pkey"
+    },
+    {
+      "table_name": "ApiProvider",
+      "column_name": "id",
+      "constraint_name": "ApiProvider_pkey"
+    },
+    {
+      "table_name": "FundRequest",
+      "column_name": "id",
+      "constraint_name": "FundRequest_pkey"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "key",
+      "constraint_name": "system_settings_pkey"
+    },
+    {
+      "table_name": "users",
+      "column_name": "id",
+      "constraint_name": "users_pkey"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "id",
+      "constraint_name": "admin_security_pkey"
+    },
+    {
+      "table_name": "api_providers",
+      "column_name": "id",
+      "constraint_name": "api_providers_pkey"
+    },
+    {
+      "table_name": "service_categories",
+      "column_name": "id",
+      "constraint_name": "service_categories_pkey"
+    },
+    {
+      "table_name": "services",
+      "column_name": "id",
+      "constraint_name": "services_pkey"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "id",
+      "constraint_name": "orders_pkey"
+    },
+    {
+      "table_name": "wallet_transactions",
+      "column_name": "id",
+      "constraint_name": "wallet_transactions_pkey"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "id",
+      "constraint_name": "payment_requests_pkey"
+    },
+    {
+      "table_name": "support_tickets",
+      "column_name": "id",
+      "constraint_name": "support_tickets_pkey"
+    },
+    {
+      "table_name": "ticket_messages",
+      "column_name": "id",
+      "constraint_name": "ticket_messages_pkey"
+    },
+    {
+      "table_name": "audit_logs",
+      "column_name": "id",
+      "constraint_name": "audit_logs_pkey"
+    },
+    {
+      "table_name": "notifications",
+      "column_name": "id",
+      "constraint_name": "notifications_pkey"
+    },
+    {
+      "table_name": "password_resets",
+      "column_name": "id",
+      "constraint_name": "password_resets_pkey"
+    },
+    {
+      "table_name": "referral_rewards",
+      "column_name": "id",
+      "constraint_name": "referral_rewards_pkey"
+    },
+    {
+      "table_name": "fraud_rejection_audits",
+      "column_name": "id",
+      "constraint_name": "fraud_rejection_audits_pkey"
+    },
+    {
+      "table_name": "user_banners",
+      "column_name": "id",
+      "constraint_name": "user_banners_pkey"
+    }
+  ],
+  "foreignKeys": [
+    {
+      "from_table": "Wallet",
+      "from_column": "userId",
+      "to_table": "User",
+      "to_column": "id",
+      "constraint_name": "Wallet_userId_fkey"
+    },
+    {
+      "from_table": "Service",
+      "from_column": "categoryId",
+      "to_table": "Category",
+      "to_column": "id",
+      "constraint_name": "Service_categoryId_fkey"
+    },
+    {
+      "from_table": "Order",
+      "from_column": "userId",
+      "to_table": "User",
+      "to_column": "id",
+      "constraint_name": "Order_userId_fkey"
+    },
+    {
+      "from_table": "Order",
+      "from_column": "serviceId",
+      "to_table": "Service",
+      "to_column": "id",
+      "constraint_name": "Order_serviceId_fkey"
+    },
+    {
+      "from_table": "OrderStatusHistory",
+      "from_column": "orderId",
+      "to_table": "Order",
+      "to_column": "id",
+      "constraint_name": "OrderStatusHistory_orderId_fkey"
+    },
+    {
+      "from_table": "Transaction",
+      "from_column": "userId",
+      "to_table": "User",
+      "to_column": "id",
+      "constraint_name": "Transaction_userId_fkey"
+    },
+    {
+      "from_table": "Payment",
+      "from_column": "userId",
+      "to_table": "User",
+      "to_column": "id",
+      "constraint_name": "Payment_userId_fkey"
+    },
+    {
+      "from_table": "Notification",
+      "from_column": "userId",
+      "to_table": "User",
+      "to_column": "id",
+      "constraint_name": "Notification_userId_fkey"
+    },
+    {
+      "from_table": "SupportTicket",
+      "from_column": "userId",
+      "to_table": "User",
+      "to_column": "id",
+      "constraint_name": "SupportTicket_userId_fkey"
+    },
+    {
+      "from_table": "SupportMessage",
+      "from_column": "ticketId",
+      "to_table": "SupportTicket",
+      "to_column": "id",
+      "constraint_name": "SupportMessage_ticketId_fkey"
+    },
+    {
+      "from_table": "FundRequest",
+      "from_column": "userId",
+      "to_table": "User",
+      "to_column": "id",
+      "constraint_name": "FundRequest_userId_fkey"
+    },
+    {
+      "from_table": "services",
+      "from_column": "category_id",
+      "to_table": "service_categories",
+      "to_column": "id",
+      "constraint_name": "services_category_id_fkey"
+    },
+    {
+      "from_table": "services",
+      "from_column": "provider_id",
+      "to_table": "api_providers",
+      "to_column": "id",
+      "constraint_name": "services_provider_id_fkey"
+    },
+    {
+      "from_table": "orders",
+      "from_column": "user_id",
+      "to_table": "users",
+      "to_column": "id",
+      "constraint_name": "orders_user_id_fkey"
+    },
+    {
+      "from_table": "orders",
+      "from_column": "service_id",
+      "to_table": "services",
+      "to_column": "id",
+      "constraint_name": "orders_service_id_fkey"
+    },
+    {
+      "from_table": "orders",
+      "from_column": "provider_id",
+      "to_table": "api_providers",
+      "to_column": "id",
+      "constraint_name": "orders_provider_id_fkey"
+    },
+    {
+      "from_table": "wallet_transactions",
+      "from_column": "user_id",
+      "to_table": "users",
+      "to_column": "id",
+      "constraint_name": "wallet_transactions_user_id_fkey"
+    },
+    {
+      "from_table": "payment_requests",
+      "from_column": "user_id",
+      "to_table": "users",
+      "to_column": "id",
+      "constraint_name": "payment_requests_user_id_fkey"
+    },
+    {
+      "from_table": "support_tickets",
+      "from_column": "user_id",
+      "to_table": "users",
+      "to_column": "id",
+      "constraint_name": "support_tickets_user_id_fkey"
+    },
+    {
+      "from_table": "support_tickets",
+      "from_column": "order_id",
+      "to_table": "orders",
+      "to_column": "id",
+      "constraint_name": "support_tickets_order_id_fkey"
+    },
+    {
+      "from_table": "ticket_messages",
+      "from_column": "ticket_id",
+      "to_table": "support_tickets",
+      "to_column": "id",
+      "constraint_name": "ticket_messages_ticket_id_fkey"
+    },
+    {
+      "from_table": "notifications",
+      "from_column": "user_id",
+      "to_table": "users",
+      "to_column": "id",
+      "constraint_name": "notifications_user_id_fkey"
+    },
+    {
+      "from_table": "referral_rewards",
+      "from_column": "referrer_id",
+      "to_table": "users",
+      "to_column": "id",
+      "constraint_name": "referral_rewards_referrer_id_fkey"
+    },
+    {
+      "from_table": "referral_rewards",
+      "from_column": "referred_user_id",
+      "to_table": "users",
+      "to_column": "id",
+      "constraint_name": "referral_rewards_referred_user_id_fkey"
+    }
+  ],
+  "uniques": [
+    {
+      "table_name": "users",
+      "column_name": "username",
+      "constraint_name": "users_username_key"
+    },
+    {
+      "table_name": "users",
+      "column_name": "email",
+      "constraint_name": "users_email_key"
+    },
+    {
+      "table_name": "users",
+      "column_name": "api_key",
+      "constraint_name": "users_api_key_key"
+    },
+    {
+      "table_name": "admin_security",
+      "column_name": "email",
+      "constraint_name": "admin_security_email_key"
+    },
+    {
+      "table_name": "service_categories",
+      "column_name": "name",
+      "constraint_name": "service_categories_name_key"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "idempotency_key",
+      "constraint_name": "orders_idempotency_key_key"
+    },
+    {
+      "table_name": "payment_requests",
+      "column_name": "utr_number",
+      "constraint_name": "payment_requests_utr_number_key"
+    }
+  ],
+  "indexes": [
+    {
+      "tablename": "AdminLog",
+      "indexname": "AdminLog_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"AdminLog_pkey\" ON public.\"AdminLog\" USING btree (id)"
+    },
+    {
+      "tablename": "ApiProvider",
+      "indexname": "ApiProvider_name_key",
+      "indexdef": "CREATE UNIQUE INDEX \"ApiProvider_name_key\" ON public.\"ApiProvider\" USING btree (name)"
+    },
+    {
+      "tablename": "ApiProvider",
+      "indexname": "ApiProvider_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"ApiProvider_pkey\" ON public.\"ApiProvider\" USING btree (id)"
+    },
+    {
+      "tablename": "Category",
+      "indexname": "Category_name_key",
+      "indexdef": "CREATE UNIQUE INDEX \"Category_name_key\" ON public.\"Category\" USING btree (name)"
+    },
+    {
+      "tablename": "Category",
+      "indexname": "Category_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"Category_pkey\" ON public.\"Category\" USING btree (id)"
+    },
+    {
+      "tablename": "FundRequest",
+      "indexname": "FundRequest_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"FundRequest_pkey\" ON public.\"FundRequest\" USING btree (id)"
+    },
+    {
+      "tablename": "FundRequest",
+      "indexname": "FundRequest_utr_key",
+      "indexdef": "CREATE UNIQUE INDEX \"FundRequest_utr_key\" ON public.\"FundRequest\" USING btree (utr)"
+    },
+    {
+      "tablename": "Notification",
+      "indexname": "Notification_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"Notification_pkey\" ON public.\"Notification\" USING btree (id)"
+    },
+    {
+      "tablename": "Order",
+      "indexname": "Order_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"Order_pkey\" ON public.\"Order\" USING btree (id)"
+    },
+    {
+      "tablename": "OrderStatusHistory",
+      "indexname": "OrderStatusHistory_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"OrderStatusHistory_pkey\" ON public.\"OrderStatusHistory\" USING btree (id)"
+    },
+    {
+      "tablename": "Payment",
+      "indexname": "Payment_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"Payment_pkey\" ON public.\"Payment\" USING btree (id)"
+    },
+    {
+      "tablename": "Service",
+      "indexname": "Service_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"Service_pkey\" ON public.\"Service\" USING btree (id)"
+    },
+    {
+      "tablename": "SupportMessage",
+      "indexname": "SupportMessage_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"SupportMessage_pkey\" ON public.\"SupportMessage\" USING btree (id)"
+    },
+    {
+      "tablename": "SupportTicket",
+      "indexname": "SupportTicket_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"SupportTicket_pkey\" ON public.\"SupportTicket\" USING btree (id)"
+    },
+    {
+      "tablename": "Transaction",
+      "indexname": "Transaction_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"Transaction_pkey\" ON public.\"Transaction\" USING btree (id)"
+    },
+    {
+      "tablename": "User",
+      "indexname": "User_email_key",
+      "indexdef": "CREATE UNIQUE INDEX \"User_email_key\" ON public.\"User\" USING btree (email)"
+    },
+    {
+      "tablename": "User",
+      "indexname": "User_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"User_pkey\" ON public.\"User\" USING btree (id)"
+    },
+    {
+      "tablename": "Wallet",
+      "indexname": "Wallet_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"Wallet_pkey\" ON public.\"Wallet\" USING btree (id)"
+    },
+    {
+      "tablename": "Wallet",
+      "indexname": "Wallet_userId_key",
+      "indexdef": "CREATE UNIQUE INDEX \"Wallet_userId_key\" ON public.\"Wallet\" USING btree (\"userId\")"
+    },
+    {
+      "tablename": "admin_security",
+      "indexname": "admin_security_email_key",
+      "indexdef": "CREATE UNIQUE INDEX admin_security_email_key ON public.admin_security USING btree (email)"
+    },
+    {
+      "tablename": "admin_security",
+      "indexname": "admin_security_pkey",
+      "indexdef": "CREATE UNIQUE INDEX admin_security_pkey ON public.admin_security USING btree (id)"
+    },
+    {
+      "tablename": "api_providers",
+      "indexname": "api_providers_pkey",
+      "indexdef": "CREATE UNIQUE INDEX api_providers_pkey ON public.api_providers USING btree (id)"
+    },
+    {
+      "tablename": "audit_logs",
+      "indexname": "audit_logs_pkey",
+      "indexdef": "CREATE UNIQUE INDEX audit_logs_pkey ON public.audit_logs USING btree (id)"
+    },
+    {
+      "tablename": "fraud_rejection_audits",
+      "indexname": "fraud_rejection_audits_pkey",
+      "indexdef": "CREATE UNIQUE INDEX fraud_rejection_audits_pkey ON public.fraud_rejection_audits USING btree (id)"
+    },
+    {
+      "tablename": "fraud_rejection_audits",
+      "indexname": "idx_fraud_audits_payment_id",
+      "indexdef": "CREATE INDEX idx_fraud_audits_payment_id ON public.fraud_rejection_audits USING btree (payment_id)"
+    },
+    {
+      "tablename": "fraud_rejection_audits",
+      "indexname": "idx_fraud_audits_user_id",
+      "indexdef": "CREATE INDEX idx_fraud_audits_user_id ON public.fraud_rejection_audits USING btree (user_id)"
+    },
+    {
+      "tablename": "notifications",
+      "indexname": "notifications_pkey",
+      "indexdef": "CREATE UNIQUE INDEX notifications_pkey ON public.notifications USING btree (id)"
+    },
+    {
+      "tablename": "orders",
+      "indexname": "idx_orders_status",
+      "indexdef": "CREATE INDEX idx_orders_status ON public.orders USING btree (status)"
+    },
+    {
+      "tablename": "orders",
+      "indexname": "idx_orders_user_id",
+      "indexdef": "CREATE INDEX idx_orders_user_id ON public.orders USING btree (user_id)"
+    },
+    {
+      "tablename": "orders",
+      "indexname": "orders_idempotency_key_key",
+      "indexdef": "CREATE UNIQUE INDEX orders_idempotency_key_key ON public.orders USING btree (idempotency_key)"
+    },
+    {
+      "tablename": "orders",
+      "indexname": "orders_pkey",
+      "indexdef": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)"
+    },
+    {
+      "tablename": "password_resets",
+      "indexname": "idx_password_resets_token",
+      "indexdef": "CREATE INDEX idx_password_resets_token ON public.password_resets USING btree (token)"
+    },
+    {
+      "tablename": "password_resets",
+      "indexname": "password_resets_pkey",
+      "indexdef": "CREATE UNIQUE INDEX password_resets_pkey ON public.password_resets USING btree (id)"
+    },
+    {
+      "tablename": "payment_requests",
+      "indexname": "idx_payments_status",
+      "indexdef": "CREATE INDEX idx_payments_status ON public.payment_requests USING btree (status)"
+    },
+    {
+      "tablename": "payment_requests",
+      "indexname": "idx_payments_utr",
+      "indexdef": "CREATE INDEX idx_payments_utr ON public.payment_requests USING btree (utr_number)"
+    },
+    {
+      "tablename": "payment_requests",
+      "indexname": "payment_requests_pkey",
+      "indexdef": "CREATE UNIQUE INDEX payment_requests_pkey ON public.payment_requests USING btree (id)"
+    },
+    {
+      "tablename": "payment_requests",
+      "indexname": "payment_requests_utr_number_key",
+      "indexdef": "CREATE UNIQUE INDEX payment_requests_utr_number_key ON public.payment_requests USING btree (utr_number)"
+    },
+    {
+      "tablename": "referral_rewards",
+      "indexname": "referral_rewards_pkey",
+      "indexdef": "CREATE UNIQUE INDEX referral_rewards_pkey ON public.referral_rewards USING btree (id)"
+    },
+    {
+      "tablename": "service_categories",
+      "indexname": "service_categories_name_key",
+      "indexdef": "CREATE UNIQUE INDEX service_categories_name_key ON public.service_categories USING btree (name)"
+    },
+    {
+      "tablename": "service_categories",
+      "indexname": "service_categories_pkey",
+      "indexdef": "CREATE UNIQUE INDEX service_categories_pkey ON public.service_categories USING btree (id)"
+    },
+    {
+      "tablename": "services",
+      "indexname": "idx_services_category",
+      "indexdef": "CREATE INDEX idx_services_category ON public.services USING btree (category_name)"
+    },
+    {
+      "tablename": "services",
+      "indexname": "idx_services_platform",
+      "indexdef": "CREATE INDEX idx_services_platform ON public.services USING btree (platform)"
+    },
+    {
+      "tablename": "services",
+      "indexname": "idx_services_prov_sid",
+      "indexdef": "CREATE INDEX idx_services_prov_sid ON public.services USING btree (provider_service_id)"
+    },
+    {
+      "tablename": "services",
+      "indexname": "idx_services_provider",
+      "indexdef": "CREATE INDEX idx_services_provider ON public.services USING btree (provider_id, provider_service_id)"
+    },
+    {
+      "tablename": "services",
+      "indexname": "idx_services_provider_service",
+      "indexdef": "CREATE UNIQUE INDEX idx_services_provider_service ON public.services USING btree (provider_id, provider_service_id)"
+    },
+    {
+      "tablename": "services",
+      "indexname": "services_pkey",
+      "indexdef": "CREATE UNIQUE INDEX services_pkey ON public.services USING btree (id)"
+    },
+    {
+      "tablename": "support_tickets",
+      "indexname": "support_tickets_pkey",
+      "indexdef": "CREATE UNIQUE INDEX support_tickets_pkey ON public.support_tickets USING btree (id)"
+    },
+    {
+      "tablename": "system_settings",
+      "indexname": "system_settings_pkey",
+      "indexdef": "CREATE UNIQUE INDEX system_settings_pkey ON public.system_settings USING btree (key)"
+    },
+    {
+      "tablename": "ticket_messages",
+      "indexname": "ticket_messages_pkey",
+      "indexdef": "CREATE UNIQUE INDEX ticket_messages_pkey ON public.ticket_messages USING btree (id)"
+    },
+    {
+      "tablename": "user_banners",
+      "indexname": "idx_user_banners_active_expires",
+      "indexdef": "CREATE INDEX idx_user_banners_active_expires ON public.user_banners USING btree (is_active, expires_at)"
+    },
+    {
+      "tablename": "user_banners",
+      "indexname": "user_banners_pkey",
+      "indexdef": "CREATE UNIQUE INDEX user_banners_pkey ON public.user_banners USING btree (id)"
+    },
+    {
+      "tablename": "users",
+      "indexname": "users_api_key_key",
+      "indexdef": "CREATE UNIQUE INDEX users_api_key_key ON public.users USING btree (api_key)"
+    },
+    {
+      "tablename": "users",
+      "indexname": "users_email_key",
+      "indexdef": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)"
+    },
+    {
+      "tablename": "users",
+      "indexname": "users_pkey",
+      "indexdef": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)"
+    },
+    {
+      "tablename": "users",
+      "indexname": "users_username_key",
+      "indexdef": "CREATE UNIQUE INDEX users_username_key ON public.users USING btree (username)"
+    },
+    {
+      "tablename": "wallet_transactions",
+      "indexname": "idx_wallet_tx_user",
+      "indexdef": "CREATE INDEX idx_wallet_tx_user ON public.wallet_transactions USING btree (user_id)"
+    },
+    {
+      "tablename": "wallet_transactions",
+      "indexname": "wallet_transactions_pkey",
+      "indexdef": "CREATE UNIQUE INDEX wallet_transactions_pkey ON public.wallet_transactions USING btree (id)"
+    }
+  ]
+}

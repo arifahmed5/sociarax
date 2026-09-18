@@ -1,0 +1,91 @@
+{
+  "completedAt": "2026-09-17T17:45:26.802Z",
+  "totalDocsWritten": 2993,
+  "results": {
+    "system_settings": {
+      "sourceCount": 47,
+      "writtenCount": 47,
+      "status": "SUCCESS"
+    },
+    "service_categories": {
+      "sourceCount": 235,
+      "writtenCount": 235,
+      "status": "SUCCESS"
+    },
+    "api_providers": {
+      "sourceCount": 1,
+      "writtenCount": 1,
+      "status": "SUCCESS"
+    },
+    "admin_security": {
+      "sourceCount": 2,
+      "writtenCount": 2,
+      "status": "SUCCESS"
+    },
+    "users": {
+      "sourceCount": 49,
+      "writtenCount": 49,
+      "status": "SUCCESS"
+    },
+    "services": {
+      "sourceCount": 2362,
+      "writtenCount": 2362,
+      "status": "SUCCESS"
+    },
+    "user_banners": {
+      "sourceCount": 18,
+      "writtenCount": 18,
+      "status": "SUCCESS"
+    },
+    "orders": {
+      "sourceCount": 89,
+      "writtenCount": 89,
+      "status": "SUCCESS"
+    },
+    "payment_requests": {
+      "sourceCount": 29,
+      "writtenCount": 29,
+      "status": "SUCCESS"
+    },
+    "wallet_transactions": {
+      "sourceCount": 141,
+      "writtenCount": 141,
+      "status": "SUCCESS"
+    },
+    "referral_rewards": {
+      "sourceCount": 0,
+      "writtenCount": 0,
+      "status": "SUCCESS_EMPTY"
+    },
+    "support_tickets": {
+      "sourceCount": 7,
+      "writtenCount": 7,
+      "status": "SUCCESS"
+    },
+    "ticket_messages": {
+      "sourceCount": 13,
+      "writtenCount": 13,
+      "status": "SUCCESS"
+    },
+    "notifications": {
+      "sourceCount": 0,
+      "writtenCount": 0,
+      "status": "SUCCESS_EMPTY"
+    },
+    "password_resets": {
+      "sourceCount": 0,
+      "writtenCount": 0,
+      "status": "SUCCESS_EMPTY"
+    },
+    "audit_logs": {
+      "sourceCount": 0,
+      "writtenCount": 0,
+      "status": "SUCCESS_EMPTY"
+    },
+    "fraud_rejection_audits": {
+      "sourceCount": 0,
+      "writtenCount": 0,
+      "status": "SUCCESS_EMPTY"
+    }
+  }
+}

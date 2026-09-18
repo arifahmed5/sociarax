@@ -39,9 +39,37 @@ providerRouter.get('/live-balance', requireAdminAuth, async (req: Request, res: 
 
     for (const prov of provRes.rows) {
       try {
-        const apiKey = decryptSecret(prov.api_key_encrypted);
+        let apiKey = decryptSecret(prov.api_key_encrypted);
+        if (!apiKey && prov.adapter_type === 'luvsmm' && process.env.LUVSMM_API_KEY) {
+          apiKey = process.env.LUVSMM_API_KEY.trim();
+        }
+
         if (!apiKey) {
-          throw new Error('API key could not be decrypted or is missing');
+          const errMsg = 'API key could not be decrypted or is missing. Please re-enter the API key in Admin API Providers.';
+          await db.query(`
+            UPDATE api_providers 
+            SET last_checked_at = CURRENT_TIMESTAMP, last_error = $1 
+            WHERE id = $2
+          `, [errMsg, prov.id]);
+
+          if (!primaryError) primaryError = errMsg;
+
+          providerList.push({
+            id: prov.id,
+            name: prov.name,
+            adapterType: prov.adapter_type,
+            apiUrl: prov.api_url,
+            maskedKey: prov.masked_key,
+            status: prov.status,
+            rawBalance: null,
+            rawBalanceString: null,
+            currency: prov.currency || 'USD',
+            inrEquivalent: null,
+            lastCheckedAt: prov.last_checked_at,
+            fetchSuccess: false,
+            lastError: errMsg
+          });
+          continue;
         }
 
         const adapter = providerRegistry.getAdapter(prov.adapter_type);
@@ -145,7 +173,7 @@ providerRouter.get('/live-balance', requireAdminAuth, async (req: Request, res: 
     }
 
     if (!primarySuccessResult) {
-      res.status(502).json({
+      res.status(200).json({
         success: false,
         fetchSuccess: false,
         error: `Unable to fetch live LuvSMM balance: ${primaryError || 'Provider API unreachable'}`,
@@ -402,7 +430,17 @@ providerRouter.post('/:id/test', requireAdminAuth, async (req: Request, res: Res
     }
 
     const prov = provRes.rows[0];
-    const apiKey = decryptSecret(prov.api_key_encrypted);
+    let apiKey = decryptSecret(prov.api_key_encrypted);
+    if (!apiKey && prov.adapter_type === 'luvsmm' && process.env.LUVSMM_API_KEY) {
+      apiKey = process.env.LUVSMM_API_KEY.trim();
+    }
+    if (!apiKey) {
+      res.status(400).json({
+        success: false,
+        error: 'API key could not be decrypted or is missing. Please edit the provider and re-enter the API key.'
+      });
+      return;
+    }
     const adapter = providerRegistry.getAdapter(prov.adapter_type);
 
     const testResult = await adapter.testConnection(prov.api_url, apiKey);

@@ -1,0 +1,121 @@
+{
+  "system_settings": {
+    "backupCount": 47,
+    "neonCount": 47,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "users": {
+    "backupCount": 49,
+    "neonCount": 49,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "referral_rewards": {
+    "backupCount": 0,
+    "neonCount": 0,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "admin_security": {
+    "backupCount": 2,
+    "neonCount": 2,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "api_providers": {
+    "backupCount": 1,
+    "neonCount": 1,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "service_categories": {
+    "backupCount": 235,
+    "neonCount": 235,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "services": {
+    "backupCount": 2362,
+    "neonCount": 2362,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "orders": {
+    "backupCount": 89,
+    "neonCount": 89,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "wallet_transactions": {
+    "backupCount": 141,
+    "neonCount": 141,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "payment_requests": {
+    "backupCount": 29,
+    "neonCount": 29,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "support_tickets": {
+    "backupCount": 7,
+    "neonCount": 7,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "ticket_messages": {
+    "backupCount": 13,
+    "neonCount": 15,
+    "newRowsCount": 2,
+    "newRows": [
+      {
+        "id": 14,
+        "ticket_id": 6,
+        "sender_role": "admin",
+        "sender_id": 1,
+        "message": "Refill requested successfully! Please monitor your counter over the next 1-4 hours.",
+        "created_at": "2026-09-17T16:10:51.944Z"
+      },
+      {
+        "id": 15,
+        "ticket_id": 7,
+        "sender_role": "admin",
+        "sender_id": 1,
+        "message": "Your order is being accelerated in our high-speed provider queue now.",
+        "created_at": "2026-09-17T17:44:33.923Z"
+      }
+    ]
+  },
+  "audit_logs": {
+    "backupCount": 0,
+    "neonCount": 0,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "password_resets": {
+    "backupCount": 0,
+    "neonCount": 0,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "fraud_rejection_audits": {
+    "backupCount": 0,
+    "neonCount": 0,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "user_banners": {
+    "backupCount": 18,
+    "neonCount": 18,
+    "newRowsCount": 0,
+    "newRows": []
+  },
+  "notifications": {
+    "backupCount": 0,
+    "neonCount": 0,
+    "newRowsCount": 0,
+    "newRows": []
+  }
+}

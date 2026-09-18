@@ -1,0 +1,1073 @@
+{
+  "entities": {
+    "users": {
+      "title": "users",
+      "description": "Collection model for users",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "username": {
+          "type": "string",
+          "description": "Field username (character varying)"
+        },
+        "email": {
+          "type": "string",
+          "description": "Field email (character varying)"
+        },
+        "password_hash": {
+          "type": "string",
+          "description": "Field password_hash (character varying)"
+        },
+        "role": {
+          "type": "string",
+          "description": "Field role (character varying)"
+        },
+        "wallet_balance": {
+          "type": "number",
+          "description": "Field wallet_balance (numeric)"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Field currency (character varying)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Field status (character varying)"
+        },
+        "api_key": {
+          "type": "string",
+          "description": "Field api_key (character varying)"
+        },
+        "custom_discount_pct": {
+          "type": "number",
+          "description": "Field custom_discount_pct (numeric)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Field updated_at (timestamp with time zone)"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Field phone (character varying)"
+        },
+        "referral_code": {
+          "type": "string",
+          "description": "Field referral_code (character varying)"
+        },
+        "referred_by_id": {
+          "type": "number",
+          "description": "Field referred_by_id (integer)"
+        },
+        "referred_by": {
+          "type": "string",
+          "description": "Field referred_by (character varying)"
+        },
+        "suspension_reason": {
+          "type": "string",
+          "description": "Field suspension_reason (text)"
+        },
+        "suspended_at": {
+          "type": "string",
+          "description": "Field suspended_at (timestamp with time zone)"
+        },
+        "suspended_by_admin_id": {
+          "type": "number",
+          "description": "Field suspended_by_admin_id (integer)"
+        },
+        "last_reminder_sent_at": {
+          "type": "string",
+          "description": "Field last_reminder_sent_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "username",
+        "email",
+        "password_hash"
+      ]
+    },
+    "wallet_transactions": {
+      "title": "wallet_transactions",
+      "description": "Collection model for wallet_transactions",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "user_id": {
+          "type": "number",
+          "description": "Field user_id (integer)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Field type (character varying)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Field amount (numeric)"
+        },
+        "balance_before": {
+          "type": "number",
+          "description": "Field balance_before (numeric)"
+        },
+        "balance_after": {
+          "type": "number",
+          "description": "Field balance_after (numeric)"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Field currency (character varying)"
+        },
+        "reference_type": {
+          "type": "string",
+          "description": "Field reference_type (character varying)"
+        },
+        "reference_id": {
+          "type": "string",
+          "description": "Field reference_id (character varying)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Field description (text)"
+        },
+        "admin_id": {
+          "type": "number",
+          "description": "Field admin_id (integer)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "user_id",
+        "type",
+        "amount",
+        "balance_before",
+        "balance_after",
+        "description"
+      ]
+    },
+    "orders": {
+      "title": "orders",
+      "description": "Collection model for orders",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "user_id": {
+          "type": "number",
+          "description": "Field user_id (integer)"
+        },
+        "service_id": {
+          "type": "number",
+          "description": "Field service_id (integer)"
+        },
+        "service_name": {
+          "type": "string",
+          "description": "Field service_name (character varying)"
+        },
+        "platform": {
+          "type": "string",
+          "description": "Field platform (character varying)"
+        },
+        "link": {
+          "type": "string",
+          "description": "Field link (text)"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Field quantity (integer)"
+        },
+        "charge": {
+          "type": "number",
+          "description": "Field charge (numeric)"
+        },
+        "provider_cost": {
+          "type": "number",
+          "description": "Field provider_cost (numeric)"
+        },
+        "profit": {
+          "type": "number",
+          "description": "Field profit (numeric)"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Field currency (character varying)"
+        },
+        "provider_id": {
+          "type": "number",
+          "description": "Field provider_id (integer)"
+        },
+        "provider_order_id": {
+          "type": "string",
+          "description": "Field provider_order_id (character varying)"
+        },
+        "provider_status": {
+          "type": "string",
+          "description": "Field provider_status (character varying)"
+        },
+        "provider_error": {
+          "type": "string",
+          "description": "Field provider_error (text)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Field status (character varying)"
+        },
+        "start_count": {
+          "type": "number",
+          "description": "Field start_count (integer)"
+        },
+        "remains": {
+          "type": "number",
+          "description": "Field remains (integer)"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "description": "Field idempotency_key (character varying)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Field updated_at (timestamp with time zone)"
+        },
+        "provider_cost_usd": {
+          "type": "number",
+          "description": "Field provider_cost_usd (numeric)"
+        },
+        "exchange_rate_used": {
+          "type": "number",
+          "description": "Field exchange_rate_used (numeric)"
+        }
+      },
+      "required": [
+        "user_id",
+        "service_id",
+        "service_name",
+        "platform",
+        "link",
+        "quantity",
+        "charge"
+      ]
+    },
+    "services": {
+      "title": "services",
+      "description": "Collection model for services",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "category_id": {
+          "type": "number",
+          "description": "Field category_id (integer)"
+        },
+        "category_name": {
+          "type": "string",
+          "description": "Field category_name (character varying)"
+        },
+        "platform": {
+          "type": "string",
+          "description": "Field platform (character varying)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Field name (character varying)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Field description (text)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Field type (character varying)"
+        },
+        "min_quantity": {
+          "type": "number",
+          "description": "Field min_quantity (integer)"
+        },
+        "max_quantity": {
+          "type": "number",
+          "description": "Field max_quantity (integer)"
+        },
+        "provider_id": {
+          "type": "number",
+          "description": "Field provider_id (integer)"
+        },
+        "provider_service_id": {
+          "type": "string",
+          "description": "Field provider_service_id (character varying)"
+        },
+        "provider_rate": {
+          "type": "number",
+          "description": "Field provider_rate (numeric)"
+        },
+        "rate_per_1000": {
+          "type": "number",
+          "description": "Field rate_per_1000 (numeric)"
+        },
+        "markup_percentage": {
+          "type": "number",
+          "description": "Field markup_percentage (numeric)"
+        },
+        "markup_fixed": {
+          "type": "number",
+          "description": "Field markup_fixed (numeric)"
+        },
+        "refill_available": {
+          "type": "boolean",
+          "description": "Field refill_available (boolean)"
+        },
+        "cancel_available": {
+          "type": "boolean",
+          "description": "Field cancel_available (boolean)"
+        },
+        "dripfeed_available": {
+          "type": "boolean",
+          "description": "Field dripfeed_available (boolean)"
+        },
+        "average_time": {
+          "type": "string",
+          "description": "Field average_time (character varying)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Field status (character varying)"
+        },
+        "display_order": {
+          "type": "number",
+          "description": "Field display_order (integer)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Field updated_at (timestamp with time zone)"
+        },
+        "provider_rate_usd": {
+          "type": "number",
+          "description": "Field provider_rate_usd (numeric)"
+        }
+      },
+      "required": [
+        "category_name",
+        "platform",
+        "name",
+        "rate_per_1000"
+      ]
+    },
+    "service_categories": {
+      "title": "service_categories",
+      "description": "Collection model for service_categories",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Field name (character varying)"
+        },
+        "platform": {
+          "type": "string",
+          "description": "Field platform (character varying)"
+        },
+        "display_order": {
+          "type": "number",
+          "description": "Field display_order (integer)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Field status (character varying)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "name",
+        "platform"
+      ]
+    },
+    "payment_requests": {
+      "title": "payment_requests",
+      "description": "Collection model for payment_requests",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "user_id": {
+          "type": "number",
+          "description": "Field user_id (integer)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Field amount (numeric)"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Field currency (character varying)"
+        },
+        "payment_method": {
+          "type": "string",
+          "description": "Field payment_method (character varying)"
+        },
+        "utr_number": {
+          "type": "string",
+          "description": "Field utr_number (character varying)"
+        },
+        "payer_vpa_or_account": {
+          "type": "string",
+          "description": "Field payer_vpa_or_account (character varying)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Field status (character varying)"
+        },
+        "rejection_reason": {
+          "type": "string",
+          "description": "Field rejection_reason (text)"
+        },
+        "approved_by_admin_id": {
+          "type": "number",
+          "description": "Field approved_by_admin_id (integer)"
+        },
+        "approved_at": {
+          "type": "string",
+          "description": "Field approved_at (timestamp with time zone)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Field updated_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "user_id",
+        "amount",
+        "payment_method",
+        "utr_number"
+      ]
+    },
+    "system_settings": {
+      "title": "system_settings",
+      "description": "Collection model for system_settings",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Field key (character varying)"
+        },
+        "value": {
+          "type": "string",
+          "description": "Field value (text)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Field description (text)"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Field updated_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ]
+    },
+    "admin_security": {
+      "title": "admin_security",
+      "description": "Collection model for admin_security",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "email": {
+          "type": "string",
+          "description": "Field email (character varying)"
+        },
+        "password_hash": {
+          "type": "string",
+          "description": "Field password_hash (character varying)"
+        },
+        "totp_secret_encrypted": {
+          "type": "string",
+          "description": "Field totp_secret_encrypted (text)"
+        },
+        "totp_enabled": {
+          "type": "boolean",
+          "description": "Field totp_enabled (boolean)"
+        },
+        "backup_codes_encrypted": {
+          "type": "string",
+          "description": "Field backup_codes_encrypted (text)"
+        },
+        "failed_attempts": {
+          "type": "number",
+          "description": "Field failed_attempts (integer)"
+        },
+        "locked_until": {
+          "type": "string",
+          "description": "Field locked_until (timestamp with time zone)"
+        },
+        "last_login_at": {
+          "type": "string",
+          "description": "Field last_login_at (timestamp with time zone)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Field updated_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "email",
+        "password_hash"
+      ]
+    },
+    "api_providers": {
+      "title": "api_providers",
+      "description": "Collection model for api_providers",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Field name (character varying)"
+        },
+        "adapter_type": {
+          "type": "string",
+          "description": "Field adapter_type (character varying)"
+        },
+        "api_url": {
+          "type": "string",
+          "description": "Field api_url (text)"
+        },
+        "api_key_encrypted": {
+          "type": "string",
+          "description": "Field api_key_encrypted (text)"
+        },
+        "masked_key": {
+          "type": "string",
+          "description": "Field masked_key (character varying)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Field status (character varying)"
+        },
+        "balance": {
+          "type": "number",
+          "description": "Field balance (numeric)"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Field currency (character varying)"
+        },
+        "priority": {
+          "type": "number",
+          "description": "Field priority (integer)"
+        },
+        "last_checked_at": {
+          "type": "string",
+          "description": "Field last_checked_at (timestamp with time zone)"
+        },
+        "last_error": {
+          "type": "string",
+          "description": "Field last_error (text)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Field updated_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "name",
+        "api_url",
+        "api_key_encrypted",
+        "masked_key"
+      ]
+    },
+    "support_tickets": {
+      "title": "support_tickets",
+      "description": "Collection model for support_tickets",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "user_id": {
+          "type": "number",
+          "description": "Field user_id (integer)"
+        },
+        "order_id": {
+          "type": "number",
+          "description": "Field order_id (integer)"
+        },
+        "subject": {
+          "type": "string",
+          "description": "Field subject (character varying)"
+        },
+        "category": {
+          "type": "string",
+          "description": "Field category (character varying)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Field status (character varying)"
+        },
+        "priority": {
+          "type": "string",
+          "description": "Field priority (character varying)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Field updated_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "user_id",
+        "subject",
+        "category"
+      ]
+    },
+    "ticket_messages": {
+      "title": "ticket_messages",
+      "description": "Collection model for ticket_messages",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "ticket_id": {
+          "type": "number",
+          "description": "Field ticket_id (integer)"
+        },
+        "sender_role": {
+          "type": "string",
+          "description": "Field sender_role (character varying)"
+        },
+        "sender_id": {
+          "type": "number",
+          "description": "Field sender_id (integer)"
+        },
+        "message": {
+          "type": "string",
+          "description": "Field message (text)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "ticket_id",
+        "sender_role",
+        "sender_id",
+        "message"
+      ]
+    },
+    "user_banners": {
+      "title": "user_banners",
+      "description": "Collection model for user_banners",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "image_url": {
+          "type": "string",
+          "description": "Field image_url (text)"
+        },
+        "target_url": {
+          "type": "string",
+          "description": "Field target_url (text)"
+        },
+        "duration_hours": {
+          "type": "number",
+          "description": "Field duration_hours (integer)"
+        },
+        "published_at": {
+          "type": "string",
+          "description": "Field published_at (timestamp with time zone)"
+        },
+        "expires_at": {
+          "type": "string",
+          "description": "Field expires_at (timestamp with time zone)"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "Field is_active (boolean)"
+        },
+        "created_by": {
+          "type": "number",
+          "description": "Field created_by (integer)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "expires_at"
+      ]
+    },
+    "referral_rewards": {
+      "title": "referral_rewards",
+      "description": "Collection model for referral_rewards",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "referrer_id": {
+          "type": "number",
+          "description": "Field referrer_id (integer)"
+        },
+        "referred_user_id": {
+          "type": "number",
+          "description": "Field referred_user_id (integer)"
+        },
+        "bonus_amount": {
+          "type": "number",
+          "description": "Field bonus_amount (numeric)"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Field currency (character varying)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Field status (character varying)"
+        },
+        "deposit_id": {
+          "type": "number",
+          "description": "Field deposit_id (integer)"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Field notes (text)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "referrer_id",
+        "referred_user_id",
+        "bonus_amount"
+      ]
+    },
+    "audit_logs": {
+      "title": "audit_logs",
+      "description": "Collection model for audit_logs",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "actor_type": {
+          "type": "string",
+          "description": "Field actor_type (character varying)"
+        },
+        "actor_id": {
+          "type": "number",
+          "description": "Field actor_id (integer)"
+        },
+        "action": {
+          "type": "string",
+          "description": "Field action (character varying)"
+        },
+        "target_type": {
+          "type": "string",
+          "description": "Field target_type (character varying)"
+        },
+        "target_id": {
+          "type": "string",
+          "description": "Field target_id (character varying)"
+        },
+        "details": {
+          "type": "object",
+          "description": "Field details (jsonb)"
+        },
+        "ip_address": {
+          "type": "string",
+          "description": "Field ip_address (character varying)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "actor_type",
+        "action"
+      ]
+    },
+    "fraud_rejection_audits": {
+      "title": "fraud_rejection_audits",
+      "description": "Collection model for fraud_rejection_audits",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "user_id": {
+          "type": "number",
+          "description": "Field user_id (integer)"
+        },
+        "payment_id": {
+          "type": "number",
+          "description": "Field payment_id (integer)"
+        },
+        "rejection_reason": {
+          "type": "string",
+          "description": "Field rejection_reason (character varying)"
+        },
+        "admin_id": {
+          "type": "number",
+          "description": "Field admin_id (integer)"
+        },
+        "admin_email": {
+          "type": "string",
+          "description": "Field admin_email (character varying)"
+        },
+        "suspension_action": {
+          "type": "string",
+          "description": "Field suspension_action (character varying)"
+        },
+        "details": {
+          "type": "object",
+          "description": "Field details (jsonb)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "user_id",
+        "payment_id"
+      ]
+    },
+    "notifications": {
+      "title": "notifications",
+      "description": "Collection model for notifications",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "user_id": {
+          "type": "number",
+          "description": "Field user_id (integer)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Field title (character varying)"
+        },
+        "message": {
+          "type": "string",
+          "description": "Field message (text)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Field type (character varying)"
+        },
+        "is_read": {
+          "type": "boolean",
+          "description": "Field is_read (boolean)"
+        },
+        "link": {
+          "type": "string",
+          "description": "Field link (text)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        }
+      },
+      "required": [
+        "user_id",
+        "title",
+        "message"
+      ]
+    },
+    "password_resets": {
+      "title": "password_resets",
+      "description": "Collection model for password_resets",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Field id (integer)"
+        },
+        "user_id": {
+          "type": "number",
+          "description": "Field user_id (integer)"
+        },
+        "identifier": {
+          "type": "string",
+          "description": "Field identifier (character varying)"
+        },
+        "otp_code": {
+          "type": "string",
+          "description": "Field otp_code (character varying)"
+        },
+        "channel": {
+          "type": "string",
+          "description": "Field channel (character varying)"
+        },
+        "destination": {
+          "type": "string",
+          "description": "Field destination (character varying)"
+        },
+        "expires_at": {
+          "type": "string",
+          "description": "Field expires_at (timestamp with time zone)"
+        },
+        "verified": {
+          "type": "boolean",
+          "description": "Field verified (boolean)"
+        },
+        "attempts": {
+          "type": "number",
+          "description": "Field attempts (integer)"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Field created_at (timestamp with time zone)"
+        },
+        "token": {
+          "type": "string",
+          "description": "Field token (character varying)"
+        }
+      },
+      "required": [
+        "user_id",
+        "identifier",
+        "otp_code",
+        "channel",
+        "destination",
+        "expires_at"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{id}": {
+      "schema": "#/entities/users",
+      "description": "Firestore root collection for users"
+    },
+    "/wallet_transactions/{id}": {
+      "schema": "#/entities/wallet_transactions",
+      "description": "Firestore root collection for wallet_transactions"
+    },
+    "/orders/{id}": {
+      "schema": "#/entities/orders",
+      "description": "Firestore root collection for orders"
+    },
+    "/services/{id}": {
+      "schema": "#/entities/services",
+      "description": "Firestore root collection for services"
+    },
+    "/service_categories/{id}": {
+      "schema": "#/entities/service_categories",
+      "description": "Firestore root collection for service_categories"
+    },
+    "/payment_requests/{id}": {
+      "schema": "#/entities/payment_requests",
+      "description": "Firestore root collection for payment_requests"
+    },
+    "/system_settings/{id}": {
+      "schema": "#/entities/system_settings",
+      "description": "Firestore root collection for system_settings"
+    },
+    "/admin_security/{id}": {
+      "schema": "#/entities/admin_security",
+      "description": "Firestore root collection for admin_security"
+    },
+    "/api_providers/{id}": {
+      "schema": "#/entities/api_providers",
+      "description": "Firestore root collection for api_providers"
+    },
+    "/support_tickets/{id}": {
+      "schema": "#/entities/support_tickets",
+      "description": "Firestore root collection for support_tickets"
+    },
+    "/ticket_messages/{id}": {
+      "schema": "#/entities/ticket_messages",
+      "description": "Firestore root collection for ticket_messages"
+    },
+    "/user_banners/{id}": {
+      "schema": "#/entities/user_banners",
+      "description": "Firestore root collection for user_banners"
+    },
+    "/referral_rewards/{id}": {
+      "schema": "#/entities/referral_rewards",
+      "description": "Firestore root collection for referral_rewards"
+    },
+    "/audit_logs/{id}": {
+      "schema": "#/entities/audit_logs",
+      "description": "Firestore root collection for audit_logs"
+    },
+    "/fraud_rejection_audits/{id}": {
+      "schema": "#/entities/fraud_rejection_audits",
+      "description": "Firestore root collection for fraud_rejection_audits"
+    },
+    "/notifications/{id}": {
+      "schema": "#/entities/notifications",
+      "description": "Firestore root collection for notifications"
+    },
+    "/password_resets/{id}": {
+      "schema": "#/entities/password_resets",
+      "description": "Firestore root collection for password_resets"
+    }
+  }
+}

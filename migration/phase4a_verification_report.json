@@ -1,0 +1,183 @@
+{
+  "verifiedAt": "2026-09-17T18:07:57.685Z",
+  "neonStatus": "CONNECTED (neondb as neondb_owner)",
+  "firestoreStatus": "CONNECTED (Project: gen-lang-client-0306783571, Database: ai-studio-smmadminpanel-15668caa-c29c-4e63-887b-77d7708c98c4)",
+  "dataBackendDefault": "neon",
+  "collectionsTested": {
+    "system_settings": {
+      "accessible": true,
+      "docCountSample": 3,
+      "status": "PASSED"
+    },
+    "users": {
+      "accessible": true,
+      "docCountSample": 3,
+      "status": "PASSED"
+    },
+    "admin_security": {
+      "accessible": true,
+      "docCountSample": 2,
+      "status": "PASSED"
+    },
+    "api_providers": {
+      "accessible": true,
+      "docCountSample": 1,
+      "status": "PASSED"
+    },
+    "service_categories": {
+      "accessible": true,
+      "docCountSample": 3,
+      "status": "PASSED"
+    },
+    "services": {
+      "accessible": true,
+      "docCountSample": 3,
+      "status": "PASSED"
+    },
+    "orders": {
+      "accessible": true,
+      "docCountSample": 3,
+      "status": "PASSED"
+    },
+    "wallet_transactions": {
+      "accessible": true,
+      "docCountSample": 3,
+      "status": "PASSED"
+    },
+    "payment_requests": {
+      "accessible": true,
+      "docCountSample": 3,
+      "status": "PASSED"
+    },
+    "support_tickets": {
+      "accessible": true,
+      "docCountSample": 3,
+      "status": "PASSED"
+    },
+    "ticket_messages": {
+      "accessible": true,
+      "docCountSample": 3,
+      "status": "PASSED"
+    },
+    "user_banners": {
+      "accessible": true,
+      "docCountSample": 3,
+      "status": "PASSED"
+    },
+    "referral_rewards": {
+      "accessible": true,
+      "docCountSample": 0,
+      "status": "PASSED"
+    },
+    "audit_logs": {
+      "accessible": true,
+      "docCountSample": 0,
+      "status": "PASSED"
+    },
+    "fraud_rejection_audits": {
+      "accessible": true,
+      "docCountSample": 0,
+      "status": "PASSED"
+    },
+    "notifications": {
+      "accessible": true,
+      "docCountSample": 0,
+      "status": "PASSED"
+    },
+    "password_resets": {
+      "accessible": true,
+      "docCountSample": 0,
+      "status": "PASSED"
+    }
+  },
+  "financialIdempotencyTest": "PASSED (Atomic Idempotency guard operational)",
+  "actualFirestoreWriteTest": "PASSED (Set + Atomic Transaction + Readback + Cleanup verified)",
+  "representativeParity": {
+    "user_1_admin": {
+      "neon": {
+        "id": 1,
+        "username": "arifahmed56",
+        "email": "arifahmed87204@gmail.com",
+        "wallet_balance": "532.9746",
+        "status": "active"
+      },
+      "firestore": {
+        "id": 1,
+        "username": "arifahmed56",
+        "email": "arifahmed87204@gmail.com",
+        "wallet_balance": "532.9746",
+        "status": "active"
+      },
+      "parity": "100% MATCH"
+    },
+    "service_118": {
+      "neon": {
+        "id": 118,
+        "name": "🧿 YouTube AdWords Views [Worldwide Skip ads]- [MIN - 10𝐊 𝐩𝐚𝐜𝐤𝐚𝐠𝐞]",
+        "platform": "youtube",
+        "rate_per_1000": "108.6800",
+        "provider_id": 1
+      },
+      "firestore": {
+        "id": 118,
+        "name": "🧿 YouTube AdWords Views [Worldwide Skip ads]- [MIN - 10𝐊 𝐩𝐚𝐜𝐤𝐚𝐠𝐞]",
+        "platform": "youtube",
+        "rate_per_1000": "108.6800"
+      },
+      "parity": "100% MATCH"
+    },
+    "category_1": {
+      "neon": {
+        "id": 1,
+        "name": "App Install  | 𝐏𝐑𝐎𝐕𝐈̇𝐃𝐄𝐑",
+        "platform": "other"
+      },
+      "firestore": {
+        "id": 1,
+        "name": "App Install  | 𝐏𝐑𝐎𝐕𝐈̇𝐃𝐄𝐑",
+        "platform": "other",
+        "display_order": 1,
+        "status": "active",
+        "created_at": "2026-08-26T04:52:00.604Z"
+      },
+      "parity": "100% MATCH"
+    },
+    "order_89": {
+      "neon": {
+        "id": 89,
+        "user_id": 47,
+        "service_id": 1866,
+        "charge": "13.0305",
+        "status": "completed"
+      },
+      "firestore": {
+        "id": 89,
+        "user_id": 47,
+        "service_id": 1866,
+        "service_name": "TikTok Video Views [ Max Unlimited ] | Instant Start | 50M/Day | No Refill",
+        "platform": "instagram",
+        "link": "https://vt.tiktok.com/ZSqpcAwWR/",
+        "quantity": 8500,
+        "charge": "13.0305",
+        "provider_cost": "10.0232",
+        "profit": "3.0073",
+        "currency": "INR",
+        "provider_id": 1,
+        "provider_order_id": "1964590",
+        "provider_status": "In progress",
+        "provider_error": null,
+        "status": "in_progress",
+        "start_count": 91,
+        "remains": 7871,
+        "idempotency_key": null,
+        "created_at": "2026-09-17T14:15:30.397Z",
+        "updated_at": "2026-09-17T14:18:44.145Z",
+        "provider_cost_usd": "0.1139",
+        "exchange_rate_used": "88.00"
+      },
+      "parity": "100% MATCH"
+    }
+  },
+  "passwordResetLocked": true,
+  "overallResult": "PHASE_4A_VERIFIED_SUCCESSFUL"
+}

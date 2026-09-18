@@ -3,6 +3,7 @@ import { getDbPool } from '../db';
 import { requireUserAuth, requireAdminAuth } from '../auth';
 import { providerRegistry } from '../providers/providerRegistry';
 import { isCustomCommentsService } from '../../types';
+import { orderSubmissionLimiter, orderConcurrencyLimiter } from '../security/rateLimiter';
 
 export const orderRouter = Router();
 
@@ -16,7 +17,7 @@ export const orderRouter = Router();
  * Strictly verifies price and wallet balance on the server inside an atomic transaction.
  * Calls provider adapter server-side only. Safely refunds if provider rejects.
  */
-orderRouter.post('/', requireUserAuth, async (req: Request, res: Response): Promise<void> => {
+orderRouter.post('/', requireUserAuth, orderSubmissionLimiter, orderConcurrencyLimiter, async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const { serviceId, link, quantity, comments, idempotencyKey } = req.body;
 

@@ -19,6 +19,7 @@ import {
 } from '../totp';
 import { verifyFirebaseIdToken } from '../firebaseAdmin';
 import { sendPasswordResetEmail, maskEmail, getAppBaseUrl } from '../emailService';
+import { getSafeClientIp } from '../security/rateLimiter';
 
 export const authRouter = Router();
 
@@ -31,6 +32,12 @@ export const authRouter = Router();
  * Authenticate or register a user via Firebase Google OAuth
  */
 authRouter.post('/google', async (req: Request, res: Response): Promise<void> => {
+  const ip = getSafeClientIp(req);
+  if (!checkRateLimit(`google_auth_${ip}`, 10, 15 * 60 * 1000)) {
+    res.status(429).json({ success: false, error: 'Too many authentication attempts. Please wait 15 minutes before trying again.' });
+    return;
+  }
+
   const { idToken, credential, email, displayName, accessToken } = req.body;
   const tokenToInspect = credential || idToken;
   if (!tokenToInspect && !email && !accessToken) {
@@ -206,7 +213,7 @@ authRouter.post('/google', async (req: Request, res: Response): Promise<void> =>
  * POST /api/auth/register
  */
 authRouter.post('/register', async (req: Request, res: Response): Promise<void> => {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const ip = getSafeClientIp(req);
   if (!checkRateLimit(`reg_${ip}`, 10, 15 * 60 * 1000)) {
     res.status(429).json({ success: false, error: 'Too many registration attempts. Please try again later.' });
     return;
@@ -470,9 +477,9 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
  * POST /api/auth/login
  */
 authRouter.post('/login', async (req: Request, res: Response): Promise<void> => {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  if (!checkRateLimit(`login_${ip}`, 20, 10 * 60 * 1000)) {
-    res.status(429).json({ success: false, error: 'Too many login attempts. Please wait a few minutes.' });
+  const ip = getSafeClientIp(req);
+  if (!checkRateLimit(`login_${ip}`, 10, 15 * 60 * 1000)) {
+    res.status(429).json({ success: false, error: 'Too many login attempts. Please wait 15 minutes before trying again.' });
     return;
   }
 
@@ -1428,8 +1435,8 @@ authRouter.post('/change-password', requireUserAuth, async (req: Request, res: R
  * If 2FA is enabled -> Prompt 6-digit TOTP code entry.
  */
 authRouter.post('/admin/login', async (req: Request, res: Response): Promise<void> => {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  if (!checkRateLimit(`admin_login_${ip}`, 8, 15 * 60 * 1000)) {
+  const ip = getSafeClientIp(req);
+  if (!checkRateLimit(`admin_login_${ip}`, 10, 15 * 60 * 1000)) {
     res.status(429).json({ success: false, error: 'Too many admin login attempts. Access blocked for 15 minutes.' });
     return;
   }
@@ -1545,6 +1552,12 @@ authRouter.post('/admin/login', async (req: Request, res: Response): Promise<voi
  * Verify the first 6-digit code to activate Google Authenticator 2FA
  */
 authRouter.post('/admin/totp-setup', async (req: Request, res: Response): Promise<void> => {
+  const ip = getSafeClientIp(req);
+  if (!checkRateLimit(`totp_${ip}`, 10, 15 * 60 * 1000)) {
+    res.status(429).json({ success: false, error: 'Too many verification attempts. Please wait 15 minutes.' });
+    return;
+  }
+
   const { setupToken, code } = req.body;
   if (!setupToken || !code) {
     res.status(400).json({ success: false, error: 'Setup token and 6-digit TOTP code are required.' });
@@ -1619,6 +1632,12 @@ authRouter.post('/admin/totp-setup', async (req: Request, res: Response): Promis
  * Verify 6-digit code for subsequent admin logins
  */
 authRouter.post('/admin/totp-verify', async (req: Request, res: Response): Promise<void> => {
+  const ip = getSafeClientIp(req);
+  if (!checkRateLimit(`totp_${ip}`, 10, 15 * 60 * 1000)) {
+    res.status(429).json({ success: false, error: 'Too many verification attempts. Please wait 15 minutes.' });
+    return;
+  }
+
   const { tempToken, code } = req.body;
   if (!tempToken || !code) {
     res.status(400).json({ success: false, error: 'Temporary token and 6-digit code are required.' });

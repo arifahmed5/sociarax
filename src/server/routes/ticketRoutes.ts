@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getDbPool } from '../db';
 import { requireUserAuth, verifySessionToken } from '../auth';
+import { ticketCreateLimiter, ticketReplyLimiter } from '../security/rateLimiter';
 
 export const ticketRouter = Router();
 
@@ -113,12 +114,17 @@ ticketRouter.get('/', async (req: Request, res: Response): Promise<void> => {
  * POST /api/tickets
  * User creates new support ticket
  */
-ticketRouter.post('/', requireUserAuth, async (req: Request, res: Response): Promise<void> => {
+ticketRouter.post('/', requireUserAuth, ticketCreateLimiter, async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const { subject, category = 'order', orderId, message, priority = 'medium' } = req.body;
 
   if (!subject || !message) {
     res.status(400).json({ success: false, error: 'Subject and message are required.' });
+    return;
+  }
+
+  if (String(message).length > 10000) {
+    res.status(400).json({ success: false, error: 'Message exceeds maximum allowed length of 10,000 characters.' });
     return;
   }
 
@@ -299,12 +305,17 @@ ticketRouter.get('/:id', async (req: Request, res: Response): Promise<void> => {
  * POST /api/tickets/:id/reply
  * Reply to ticket (Admin or verified Ticket Owner only)
  */
-ticketRouter.post('/:id/reply', async (req: Request, res: Response): Promise<void> => {
+ticketRouter.post('/:id/reply', ticketReplyLimiter, async (req: Request, res: Response): Promise<void> => {
   const ticketId = parseInt(req.params.id, 10);
   const { message } = req.body;
 
   if (isNaN(ticketId) || !message || !String(message).trim()) {
     res.status(400).json({ success: false, error: 'Valid ticket ID and reply message are required.' });
+    return;
+  }
+
+  if (String(message).length > 10000) {
+    res.status(400).json({ success: false, error: 'Reply message exceeds maximum allowed length of 10,000 characters.' });
     return;
   }
 

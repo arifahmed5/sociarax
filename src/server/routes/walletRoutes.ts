@@ -1,6 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { getDbPool } from '../db';
 import { requireUserAuth, requireAdminAuth } from '../auth';
+import { 
+  paymentSubmissionLimiter, 
+  walletConcurrencyLimiter, 
+  walletSensitiveLimiter 
+} from '../security/rateLimiter';
 
 export const walletRouter = Router();
 
@@ -12,7 +17,7 @@ export const walletRouter = Router();
  * GET /api/wallet/transactions
  * User view of their own wallet ledger
  */
-walletRouter.get('/transactions', requireUserAuth, async (req: Request, res: Response): Promise<void> => {
+walletRouter.get('/transactions', requireUserAuth, walletSensitiveLimiter, async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const db = getDbPool();
   if (!db) {
@@ -105,7 +110,7 @@ walletRouter.get('/transactions', requireUserAuth, async (req: Request, res: Res
  * User submits a manual deposit / UTR verification request.
  * Wallet balance remains UNCHANGED (status = 'pending').
  */
-walletRouter.post('/deposit', requireUserAuth, async (req: Request, res: Response): Promise<void> => {
+walletRouter.post('/deposit', requireUserAuth, paymentSubmissionLimiter, walletConcurrencyLimiter, async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const { amount, paymentMethod, utrNumber, payerDetails } = req.body;
 
@@ -318,7 +323,7 @@ walletRouter.get('/admin/history', requireAdminAuth, async (req: Request, res: R
  * - Creates wallet transaction ledger record
  * - Idempotent: Can never double-credit.
  */
-walletRouter.post('/admin/:id/approve', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
+walletRouter.post('/admin/:id/approve', requireAdminAuth, walletSensitiveLimiter, async (req: Request, res: Response): Promise<void> => {
   const admin = (req as any).admin;
   const paymentId = parseInt(req.params.id, 10);
 
@@ -677,15 +682,15 @@ const handleRejectPayment = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-walletRouter.post('/admin/:id/reject', requireAdminAuth, handleRejectPayment);
-walletRouter.post('/:id/reject', requireAdminAuth, handleRejectPayment);
+walletRouter.post('/admin/:id/reject', requireAdminAuth, walletSensitiveLimiter, handleRejectPayment);
+walletRouter.post('/:id/reject', requireAdminAuth, walletSensitiveLimiter, handleRejectPayment);
 
 /**
  * POST /api/admin/wallet/adjust
  * Admin manual wallet balance adjustment (Credit or Debit)
  * Requires explicit reason and logs full audit trail
  */
-walletRouter.post('/admin/adjust', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
+walletRouter.post('/admin/adjust', requireAdminAuth, walletSensitiveLimiter, async (req: Request, res: Response): Promise<void> => {
   const admin = (req as any).admin;
   const { userId, amount, reason } = req.body;
 

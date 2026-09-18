@@ -1,0 +1,104 @@
+{
+  "verifiedAt": "2026-09-17T17:45:31.400Z",
+  "collections": {
+    "system_settings": {
+      "sourceCount": 47,
+      "firestoreCount": 47,
+      "match": true
+    },
+    "users": {
+      "sourceCount": 49,
+      "firestoreCount": 49,
+      "match": true
+    },
+    "referral_rewards": {
+      "sourceCount": 0,
+      "firestoreCount": 0,
+      "match": true
+    },
+    "admin_security": {
+      "sourceCount": 2,
+      "firestoreCount": 2,
+      "match": true
+    },
+    "api_providers": {
+      "sourceCount": 1,
+      "firestoreCount": 1,
+      "match": true
+    },
+    "service_categories": {
+      "sourceCount": 235,
+      "firestoreCount": 235,
+      "match": true
+    },
+    "services": {
+      "sourceCount": 2362,
+      "firestoreCount": 2362,
+      "match": true
+    },
+    "orders": {
+      "sourceCount": 89,
+      "firestoreCount": 89,
+      "match": true
+    },
+    "wallet_transactions": {
+      "sourceCount": 141,
+      "firestoreCount": 141,
+      "match": true
+    },
+    "payment_requests": {
+      "sourceCount": 29,
+      "firestoreCount": 29,
+      "match": true
+    },
+    "support_tickets": {
+      "sourceCount": 7,
+      "firestoreCount": 7,
+      "match": true
+    },
+    "ticket_messages": {
+      "sourceCount": 13,
+      "firestoreCount": 13,
+      "match": true
+    },
+    "audit_logs": {
+      "sourceCount": 0,
+      "firestoreCount": 0,
+      "match": true
+    },
+    "password_resets": {
+      "sourceCount": 0,
+      "firestoreCount": 0,
+      "match": true
+    },
+    "fraud_rejection_audits": {
+      "sourceCount": 0,
+      "firestoreCount": 0,
+      "match": true
+    },
+    "user_banners": {
+      "sourceCount": 18,
+      "firestoreCount": 18,
+      "match": true
+    },
+    "notifications": {
+      "sourceCount": 0,
+      "firestoreCount": 0,
+      "match": true
+    }
+  },
+  "financialParity": {
+    "sourceUserBalanceSum": 966.7,
+    "firestoreUserBalanceSum": 966.7,
+    "match": true
+  },
+  "relationshipIntegrity": {
+    "orphanedOrders": 0,
+    "match": true
+  },
+  "sensitiveDataIntegrity": {
+    "missingPasswordHashes": 0,
+    "match": true
+  },
+  "overallStatus": "ALL_VERIFICATIONS_PASSED"
+}

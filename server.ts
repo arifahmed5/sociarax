@@ -38,6 +38,11 @@ import { metricsTracker } from './src/server/monitoring/metricsTracker';
 import { selfHealingEngine } from './src/server/monitoring/selfHealingEngine';
 import { logEvent } from './src/server/monitoring/logger';
 import crypto from 'crypto';
+import { 
+  globalApiLimiter, 
+  authLimiter, 
+  getSafeClientIp 
+} from './src/server/security/rateLimiter';
 
 dotenv.config();
 
@@ -54,61 +59,6 @@ process.on('unhandledRejection', (reason: any) => {
     console.warn('[SERVER REJECTION SHIELD] Neutralized unhandled rejection:', msg);
   }
 });
-
-// In-Memory Rate Limiting & Anti-DDoS Sliding Window
-const requestWindowMap = new Map<string, { count: number; resetAt: number }>();
-
-function getClientIp(req: Request): string {
-  // Safe IP extraction: prioritize Cloudflare CF-Connecting-IP, then X-Real-IP, then socket address
-  const cfIp = req.headers['cf-connecting-ip'];
-  if (typeof cfIp === 'string' && cfIp.trim()) {
-    return cfIp.trim().split(',')[0].trim();
-  }
-  const realIp = req.headers['x-real-ip'];
-  if (typeof realIp === 'string' && realIp.trim()) {
-    return realIp.trim().split(',')[0].trim();
-  }
-  if (req.ip) {
-    return req.ip;
-  }
-  return req.socket.remoteAddress || '127.0.0.1';
-}
-
-function rateLimiter(limit: number = 180, windowMs: number = 60000) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const ip = getClientIp(req);
-    const key = `${ip}_${req.baseUrl || req.path}`;
-    const now = Date.now();
-
-    const record = requestWindowMap.get(key);
-    if (!record || now > record.resetAt) {
-      requestWindowMap.set(key, { count: 1, resetAt: now + windowMs });
-      next();
-      return;
-    }
-
-    record.count++;
-    if (record.count > limit) {
-      res.status(429).json({
-        success: false,
-        error: 'Too many requests. Please wait a few seconds before trying again.'
-      });
-      return;
-    }
-
-    next();
-  };
-}
-
-// Clean up stale rate limit entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of requestWindowMap.entries()) {
-    if (now > val.resetAt) {
-      requestWindowMap.delete(key);
-    }
-  }
-}, 300000);
 
 async function startServer() {
   const app = express();
@@ -143,9 +93,13 @@ async function startServer() {
     threshold: 1024 // Only compress responses > 1KB
   }));
 
-  // Global Middleware
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // Banner upload routes support up to 7MB base64 for 5MB images
+  const bannerUploadPaths = ['/api/banner/upload', '/api/banner/admin/upload', '/api/admin/banner/upload'];
+  app.use(bannerUploadPaths, express.json({ limit: '7mb' }));
+
+  // Global Middleware (1MB maximum body limit for all standard JSON APIs)
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
   app.use(cookieParser());
 
   // Prevent caching of all dynamic API responses (Private User Data & Financial Safety)
@@ -191,11 +145,15 @@ async function startServer() {
     next();
   });
 
-  // Apply general API Rate Limiting (180 requests/min per IP)
-  app.use('/api', rateLimiter(180, 60000));
-  // Strict rate limit for auth endpoints (45 requests/min per IP) to prevent brute force
-  app.use('/api/auth/login', rateLimiter(45, 60000));
-  app.use('/api/auth/register', rateLimiter(45, 60000));
+  // Apply general API Rate Limiting (120 requests/min per IP)
+  app.use('/api', globalApiLimiter);
+  // Strict rate limit for auth endpoints (10 attempts / 15 min per IP) to prevent brute force
+  app.use('/api/auth/login', authLimiter);
+  app.use('/api/auth/register', authLimiter);
+  app.use('/api/auth/google', authLimiter);
+  app.use('/api/auth/admin/login', authLimiter);
+  app.use('/api/auth/admin/totp-setup', authLimiter);
+  app.use('/api/auth/admin/totp-verify', authLimiter);
 
   // Public lightweight Health check endpoints
   const healthHandler = (_req: Request, res: Response) => {
@@ -251,8 +209,17 @@ async function startServer() {
   app.use('/api/banner', bannerRouter);
   app.use('/api/admin/banner', bannerRouter);
 
-  // Global API Error Handler (Never let an API route throw an unhandled 500 error)
+  // Global API Error Handler (Never let an API route throw an unhandled 500 error; handle 413 Payload Too Large)
   app.use('/api', (err: any, req: Request, res: Response, next: NextFunction) => {
+    if (err && (err.type === 'entity.too.large' || err.status === 413)) {
+      if (!res.headersSent) {
+        res.status(413).json({
+          success: false,
+          error: 'Request payload too large. Maximum allowed size is 1MB.'
+        });
+      }
+      return;
+    }
     selfHealingEngine.reportError('EXPRESS_ROUTER', err, req, 'ERROR');
     if (!res.headersSent) {
       res.status(500).json({
