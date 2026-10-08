@@ -82,46 +82,66 @@ reportRouter.get('/', requireAdminAuth, async (req: Request, res: Response): Pro
       `)
     ]);
 
-    const orderStats = orderStatsRes.rows[0];
-    const userStats = userStatsRes.rows[0];
-    const payStats = payStatsRes.rows[0];
+    const orderStats = orderStatsRes.rows[0] || {
+      total_orders: 0,
+      pending_orders: 0,
+      processing_orders: 0,
+      completed_orders: 0,
+      cancelled_orders: 0,
+      refunded_orders: 0,
+      total_revenue: '0',
+      total_provider_cost: '0',
+      total_profit: '0'
+    };
+    const userStats = userStatsRes.rows[0] || {
+      total_users: 0,
+      active_users: 0,
+      total_user_wallet_balance: '0'
+    };
+    const payStats = payStatsRes.rows[0] || {
+      total_payment_requests: 0,
+      pending_deposits_count: 0,
+      pending_deposits_amount: '0',
+      approved_deposits_count: 0,
+      total_approved_deposits: '0'
+    };
 
     res.json({
       success: true,
       metrics: {
-        totalRevenue: parseFloat(orderStats.total_revenue),
-        totalProviderCost: parseFloat(orderStats.total_provider_cost),
-        totalProfit: parseFloat(orderStats.total_profit),
-        profitMarginPct: parseFloat(orderStats.total_revenue) > 0 
-          ? ((parseFloat(orderStats.total_profit) / parseFloat(orderStats.total_revenue)) * 100).toFixed(1) 
+        totalRevenue: parseFloat(orderStats.total_revenue || '0'),
+        totalProviderCost: parseFloat(orderStats.total_provider_cost || '0'),
+        totalProfit: parseFloat(orderStats.total_profit || '0'),
+        profitMarginPct: parseFloat(orderStats.total_revenue || '0') > 0 
+          ? ((parseFloat(orderStats.total_profit || '0') / parseFloat(orderStats.total_revenue || '1')) * 100).toFixed(1) 
           : '0.0',
-        totalOrders: parseInt(orderStats.total_orders, 10),
-        pendingOrders: parseInt(orderStats.pending_orders, 10),
-        processingOrders: parseInt(orderStats.processing_orders, 10),
-        completedOrders: parseInt(orderStats.completed_orders, 10),
-        cancelledOrders: parseInt(orderStats.cancelled_orders, 10),
-        refundedOrders: parseInt(orderStats.refunded_orders, 10),
+        totalOrders: parseInt(orderStats.total_orders || '0', 10),
+        pendingOrders: parseInt(orderStats.pending_orders || '0', 10),
+        processingOrders: parseInt(orderStats.processing_orders || '0', 10),
+        completedOrders: parseInt(orderStats.completed_orders || '0', 10),
+        cancelledOrders: parseInt(orderStats.cancelled_orders || '0', 10),
+        refundedOrders: parseInt(orderStats.refunded_orders || '0', 10),
         
-        totalUsers: parseInt(userStats.total_users, 10),
-        activeUsers: parseInt(userStats.active_users, 10),
-        totalUserWalletBalance: parseFloat(userStats.total_user_wallet_balance),
+        totalUsers: parseInt(userStats.total_users || '0', 10),
+        activeUsers: parseInt(userStats.active_users || '0', 10),
+        totalUserWalletBalance: parseFloat(userStats.total_user_wallet_balance || '0'),
         
-        totalDeposits: parseFloat(payStats.total_approved_deposits),
-        pendingDepositsCount: parseInt(payStats.pending_deposits_count, 10),
-        pendingDepositsAmount: parseFloat(payStats.pending_deposits_amount),
-        approvedDepositsCount: parseInt(payStats.approved_deposits_count, 10)
+        totalDeposits: parseFloat(payStats.total_approved_deposits || '0'),
+        pendingDepositsCount: parseInt(payStats.pending_deposits_count || '0', 10),
+        pendingDepositsAmount: parseFloat(payStats.pending_deposits_amount || '0'),
+        approvedDepositsCount: parseInt(payStats.approved_deposits_count || '0', 10)
       },
-      platformBreakdown: platformBreakdownRes.rows.map(r => ({
+      platformBreakdown: (platformBreakdownRes.rows || []).map(r => ({
         platform: r.platform,
-        orderCount: parseInt(r.order_count, 10),
-        revenue: parseFloat(r.total_revenue),
-        profit: parseFloat(r.total_profit)
+        orderCount: parseInt(r.order_count || '0', 10),
+        revenue: parseFloat(r.total_revenue || '0'),
+        profit: parseFloat(r.total_profit || '0')
       })),
-      dailyTrend: recentTrendRes.rows.map(r => ({
+      dailyTrend: (recentTrendRes.rows || []).map(r => ({
         date: r.order_date,
-        orders: parseInt(r.daily_orders, 10),
-        revenue: parseFloat(r.daily_revenue),
-        profit: parseFloat(r.daily_profit)
+        orders: parseInt(r.daily_orders || '0', 10),
+        revenue: parseFloat(r.daily_revenue || '0'),
+        profit: parseFloat(r.daily_profit || '0')
       }))
     });
   } catch (err: any) {

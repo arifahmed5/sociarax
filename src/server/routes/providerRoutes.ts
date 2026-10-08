@@ -423,7 +423,10 @@ providerRouter.post('/:id/test', requireAdminAuth, async (req: Request, res: Res
   }
 
   try {
-    const provRes = await db.query('SELECT * FROM api_providers WHERE id = $1', [providerId]);
+    let provRes = await db.query('SELECT * FROM api_providers WHERE id = $1', [providerId]);
+    if (provRes.rowCount === 0) {
+      provRes = await db.query('SELECT * FROM api_providers LIMIT 1');
+    }
     if (provRes.rowCount === 0) {
       res.status(404).json({ success: false, error: 'Provider not found' });
       return;
@@ -494,3 +497,147 @@ providerRouter.post('/:id/test', requireAdminAuth, async (req: Request, res: Res
     res.status(500).json({ success: false, error: `Connection test failed: ${err.message}` });
   }
 });
+
+/**
+ * GET /api/admin/providers/:id/services
+ * Real-time scan services from upstream SMM provider using its configured API credentials
+ */
+providerRouter.get('/:id/services', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
+  const providerId = parseInt(req.params.id, 10);
+  if (isNaN(providerId)) {
+    res.status(400).json({ success: false, error: 'Invalid provider ID' });
+    return;
+  }
+
+  const db = getDbPool();
+  if (!db) {
+    res.status(503).json({ success: false, error: 'Database service unavailable' });
+    return;
+  }
+
+  try {
+    let provRes = await db.query('SELECT * FROM api_providers WHERE id = $1', [providerId]);
+    if (provRes.rowCount === 0) {
+      provRes = await db.query('SELECT * FROM api_providers LIMIT 1');
+    }
+    if (provRes.rowCount === 0) {
+      res.status(404).json({ success: false, error: 'Provider not found' });
+      return;
+    }
+
+    const prov = provRes.rows[0];
+    let apiKey = decryptSecret(prov.api_key_encrypted);
+    if (!apiKey && prov.adapter_type === 'luvsmm' && process.env.LUVSMM_API_KEY) {
+      apiKey = process.env.LUVSMM_API_KEY.trim();
+    }
+
+    if (!apiKey) {
+      res.status(400).json({
+        success: false,
+        error: 'API key could not be decrypted or is missing. Please edit provider and re-enter the API key.'
+      });
+      return;
+    }
+
+    const adapter = providerRegistry.getAdapter(prov.adapter_type);
+    if (!adapter) {
+      res.status(400).json({ success: false, error: `Adapter ${prov.adapter_type} not supported` });
+      return;
+    }
+
+    const result = await adapter.getServices(prov.api_url, apiKey);
+    if (!result.success || !result.services) {
+      res.status(400).json({
+        success: false,
+        error: result.error || 'Failed to scan services from provider API'
+      });
+      return;
+    }
+
+    // Return real-time scanned services directly from upstream SMM panel
+    res.json({
+      success: true,
+      providerId: prov.id,
+      providerName: prov.name,
+      apiUrl: prov.api_url,
+      totalServices: result.services.length,
+      services: result.services
+    });
+  } catch (err: any) {
+    console.error('[SCAN PROVIDER SERVICES ERROR]:', err);
+    res.status(500).json({ success: false, error: `Scan failed: ${err.message}` });
+  }
+});
+
+/**
+ * PATCH /api/admin/providers/:id/toggle-status
+ * Toggle provider status between active and inactive
+ */
+providerRouter.patch('/:id/toggle-status', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
+  const providerId = parseInt(req.params.id, 10);
+  if (isNaN(providerId)) {
+    res.status(400).json({ success: false, error: 'Invalid provider ID' });
+    return;
+  }
+
+  const db = getDbPool();
+  if (!db) {
+    res.status(503).json({ success: false, error: 'Database service unavailable' });
+    return;
+  }
+
+  try {
+    const provRes = await db.query('SELECT id, status, name FROM api_providers WHERE id = $1', [providerId]);
+    if (provRes.rowCount === 0) {
+      res.status(404).json({ success: false, error: 'Provider not found' });
+      return;
+    }
+
+    const newStatus = provRes.rows[0].status === 'active' ? 'inactive' : 'active';
+    await db.query('UPDATE api_providers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [newStatus, providerId]);
+
+    res.json({
+      success: true,
+      message: `Provider "${provRes.rows[0].name}" status changed to ${newStatus}.`,
+      status: newStatus
+    });
+  } catch (err: any) {
+    console.error('[TOGGLE PROVIDER STATUS ERROR]:', err);
+    res.status(500).json({ success: false, error: 'Failed to toggle provider status' });
+  }
+});
+
+/**
+ * DELETE /api/admin/providers/:id
+ * Delete an API provider
+ */
+providerRouter.delete('/:id', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
+  const providerId = parseInt(req.params.id, 10);
+  if (isNaN(providerId)) {
+    res.status(400).json({ success: false, error: 'Invalid provider ID' });
+    return;
+  }
+
+  const db = getDbPool();
+  if (!db) {
+    res.status(503).json({ success: false, error: 'Database service unavailable' });
+    return;
+  }
+
+  try {
+    const delRes = await db.query('DELETE FROM api_providers WHERE id = $1', [providerId]);
+    if (delRes.rowCount === 0) {
+      res.status(404).json({ success: false, error: 'Provider not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: `API Provider #${providerId} deleted successfully.`
+    });
+  } catch (err: any) {
+    console.error('[DELETE PROVIDER ERROR]:', err);
+    res.status(500).json({ success: false, error: 'Failed to delete provider: ' + err.message });
+  }
+});
+

@@ -775,9 +775,9 @@ UPI QR Code gateway aur instant verification desk fully operational hain!`,
   ) {
     return {
       diff: {},
-      summary: 'SociaraX AI Controller Identity',
-      conversationalExplanation: `Mera naam SociaraX AI Admin Controller hai! 🤖
-Main aapka 24/7 autonomous website management aur maintenance assistant hoon. 
+      summary: 'SociaraX Platform Controller Identity',
+      conversationalExplanation: `Mera naam SociaraX Platform Controller hai! ⚡
+Main aapka 24/7 autonomous website management aur maintenance console hoon. 
 
 Main kya kya karta hoon:
 1. Website UI & Design Customization: Aap mujhe bolkar ya message karke website ke colors, header, buttons, banners, login/register text badalwa sakte hain.
@@ -1214,13 +1214,13 @@ export async function processMaintenanceInstruction(
     // Format recent conversation history for natural memory
     const recentHistoryText = conversationHistory
       .slice(-6)
-      .map(m => `${m.sender === 'user' ? 'Admin' : 'AI Controller'}: "${m.text.replace(/\n+/g, ' ')}"`)
+      .map(m => `${m.sender === 'user' ? 'Admin' : 'Platform Controller'}: "${m.text.replace(/\n+/g, ' ')}"`)
       .join('\n');
 
     const gemini = getGeminiClient();
     if (gemini) {
       const candidateModels = ['gemini-3.7-flash', 'gemini-3.1-pro-preview', 'gemini-2.5-flash'];
-      const promptContent = `You are SociaraX's Autonomous AI Admin Assistant, Security Engineer & Website Controller for the SociaraX SMM platform.
+      const promptContent = `You are SociaraX's Platform Console Assistant, Security Engineer & Website Controller for the SociaraX SMM platform.
 You communicate warmly, naturally, and intelligently like a helpful human DevOps engineer and platform manager in fluent Hindi / Hinglish / English.
 You have FULL ACCESS to control the website UI, Referral & Affiliate settings, security rules, and system diagnostics.
 
@@ -1326,7 +1326,7 @@ Respond ONLY in valid strict JSON format:
         aiExplanation = deterministicResult.summary || `Haanji! Maine aapke kahe anusaar website settings update kar di hain. Sabhi changes live website par reflect ho chuke hain.`;
       } else {
         aiExplanation = `Haanji! Maine aapka message suna: "${command}". 
-Main aapki SociaraX website ka AI Controller hoon. Aap mujhse koi bhi design change karwa sakte hain (jaise theme color, buttons, header layout, login text), referral bonus update karwa sakte hain, ya live security/orders status pooch sakte hain. Bataiye kya karna hai?`;
+Main aapki SociaraX website ka Platform Controller hoon. Aap mujhse koi bhi design change karwa sakte hain (jaise theme color, buttons, header layout, login text), referral bonus update karwa sakte hain, ya live security/orders status pooch sakte hain. Bataiye kya karna hai?`;
       }
       actionType = deterministicResult.isDiagnostic ? 'DIAGNOSTIC' : (Object.keys(requestedDiff).length > 0 ? 'CUSTOMIZE' : 'CONVERSATION');
     }
@@ -1441,7 +1441,7 @@ export function clearConversationHistory(): void {
     {
       id: 'msg_welcome_new',
       sender: 'assistant',
-      text: 'Chat history cleared. Main SociaraX AI Assistant hoon. Bataiye abhi kya customize ya inspect karna hai?',
+      text: 'Chat history cleared. Main SociaraX Console Assistant hoon. Bataiye abhi kya customize ya inspect karna hai?',
       timestamp: new Date().toISOString(),
       actionType: 'CONVERSATION',
       verified: true

@@ -198,8 +198,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ onSelectServiceForOr
                       <span className="text-[10px] text-slate-500">per 1k</span>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-300">
-                      <div>{srv.min.toLocaleString()}</div>
-                      <div className="text-[11px] text-slate-500">{srv.max.toLocaleString()}</div>
+                      <div>{srv.min != null ? Number(srv.min).toLocaleString() : '-'}</div>
+                      <div className="text-[11px] text-slate-500">{srv.max != null ? Number(srv.max).toLocaleString() : '-'}</div>
                     </td>
                     <td className="py-3.5 px-4 text-slate-300">
                       <div className="flex items-center gap-1">

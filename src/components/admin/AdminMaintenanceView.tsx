@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  Bot, 
+  SlidersHorizontal, 
   Sparkles, 
   ShieldCheck, 
   ShieldAlert, 
@@ -518,14 +518,14 @@ export const AdminMaintenanceView: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-semibold">
-              <Bot className="w-3.5 h-3.5" />
-              <span>Autonomous AI Assistant & Website Controller</span>
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Live Website Controller & Customizer</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              AI Website Control & Conversational Assistant
+              Website Control & Customizer Console
             </h2>
             <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
-              Talk directly to your AI Assistant via voice or chat to customize website theme, header, login headlines, or query database health with zero downtime and instant rollback.
+              Customize website theme, header, login headlines, or query database health with zero downtime and instant rollback.
             </p>
           </div>
 
@@ -554,8 +554,8 @@ export const AdminMaintenanceView: React.FC = () => {
                 : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
-            <Bot className="w-3.5 h-3.5" />
-            <span>AI Conversational Chat & Voice</span>
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Interactive Command & Voice</span>
           </button>
 
           <button
@@ -614,7 +614,7 @@ export const AdminMaintenanceView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 1: CONVERSATIONAL AI CHAT & VOICE INTERFACE */}
+      {/* TAB 1: INTERACTIVE COMMAND & VOICE INTERFACE */}
       {/* ========================================================================= */}
       {activeTab === 'chat' && (
         <div className="space-y-6">
@@ -624,11 +624,11 @@ export const AdminMaintenanceView: React.FC = () => {
             <div className="flex items-center justify-between pb-4 border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
-                  <Bot className="w-5 h-5" />
+                  <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-white">SociaraX AI Assistant</h3>
+                    <h3 className="text-sm font-bold text-white">SociaraX Console Assistant</h3>
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                   </div>
                   <p className="text-[11px] text-slate-400">Talk in Hindi, Hinglish, or English</p>
@@ -681,7 +681,7 @@ export const AdminMaintenanceView: React.FC = () => {
                     )}
                     <button
                       type="button"
-                      onClick={() => speakText('Namaste! Main SociaraX ka AI Assistant hoon. Website customization ke liye main live taiyaar hoon.')}
+                      onClick={() => speakText('Namaste! Main SociaraX ka Assistant hoon. Website customization ke liye main live taiyaar hoon.')}
                       className="p-2 rounded-xl bg-slate-950 border border-slate-800 hover:bg-slate-900 text-indigo-400 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                       title="Test Voice Output"
                     >
@@ -707,9 +707,9 @@ export const AdminMaintenanceView: React.FC = () => {
             <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 space-y-3">
-                  <Bot className="w-12 h-12 text-slate-700 animate-pulse" />
+                  <Sparkles className="w-12 h-12 text-slate-700 animate-pulse" />
                   <p className="text-xs max-w-sm">
-                    Namaste! Main SociaraX ka Conversational AI Assistant hoon. Aap bolkar ya likhkar website ke header, colors, buttons, referral system ya login headlines customize kar sakte hain.
+                    Namaste! Main SociaraX ka Smart Assistant hoon. Aap bolkar ya likhkar website ke header, colors, buttons, referral system ya login headlines customize kar sakte hain.
                   </p>
                   {chatBackup && chatBackup.length > 0 && (
                     <div className="pt-2">
@@ -739,7 +739,7 @@ export const AdminMaintenanceView: React.FC = () => {
                           : 'bg-slate-800 border border-slate-700 text-indigo-300'
                       }`}
                     >
-                      {msg.sender === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                      {msg.sender === 'user' ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
                     </div>
 
                     <div
@@ -751,7 +751,7 @@ export const AdminMaintenanceView: React.FC = () => {
                     >
                       <p className="whitespace-pre-wrap">{msg.text}</p>
 
-                      {/* If AI applied parameter changes, render badge and diff */}
+                      {/* If parameter changes applied, render badge and diff */}
                       {msg.appliedDiff && Object.keys(msg.appliedDiff).length > 0 && (
                         <div className="mt-2 pt-2 border-t border-slate-800/80 space-y-1.5">
                           <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
@@ -778,7 +778,7 @@ export const AdminMaintenanceView: React.FC = () => {
               {isLoading && (
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-indigo-300 shrink-0">
-                    <Bot className="w-4 h-4 animate-spin text-indigo-400" />
+                    <Sparkles className="w-4 h-4 animate-spin text-indigo-400" />
                   </div>
                   <div className="bg-slate-950 border border-slate-800 rounded-2xl rounded-tl-none p-3.5 text-xs text-indigo-300 flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
@@ -1022,7 +1022,7 @@ export const AdminMaintenanceView: React.FC = () => {
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div>
               <h3 className="text-base font-bold text-white">Maintenance Audit Trail & Rollback</h3>
-              <p className="text-xs text-slate-400">Complete immutable record of all AI and manual website customizations.</p>
+              <p className="text-xs text-slate-400">Complete immutable record of all automated and manual website customizations.</p>
             </div>
           </div>
 
@@ -1118,7 +1118,7 @@ export const AdminMaintenanceView: React.FC = () => {
                 <span>Deterministic Fallback Resilience</span>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
-                If Gemini API models experience temporary demand surges (503 / 429), deterministic natural language rule trees execute seamless website customization without downtime.
+                Deterministic natural language rule trees execute seamless website customization without downtime.
               </p>
             </div>
           </div>
@@ -1132,7 +1132,7 @@ export const AdminMaintenanceView: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2.5 text-rose-400 font-bold text-sm">
                 <Trash2 className="w-5 h-5" />
-                <span>AI Chat History Delete Karein?</span>
+                <span>Chat History Delete Karein?</span>
               </div>
               <button
                 type="button"
@@ -1145,7 +1145,7 @@ export const AdminMaintenanceView: React.FC = () => {
 
             <div className="space-y-2 text-xs text-slate-300">
               <p>
-                Kya aap AI Assistant ki current conversation history delete karna chahte hain?
+                Kya aap Assistant ki current conversation history delete karna chahte hain?
               </p>
               <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-indigo-300 text-[11px] flex items-center gap-2">
                 <RotateCcw className="w-4 h-4 shrink-0 text-indigo-400" />

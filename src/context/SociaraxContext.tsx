@@ -62,7 +62,7 @@ interface SociaraxContextType {
   updateAdminService: (id: number, data: any) => Promise<{ success: boolean; error?: string }>;
   deleteAdminService: (id: number) => Promise<{ success: boolean; message?: string; error?: string }>;
   toggleAdminServiceStatus: (id: number) => Promise<{ success: boolean; status?: string; error?: string }>;
-  syncProviderServices: (providerId?: number, defaultMarkupPct?: number) => Promise<{ success: boolean; message?: string; error?: string }>;
+  syncProviderServices: (providerId?: number, defaultMarkupPct?: number) => Promise<{ success: boolean; message?: string; error?: string; stats?: any }>;
 
   // Orders
   userOrders: SociaraxOrder[];
@@ -93,12 +93,16 @@ interface SociaraxContextType {
   loadAdminProviders: () => Promise<void>;
   createAdminProvider: (data: any) => Promise<{ success: boolean; error?: string }>;
   updateAdminProvider: (id: number, data: any) => Promise<{ success: boolean; error?: string }>;
+  deleteAdminProvider: (id: number) => Promise<{ success: boolean; message?: string; error?: string }>;
+  toggleAdminProviderStatus: (id: number) => Promise<{ success: boolean; message?: string; status?: string; error?: string }>;
   testAdminProvider: (id: number) => Promise<{ success: boolean; message?: string; balance?: number; rawBalanceString?: string; error?: string }>;
+  scanProviderServices: (id: number) => Promise<{ success: boolean; totalServices?: number; services?: any[]; error?: string }>;
 
   // Users
   adminUsers: ManagedUser[];
   loadAdminUsers: () => Promise<void>;
   updateUserStatus: (userId: number, status: 'active' | 'suspended') => Promise<{ success: boolean; error?: string }>;
+  deleteAdminUser: (userId: number) => Promise<{ success: boolean; message?: string; error?: string }>;
 
   // Reports
   adminMetrics: AdminMetrics | null;
@@ -126,7 +130,19 @@ interface SociaraxContextType {
 const SociaraxContext = createContext<SociaraxContextType | undefined>(undefined);
 
 export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { userToken, adminToken, updateLocalWalletBalance } = useAuth();
+  const { userToken, adminToken, user, admin, updateLocalWalletBalance } = useAuth();
+
+  // Helper to reliably get a valid admin authorization token
+  const getEffectiveAdminToken = useCallback((): string | null => {
+    return (
+      adminToken ||
+      (typeof window !== 'undefined' ? localStorage.getItem('sociarax_admin_token') : null) ||
+      (user?.role === 'admin' ? userToken : null) ||
+      (user?.role === 'admin' && typeof window !== 'undefined' ? localStorage.getItem('sociarax_user_token') : null) ||
+      userToken ||
+      (typeof window !== 'undefined' ? localStorage.getItem('sociarax_user_token') : null)
+    );
+  }, [adminToken, userToken, user]);
 
   // State
   const [services, setServices] = useState<SociaraxService[]>([]);
@@ -173,7 +189,8 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
 
   const formatCurrency = (amount: number): string => {
-    return `₹${(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const val = typeof amount === 'number' && !isNaN(amount) ? amount : (Number(amount) || 0);
+    return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   // Safe Fetch JSON helper to prevent syntax errors when server returns HTML or fails
@@ -182,14 +199,14 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const headers = new Headers(options?.headers || {});
       // Auto-inject authorization if not already explicitly provided
       if (!headers.has('Authorization')) {
-        const adminTok = adminToken || localStorage.getItem('sociarax_admin_token');
-        const usrTok = userToken || localStorage.getItem('sociarax_user_token');
-        if (url.includes('/admin') && adminTok) {
-          headers.set('Authorization', `Bearer ${adminTok}`);
+        const effAdminTok = getEffectiveAdminToken();
+        const usrTok = userToken || (typeof window !== 'undefined' ? localStorage.getItem('sociarax_user_token') : null);
+        if (url.includes('/admin') && effAdminTok) {
+          headers.set('Authorization', `Bearer ${effAdminTok}`);
         } else if (usrTok) {
           headers.set('Authorization', `Bearer ${usrTok}`);
-        } else if (adminTok) {
-          headers.set('Authorization', `Bearer ${adminTok}`);
+        } else if (effAdminTok) {
+          headers.set('Authorization', `Bearer ${effAdminTok}`);
         }
       }
 
@@ -221,6 +238,9 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (data && data.success) {
         const normalized = (data.services || []).map((srv: SociaraxService) => ({
           ...srv,
+          min: srv.min != null ? Number(srv.min) : 0,
+          max: srv.max != null ? Number(srv.max) : 0,
+          rate: srv.rate != null ? Number(srv.rate) : 0,
           platform: resolvePlatform(srv)
         }));
         setServices(normalized);
@@ -236,7 +256,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // 2. Admin Services
   const loadAdminServices = useCallback(async () => {
-    const token = adminToken || localStorage.getItem('sociarax_admin_token');
+    const token = getEffectiveAdminToken();
     if (!token) {
       setIsServicesLoading(false);
       return;
@@ -249,6 +269,9 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (data && data.success) {
         const normalized = (data.services || []).map((srv: AdminService) => ({
           ...srv,
+          min: srv.min != null ? Number(srv.min) : 0,
+          max: srv.max != null ? Number(srv.max) : 0,
+          rate: srv.rate != null ? Number(srv.rate) : 0,
           platform: resolvePlatform(srv)
         }));
         setAdminServices(normalized);
@@ -258,15 +281,16 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setIsServicesLoading(false);
     }
-  }, [adminToken]);
+  }, [getEffectiveAdminToken]);
 
   const createAdminService = async (data: any) => {
     try {
+      const token = getEffectiveAdminToken();
       const resData = await safeFetchJson('/api/services/admin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(data)
       });
@@ -282,11 +306,12 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateAdminService = async (id: number, data: any) => {
     try {
+      const token = getEffectiveAdminToken();
       const resData = await safeFetchJson(`/api/services/admin/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(data)
       });
@@ -302,10 +327,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const deleteAdminService = async (id: number) => {
     try {
+      const token = getEffectiveAdminToken();
       const resData = await safeFetchJson(`/api/services/admin/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${adminToken}`
+          'Authorization': `Bearer ${token}`
         }
       });
       if (resData && resData.success) {
@@ -320,10 +346,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const toggleAdminServiceStatus = async (id: number) => {
     try {
+      const token = getEffectiveAdminToken();
       const resData = await safeFetchJson(`/api/services/admin/${id}/toggle-status`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${adminToken}`
+          'Authorization': `Bearer ${token}`
         }
       });
       if (resData && resData.success) {
@@ -338,17 +365,18 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const syncProviderServices = async (providerId?: number, defaultMarkupPct: number = 30) => {
     try {
+      const token = getEffectiveAdminToken();
       const resData = await safeFetchJson('/api/services/admin/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ providerId, defaultMarkupPct })
       });
       if (resData && resData.success) {
         await Promise.all([loadAdminServices(), loadServices()]);
-        return { success: true, message: resData.message };
+        return { success: true, message: resData.message, stats: resData.stats };
       }
       return { success: false, error: resData?.error || 'Sync failed' };
     } catch (err: any) {
@@ -376,6 +404,8 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (data && data.success) {
         const normalized = (data.orders || []).map((ord: SociaraxOrder) => ({
           ...ord,
+          quantity: ord.quantity != null ? Number(ord.quantity) : 0,
+          charge: ord.charge != null ? Number(ord.charge) : 0,
           platform: resolvePlatform(ord)
         }));
         setUserOrders(normalized);
@@ -417,7 +447,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // 4. Admin Orders
   const loadAdminOrders = useCallback(async (status?: string, platform?: string, search?: string) => {
-    const token = adminToken || localStorage.getItem('sociarax_admin_token');
+    const token = getEffectiveAdminToken();
     if (!token) {
       setIsOrdersLoading(false);
       return;
@@ -435,6 +465,8 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (data && data.success) {
         const normalized = (data.orders || []).map((ord: AdminOrder) => ({
           ...ord,
+          quantity: ord.quantity != null ? Number(ord.quantity) : 0,
+          charge: ord.charge != null ? Number(ord.charge) : 0,
           platform: resolvePlatform(ord)
         }));
         setAdminOrders(normalized);
@@ -444,15 +476,16 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setIsOrdersLoading(false);
     }
-  }, [adminToken]);
+  }, [getEffectiveAdminToken]);
 
   const updateAdminOrderStatus = async (orderId: number, newStatus: string, refund: boolean = false) => {
     try {
+      const token = getEffectiveAdminToken();
       const data = await safeFetchJson(`/api/orders/admin/${orderId}/status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ newStatus, refund })
       });
@@ -468,9 +501,10 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const syncAdminOrderStatus = async () => {
     try {
+      const token = getEffectiveAdminToken();
       const data = await safeFetchJson('/api/orders/admin/sync-status', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${adminToken}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (data && data.success) {
         await loadAdminOrders();
@@ -530,7 +564,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const loadAdminPendingPayments = useCallback(async () => {
-    const token = adminToken || localStorage.getItem('sociarax_admin_token');
+    const token = getEffectiveAdminToken();
     if (!token) {
       setIsPaymentsLoading(false);
       return;
@@ -548,10 +582,10 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setIsPaymentsLoading(false);
     }
-  }, [adminToken]);
+  }, [getEffectiveAdminToken]);
 
   const loadAdminPaymentHistory = useCallback(async () => {
-    const token = adminToken || localStorage.getItem('sociarax_admin_token');
+    const token = getEffectiveAdminToken();
     if (!token) return;
     try {
       const data = await safeFetchJson('/api/admin/payments/admin/history', {
@@ -563,11 +597,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (err) {
       console.error('[LOAD PAYMENT HISTORY ERROR]:', err);
     }
-  }, [adminToken]);
+  }, [getEffectiveAdminToken]);
 
   const approvePayment = async (paymentId: number) => {
     try {
-      const token = adminToken || localStorage.getItem('sociarax_admin_token');
+      const token = getEffectiveAdminToken();
       const data = await safeFetchJson(`/api/admin/payments/admin/${paymentId}/approve`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -585,7 +619,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const rejectPayment = async (paymentId: number, reason: string) => {
     try {
-      const token = adminToken || localStorage.getItem('sociarax_admin_token');
+      const token = getEffectiveAdminToken();
       const data = await safeFetchJson(`/api/admin/payments/admin/${paymentId}/reject`, {
         method: 'POST',
         headers: {
@@ -607,7 +641,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const adjustUserWallet = async (userId: number, amount: number, reason: string) => {
     try {
-      const token = adminToken || localStorage.getItem('sociarax_admin_token');
+      const token = getEffectiveAdminToken();
       const data = await safeFetchJson('/api/admin/payments/admin/adjust', {
         method: 'POST',
         headers: {
@@ -628,7 +662,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // 6. Providers
   const loadAdminProviders = useCallback(async () => {
-    const token = adminToken || localStorage.getItem('sociarax_admin_token');
+    const token = getEffectiveAdminToken();
     if (!token) return;
     try {
       const data = await safeFetchJson('/api/admin/providers', {
@@ -640,11 +674,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (err) {
       console.error('[LOAD PROVIDERS ERROR]:', err);
     }
-  }, [adminToken]);
+  }, [getEffectiveAdminToken]);
 
   const createAdminProvider = async (data: any) => {
     try {
-      const token = adminToken || localStorage.getItem('sociarax_admin_token');
+      const token = getEffectiveAdminToken();
       const resData = await safeFetchJson('/api/admin/providers', {
         method: 'POST',
         headers: {
@@ -665,7 +699,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateAdminProvider = async (id: number, data: any) => {
     try {
-      const token = adminToken || localStorage.getItem('sociarax_admin_token');
+      const token = getEffectiveAdminToken();
       const resData = await safeFetchJson(`/api/admin/providers/${id}`, {
         method: 'PUT',
         headers: {
@@ -686,7 +720,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const testAdminProvider = async (id: number) => {
     try {
-      const token = adminToken || localStorage.getItem('sociarax_admin_token');
+      const token = getEffectiveAdminToken();
       const data = await safeFetchJson(`/api/admin/providers/${id}/test`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -701,9 +735,58 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const deleteAdminProvider = async (id: number) => {
+    try {
+      const token = getEffectiveAdminToken();
+      const data = await safeFetchJson(`/api/admin/providers/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (data && data.success) {
+        await loadAdminProviders();
+        return { success: true, message: data.message };
+      }
+      return { success: false, error: data?.error || 'Failed to delete provider' };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  const toggleAdminProviderStatus = async (id: number) => {
+    try {
+      const token = getEffectiveAdminToken();
+      const data = await safeFetchJson(`/api/admin/providers/${id}/toggle-status`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (data && data.success) {
+        await loadAdminProviders();
+        return { success: true, message: data.message, status: data.status };
+      }
+      return { success: false, error: data?.error || 'Failed to toggle provider status' };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  const scanProviderServices = async (id: number) => {
+    try {
+      const token = getEffectiveAdminToken();
+      const data = await safeFetchJson(`/api/admin/providers/${id}/services`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (data && data.success) {
+        return { success: true, totalServices: data.totalServices, services: data.services };
+      }
+      return { success: false, error: data?.error || 'Failed to scan services' };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  };
+
   // 7. Users
   const loadAdminUsers = useCallback(async () => {
-    const token = adminToken || localStorage.getItem('sociarax_admin_token');
+    const token = getEffectiveAdminToken();
     if (!token) return;
     try {
       const data = await safeFetchJson('/api/admin/users', {
@@ -715,11 +798,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (err) {
       console.error('[LOAD ADMIN USERS ERROR]:', err);
     }
-  }, [adminToken]);
+  }, [getEffectiveAdminToken]);
 
   const updateUserStatus = async (userId: number, status: 'active' | 'suspended') => {
     try {
-      const token = adminToken || localStorage.getItem('sociarax_admin_token');
+      const token = getEffectiveAdminToken();
       const data = await safeFetchJson(`/api/admin/users/${userId}/status`, {
         method: 'POST',
         headers: {
@@ -738,9 +821,26 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const deleteAdminUser = async (userId: number) => {
+    try {
+      const token = getEffectiveAdminToken();
+      const data = await safeFetchJson(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (data && data.success) {
+        await loadAdminUsers();
+        return { success: true, message: data.message };
+      }
+      return { success: false, error: data?.error || 'Failed to delete user' };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  };
+
   // 8. Reports
   const loadAdminReports = useCallback(async () => {
-    const token = adminToken || localStorage.getItem('sociarax_admin_token');
+    const token = getEffectiveAdminToken();
     if (!token) return;
     try {
       const data = await safeFetchJson('/api/admin/reports', {
@@ -754,7 +854,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (err) {
       console.error('[LOAD REPORTS ERROR]:', err);
     }
-  }, [adminToken]);
+  }, [getEffectiveAdminToken]);
 
   // 9. Website Maintenance & UI Theme Config
   const refreshMaintenanceConfig = useCallback(async () => {
@@ -778,7 +878,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // 10. Admin Support Tickets
   const loadAdminTickets = useCallback(async () => {
-    const token = adminToken || localStorage.getItem('sociarax_admin_token') || localStorage.getItem('sociarax_user_token');
+    const token = getEffectiveAdminToken();
     if (!token) return;
     setIsAdminTicketsLoading(true);
     try {
@@ -793,11 +893,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setIsAdminTicketsLoading(false);
     }
-  }, [adminToken]);
+  }, [getEffectiveAdminToken]);
 
   const adminReplyTicket = async (ticketId: number, message: string) => {
     try {
-      const token = adminToken || localStorage.getItem('sociarax_admin_token') || localStorage.getItem('sociarax_user_token');
+      const token = getEffectiveAdminToken();
       const data = await safeFetchJson(`/api/tickets/${ticketId}/reply`, {
         method: 'POST',
         headers: {
@@ -821,7 +921,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateAdminTicketStatus = async (ticketId: number, status: string) => {
     try {
-      const token = adminToken || localStorage.getItem('sociarax_admin_token') || localStorage.getItem('sociarax_user_token');
+      const token = getEffectiveAdminToken();
       const data = await safeFetchJson(`/api/tickets/${ticketId}/status`, {
         method: 'PATCH',
         headers: {
@@ -854,11 +954,12 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const saveAdminSettings = async (data: Partial<SystemSettings>) => {
     try {
+      const token = getEffectiveAdminToken();
       const resData = await safeFetchJson('/api/settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ settings: data })
       });
@@ -888,7 +989,8 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [userToken, loadUserOrders, loadUserTransactions]);
 
   useEffect(() => {
-    if (adminToken) {
+    const effectiveToken = getEffectiveAdminToken();
+    if (effectiveToken && (admin || user?.role === 'admin')) {
       loadAdminServices();
       loadAdminOrders();
       loadAdminPendingPayments();
@@ -904,7 +1006,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }, 30000);
       return () => clearInterval(ticketInterval);
     }
-  }, [adminToken, loadAdminServices, loadAdminOrders, loadAdminPendingPayments, loadAdminPaymentHistory, loadAdminProviders, loadAdminUsers, loadAdminReports, loadAdminTickets]);
+  }, [admin, user, getEffectiveAdminToken, loadAdminServices, loadAdminOrders, loadAdminPendingPayments, loadAdminPaymentHistory, loadAdminProviders, loadAdminUsers, loadAdminReports, loadAdminTickets]);
 
   return (
     <SociaraxContext.Provider
@@ -948,11 +1050,15 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         loadAdminProviders,
         createAdminProvider,
         updateAdminProvider,
+        deleteAdminProvider,
+        toggleAdminProviderStatus,
         testAdminProvider,
+        scanProviderServices,
 
         adminUsers,
         loadAdminUsers,
         updateUserStatus,
+        deleteAdminUser,
 
         adminMetrics,
         platformBreakdown,

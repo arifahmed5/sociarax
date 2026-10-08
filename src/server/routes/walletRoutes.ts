@@ -217,19 +217,19 @@ walletRouter.get('/admin/pending', requireAdminAuth, async (req: Request, res: R
 
     res.json({
       success: true,
-      pendingPayments: result.rows.map(row => ({
-        id: row.id,
-        userId: row.user_id,
-        username: row.username,
-        email: row.email,
-        currentUserBalance: parseFloat(row.current_user_balance),
-        amount: parseFloat(row.amount),
-        currency: row.currency,
-        method: row.payment_method,
-        utr: row.utr_number,
-        payerDetails: row.payer_vpa_or_account,
-        status: row.status,
-        createdAt: row.created_at
+      pendingPayments: result.rows.map((row, idx) => ({
+        id: row.id !== undefined && row.id !== null ? Number(row.id) : (idx + 1),
+        userId: row.user_id !== undefined && row.user_id !== null ? Number(row.user_id) : 0,
+        username: row.username || 'user',
+        email: row.email || '',
+        currentUserBalance: parseFloat(row.current_user_balance || 0) || 0,
+        amount: parseFloat(row.amount || 0) || 0,
+        currency: row.currency || 'INR',
+        method: row.payment_method || 'manual',
+        utr: row.utr_number || '',
+        payerDetails: row.payer_vpa_or_account || '',
+        status: row.status || 'pending',
+        createdAt: row.created_at || new Date().toISOString()
       }))
     });
   } catch (err: any) {
@@ -290,21 +290,21 @@ walletRouter.get('/admin/history', requireAdminAuth, async (req: Request, res: R
 
     res.json({
       success: true,
-      history: result.rows.map(row => ({
-        id: row.id,
-        userId: row.user_id,
-        username: row.username,
-        email: row.email,
-        amount: parseFloat(row.amount),
-        currency: row.currency,
-        method: row.payment_method,
-        utr: row.utr_number,
-        payerDetails: row.payer_vpa_or_account,
-        status: row.status,
-        rejectionReason: row.rejection_reason,
-        approvedByAdminId: row.approved_by_admin_id,
-        approvedAt: row.approved_at,
-        createdAt: row.created_at
+      history: result.rows.map((row, idx) => ({
+        id: row.id !== undefined && row.id !== null ? Number(row.id) : (idx + 1),
+        userId: row.user_id !== undefined && row.user_id !== null ? Number(row.user_id) : 0,
+        username: row.username || 'user',
+        email: row.email || '',
+        amount: parseFloat(row.amount || 0) || 0,
+        currency: row.currency || 'INR',
+        method: row.payment_method || 'manual',
+        utr: row.utr_number || '',
+        payerDetails: row.payer_vpa_or_account || '',
+        status: row.status || 'approved',
+        rejectionReason: row.rejection_reason || null,
+        approvedByAdminId: row.approved_by_admin_id || null,
+        approvedAt: row.approved_at || null,
+        createdAt: row.created_at || new Date().toISOString()
       }))
     });
   } catch (err: any) {

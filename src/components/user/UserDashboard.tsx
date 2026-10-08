@@ -255,8 +255,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpen
                     {srv.name}
                   </div>
                   <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-                    <span>Min: {srv.min.toLocaleString()}</span>
-                    <span>{srv.averageTime}</span>
+                    <span>Min: {srv.min != null ? Number(srv.min).toLocaleString() : '-'}</span>
+                    <span>{srv.averageTime || 'Instant'}</span>
                   </div>
                 </div>
               ))}
@@ -319,7 +319,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpen
                         <div className="font-medium text-slate-200 truncate">{ord.serviceName}</div>
                         <div className="text-[11px] text-slate-500 truncate">{ord.link}</div>
                       </td>
-                      <td className="py-3 font-mono text-slate-300">{ord.quantity.toLocaleString()}</td>
+                      <td className="py-3 font-mono text-slate-300">{ord.quantity != null ? Number(ord.quantity).toLocaleString() : '-'}</td>
                       <td className="py-3 font-mono font-bold text-emerald-400">{formatCurrency(ord.charge)}</td>
                       <td className="py-3">
                         <StatusBadge status={ord.status} />

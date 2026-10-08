@@ -10,6 +10,7 @@ import {
   LifeBuoy, 
   ShieldCheck, 
   Server, 
+  Database,
   CreditCard, 
   Users, 
   BarChart3, 
@@ -22,7 +23,7 @@ import {
   TrendingUp,
   LayoutDashboard,
   Activity,
-  Bot,
+  SlidersHorizontal,
   Send,
   MessageCircle,
   Gift
@@ -56,7 +57,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const isAdminTab = currentTab.startsWith('admin_');
+  const isAdminTab = currentTab?.startsWith('admin_') || false;
 
   const isReferralEnabled = settings.referral_enabled !== 'false' && settings.referral_enabled !== '0';
 
@@ -88,11 +89,12 @@ export const Navigation: React.FC<NavigationProps> = ({
     },
     { id: 'admin_services', label: 'Pricing & Catalog', icon: Sparkles },
     { id: 'admin_providers', label: 'API Providers', icon: Server },
+    { id: 'admin_database', label: 'Database & Cloud', icon: Database },
     { id: 'admin_users', label: 'Users', icon: Users },
     { id: 'admin_reports', label: 'Reports', icon: BarChart3 },
     { id: 'admin_monitoring', label: '24/7 Health & Monitor', icon: Activity },
     { id: 'admin_referrals', label: 'Referral Program', icon: Gift },
-    { id: 'admin_maintenance', label: 'AI Website Control', icon: Bot },
+    { id: 'admin_maintenance', label: 'Website Customizer', icon: SlidersHorizontal },
     { id: 'admin_settings', label: 'Settings', icon: Settings },
   ];
 

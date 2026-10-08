@@ -113,11 +113,12 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthMo
 
   const filteredOrders = useMemo(() => {
     return userOrders.filter(ord => {
-      const matchStatus = statusFilter === 'all' || ord.status.toLowerCase() === statusFilter.toLowerCase();
-      const matchSearch = !searchQuery.trim() ||
-        String(ord.id).includes(searchQuery) ||
-        ord.serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ord.link.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchStatus = statusFilter === 'all' || (ord.status || '').toLowerCase() === statusFilter.toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
+      const matchSearch = !q ||
+        String(ord.id).includes(q) ||
+        (ord.serviceName || '').toLowerCase().includes(q) ||
+        (ord.link || '').toLowerCase().includes(q);
 
       return matchStatus && matchSearch;
     });
@@ -268,25 +269,29 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthMo
                             <PlatformBadge service={ord} />
                           </div>
                           <div className="font-semibold text-slate-200 truncate">{ord.serviceName}</div>
-                          <a
-                            href={ord.link.startsWith('http') ? ord.link : `https://${ord.link}`}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="inline-flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 mt-0.5 truncate max-w-[240px]"
-                          >
-                            <span className="truncate">{ord.link}</span>
-                            <ExternalLink className="w-3 h-3 shrink-0" />
-                          </a>
+                          {ord.link ? (
+                            <a
+                              href={ord.link.startsWith('http') ? ord.link : `https://${ord.link}`}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="inline-flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 mt-0.5 truncate max-w-[240px]"
+                            >
+                              <span className="truncate">{ord.link}</span>
+                              <ExternalLink className="w-3 h-3 shrink-0" />
+                            </a>
+                          ) : (
+                            <span className="text-[11px] text-slate-500 italic block mt-0.5">No link provided</span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 font-mono text-slate-300 font-bold">
-                          {ord.quantity.toLocaleString()}
+                          {ord.quantity != null ? Number(ord.quantity).toLocaleString() : '-'}
                         </td>
                         <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">
                           {formatCurrency(ord.charge)}
                         </td>
                         <td className="py-3.5 px-4 font-mono text-slate-300 text-xs">
-                          <div>Start: {ord.startCount !== undefined ? ord.startCount.toLocaleString() : '-'}</div>
-                          <div className="text-slate-500">Remains: {ord.remains !== undefined ? ord.remains.toLocaleString() : '-'}</div>
+                          <div>Start: {ord.startCount != null ? Number(ord.startCount).toLocaleString() : '-'}</div>
+                          <div className="text-slate-500">Remains: {ord.remains != null ? Number(ord.remains).toLocaleString() : '-'}</div>
                         </td>
                         <td className="py-3.5 px-4">
                           <StatusBadge status={ord.status} />
@@ -354,7 +359,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthMo
               </div>
               <div className="text-slate-400 truncate flex items-center justify-between">
                 <span className="truncate max-w-[280px]">Link: {reportingOrder.link}</span>
-                <span className="text-slate-300 font-mono font-medium">Qty: {reportingOrder.quantity.toLocaleString()}</span>
+                <span className="text-slate-300 font-mono font-medium">Qty: {reportingOrder.quantity != null ? Number(reportingOrder.quantity).toLocaleString() : '-'}</span>
               </div>
             </div>
 

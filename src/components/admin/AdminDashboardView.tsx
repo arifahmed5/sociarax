@@ -15,6 +15,7 @@ import {
   ArrowUpRight,
   ShieldCheck,
   Server,
+  Database,
   Zap,
   LogOut,
   RefreshCw,
@@ -155,6 +156,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => onNavigateAdmin('admin_database')}
+            className="px-4 py-2.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Database className="w-4 h-4 text-indigo-400" />
+            <span>Database & Cloud</span>
+          </button>
+
           <button
             onClick={() => syncAdminOrderStatus()}
             className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"

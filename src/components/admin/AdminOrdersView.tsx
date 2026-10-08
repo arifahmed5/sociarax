@@ -120,15 +120,27 @@ export const AdminOrdersView: React.FC = () => {
 
   const filteredOrders = useMemo(() => {
     return adminOrders.filter(ord => {
-      const matchStatus = statusFilter === 'all' || ord.status === statusFilter;
-      const matchPlatform = platformFilter === 'all' || ord.platform === platformFilter;
-      const matchSearch = !searchQuery.trim() ||
-        String(ord.id).includes(searchQuery) ||
-        ord.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ord.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ord.serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (ord.providerOrderId && ord.providerOrderId.includes(searchQuery)) ||
-        ord.link.toLowerCase().includes(searchQuery.toLowerCase());
+      const ordStatus = String(ord.status || '').toLowerCase();
+      const matchStatus = statusFilter === 'all' || 
+        ordStatus === statusFilter ||
+        (statusFilter === 'cancelled' && (ordStatus === 'canceled' || ordStatus === 'failed')) ||
+        (statusFilter === 'canceled' && (ordStatus === 'cancelled' || ordStatus === 'failed')) ||
+        (statusFilter === 'in_progress' && (ordStatus === 'processing' || ordStatus === 'inprogress')) ||
+        (statusFilter === 'processing' && (ordStatus === 'in_progress' || ordStatus === 'inprogress'));
+
+      const ordPlatform = String(ord.platform || '').toLowerCase();
+      const matchPlatform = platformFilter === 'all' || 
+        ordPlatform === platformFilter.toLowerCase() ||
+        (platformFilter === 'other' && (!ordPlatform || ordPlatform === 'other' || ordPlatform === 'general'));
+
+      const q = searchQuery.toLowerCase().trim();
+      const matchSearch = !q ||
+        String(ord.id).includes(q) ||
+        (ord.username || '').toLowerCase().includes(q) ||
+        (ord.email || '').toLowerCase().includes(q) ||
+        (ord.serviceName || '').toLowerCase().includes(q) ||
+        (ord.providerOrderId ? String(ord.providerOrderId).toLowerCase().includes(q) : false) ||
+        (ord.link || '').toLowerCase().includes(q);
 
       return matchStatus && matchPlatform && matchSearch;
     });
@@ -245,26 +257,30 @@ export const AdminOrdersView: React.FC = () => {
                       #{ord.id}
                     </td>
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-white">{ord.username}</div>
-                      <div className="text-[11px] text-slate-500">{ord.email}</div>
+                      <div className="font-semibold text-white">{ord.username || 'Anonymous User'}</div>
+                      <div className="text-[11px] text-slate-500">{ord.email || '-'}</div>
                     </td>
                     <td className="py-3.5 px-4 max-w-xs">
                       <div className="flex items-center gap-1.5 mb-1">
                         <PlatformBadge service={ord} />
                       </div>
                       <div className="font-medium text-slate-200 truncate">{ord.serviceName}</div>
-                      <a
-                        href={ord.link.startsWith('http') ? ord.link : `https://${ord.link}`}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="inline-flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 mt-0.5 truncate max-w-[200px]"
-                      >
-                        <span className="truncate">{ord.link}</span>
-                        <ExternalLink className="w-3 h-3 shrink-0" />
-                      </a>
+                      {ord.link ? (
+                        <a
+                          href={ord.link.startsWith('http') ? ord.link : `https://${ord.link}`}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="inline-flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 mt-0.5 truncate max-w-[200px]"
+                        >
+                          <span className="truncate">{ord.link}</span>
+                          <ExternalLink className="w-3 h-3 shrink-0" />
+                        </a>
+                      ) : (
+                        <span className="text-[11px] text-slate-500 italic block mt-0.5">No link provided</span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-300">
-                      {ord.quantity.toLocaleString()}
+                      {ord.quantity != null ? Number(ord.quantity).toLocaleString() : '-'}
                     </td>
                     <td className="py-3.5 px-4 font-mono">
                       <div className="text-white font-bold">{formatCurrency(ord.charge)}</div>

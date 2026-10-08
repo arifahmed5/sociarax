@@ -172,8 +172,8 @@ export const AdminPaymentsView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {adminPendingPayments.map(req => (
-                    <tr key={req.id} className="hover:bg-slate-800/40 transition-colors">
+                  {adminPendingPayments.map((req, idx) => (
+                    <tr key={req.id ? `pending-${req.id}` : `pending-idx-${idx}`} className="hover:bg-slate-800/40 transition-colors">
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-400">
                         #{req.id}
                       </td>
@@ -236,8 +236,8 @@ export const AdminPaymentsView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {adminPaymentHistory.map(req => (
-                  <tr key={req.id} className="hover:bg-slate-800/40 transition-colors">
+                {adminPaymentHistory.map((req, idx) => (
+                  <tr key={req.id ? `history-${req.id}` : `history-idx-${idx}`} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-400">#{req.id}</td>
                     <td className="py-3.5 px-4 text-slate-400 text-xs">
                       {new Date(req.createdAt).toLocaleDateString('en-IN', {

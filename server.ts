@@ -33,6 +33,7 @@ import { referralRouter } from './src/server/routes/referralRoutes';
 import { monitoringRouter } from './src/server/routes/monitoringRoutes';
 import { maintenanceRouter } from './src/server/routes/maintenanceRoutes';
 import { bannerRouter } from './src/server/routes/bannerRoutes';
+import { databaseRouter } from './src/server/routes/databaseRoutes';
 import { loadConfigFromDatabase } from './src/server/maintenance/maintenanceEngine';
 import { metricsTracker } from './src/server/monitoring/metricsTracker';
 import { selfHealingEngine } from './src/server/monitoring/selfHealingEngine';
@@ -208,6 +209,7 @@ async function startServer() {
   app.use('/api/maintenance', maintenanceRouter);
   app.use('/api/banner', bannerRouter);
   app.use('/api/admin/banner', bannerRouter);
+  app.use('/api/admin/database', databaseRouter);
 
   // Global API Error Handler (Never let an API route throw an unhandled 500 error; handle 413 Payload Too Large)
   app.use('/api', (err: any, req: Request, res: Response, next: NextFunction) => {

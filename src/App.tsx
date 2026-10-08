@@ -31,6 +31,7 @@ import { AdminSettingsView } from './components/admin/AdminSettingsView';
 import { AdminMonitoringView } from './components/admin/AdminMonitoringView';
 import { AdminReferralsView } from './components/admin/AdminReferralsView';
 import { AdminMaintenanceView } from './components/admin/AdminMaintenanceView';
+import { AdminDatabaseView } from './components/admin/AdminDatabaseView';
 import { AuthGate } from './components/AuthGate';
 
 import { ShieldCheck, Zap, Lock, Mail, Send, Heart } from 'lucide-react';
@@ -108,7 +109,7 @@ const MainLayout: React.FC = () => {
   );
 
   const handleTabChange = (tab: string) => {
-    if (tab.startsWith('admin_')) {
+    if (tab?.startsWith('admin_')) {
       // Strictly prevent non-authorized users from switching to admin tabs
       if (!isOwnerOrAdmin) {
         setCurrentTab('dashboard');
@@ -224,7 +225,7 @@ const MainLayout: React.FC = () => {
       {/* Main Content Area */}
       <main className={`relative z-10 flex-1 max-w-7xl w-full mx-auto ${maintenanceConfig.compactMobileLayout ? 'px-3 sm:px-6 py-4 sm:py-6' : 'px-4 sm:px-6 py-6 sm:py-8'}`}>
         {/* Customer Portal Top Announcement Banner (Active & unexpired only, zero UI footprint when inactive) */}
-        {!currentTab.startsWith('admin_') && (
+        {!currentTab?.startsWith('admin_') && (
           <UserAnnouncementBanner />
         )}
 
@@ -301,6 +302,14 @@ const MainLayout: React.FC = () => {
 
         {currentTab === 'admin_providers' && (admin || isOwnerOrAdmin) && (
           <AdminProvidersView />
+        )}
+
+        {currentTab === 'admin_database' && (admin || isOwnerOrAdmin) && (
+          <AdminDatabaseView 
+            onNavigateToServices={() => handleTabChange('admin_services')}
+            onNavigateToProviders={() => handleTabChange('admin_providers')}
+            onNavigateToUsers={() => handleTabChange('admin_users')}
+          />
         )}
 
         {currentTab === 'admin_users' && (admin || isOwnerOrAdmin) && (

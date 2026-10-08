@@ -110,6 +110,37 @@ userRouter.post('/:id/status', requireAdminAuth, async (req: Request, res: Respo
 });
 
 /**
+ * DELETE /api/admin/users/:id
+ * Delete a user account (Admin only)
+ */
+userRouter.delete('/:id', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    res.status(400).json({ success: false, error: 'Valid user ID required' });
+    return;
+  }
+
+  const db = getDbPool();
+  if (!db) {
+    res.status(503).json({ success: false, error: 'Database service unavailable' });
+    return;
+  }
+
+  try {
+    const delRes = await db.query('DELETE FROM users WHERE id = $1', [userId]);
+    if (delRes.rowCount === 0) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    res.json({ success: true, message: `User #${userId} deleted successfully.` });
+  } catch (err: any) {
+    console.error('[DELETE USER ERROR]:', err);
+    res.status(500).json({ success: false, error: 'Failed to delete user: ' + err.message });
+  }
+});
+
+/**
  * POST /api/admin/users/:id/send-reminder
  * Optional manual customer reminder triggered strictly by admin.
  * Sent only to the selected user's registered email.

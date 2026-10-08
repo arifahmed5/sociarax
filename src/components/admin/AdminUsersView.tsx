@@ -11,7 +11,8 @@ import {
   DollarSign, 
   X, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Trash2 
 } from 'lucide-react';
 
 export const AdminUsersView: React.FC = () => {
@@ -20,7 +21,8 @@ export const AdminUsersView: React.FC = () => {
     formatCurrency, 
     loadAdminUsers, 
     updateUserStatus, 
-    adjustUserWallet 
+    adjustUserWallet,
+    deleteAdminUser 
   } = useSociarax();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,6 +41,17 @@ export const AdminUsersView: React.FC = () => {
   const handleStatusToggle = async (user: ManagedUser) => {
     const newStatus = user.status === 'active' ? 'suspended' : 'active';
     await updateUserStatus(user.id, newStatus);
+  };
+
+  const handleDeleteUser = async (user: ManagedUser) => {
+    if (!window.confirm(`Are you sure you want to delete user #${user.id} (${user.username})?`)) return;
+    const res = await deleteAdminUser(user.id);
+    if (res.success) {
+      setAdjustNotice({ type: 'success', message: res.message || 'User deleted successfully' });
+      setTimeout(() => setAdjustNotice(null), 3500);
+    } else {
+      setAdjustNotice({ type: 'error', message: res.error || 'Failed to delete user' });
+    }
   };
 
   const handleWalletAdjustSubmit = async (e: React.FormEvent) => {
@@ -182,6 +195,13 @@ export const AdminUsersView: React.FC = () => {
                         title={user.status === 'active' ? 'Suspend Account' : 'Activate Account'}
                       >
                         {user.status === 'active' ? 'Suspend' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(user)}
+                        className="p-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
+                        title="Delete User Account"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </td>

@@ -163,8 +163,8 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
     if (count === 0 && !customComments.trim()) {
       return null;
     }
-    const min = selectedService.min;
-    const max = selectedService.max;
+    const min = Number(selectedService.min) || 0;
+    const max = Number(selectedService.max) || 0;
     if (count < min) {
       return {
         isValid: false,
@@ -226,21 +226,25 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
         setErrorMessage('Please enter your custom comments (one comment per line).');
         return;
       }
-      if (commentLines.length < selectedService.min) {
-        setErrorMessage(`Minimum quantity for this service is ${selectedService.min.toLocaleString()}. You have entered ${commentLines.length} comment(s).`);
+      const min = Number(selectedService.min) || 0;
+      const max = Number(selectedService.max) || 0;
+      if (commentLines.length < min) {
+        setErrorMessage(`Minimum quantity for this service is ${min.toLocaleString()}. You have entered ${commentLines.length} comment(s).`);
         return;
       }
-      if (commentLines.length > selectedService.max) {
-        setErrorMessage(`Maximum quantity for this service is ${selectedService.max.toLocaleString()}. You have entered ${commentLines.length} comment(s).`);
+      if (commentLines.length > max) {
+        setErrorMessage(`Maximum quantity for this service is ${max.toLocaleString()}. You have entered ${commentLines.length} comment(s).`);
         return;
       }
     } else {
-      if (qty < selectedService.min) {
-        setErrorMessage(`Minimum quantity for this service is ${selectedService.min.toLocaleString()}.`);
+      const min = Number(selectedService.min) || 0;
+      const max = Number(selectedService.max) || 0;
+      if (qty < min) {
+        setErrorMessage(`Minimum quantity for this service is ${min.toLocaleString()}.`);
         return;
       }
-      if (qty > selectedService.max) {
-        setErrorMessage(`Maximum quantity for this service is ${selectedService.max.toLocaleString()}.`);
+      if (qty > max) {
+        setErrorMessage(`Maximum quantity for this service is ${max.toLocaleString()}.`);
         return;
       }
     }
@@ -320,7 +324,7 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
                   Order #{successOrder.id} Placed Successfully!
                 </h3>
                 <p className="text-xs text-emerald-300/90 mt-0.5">
-                  {successOrder.serviceName} • {successOrder.quantity.toLocaleString()} units • {formatCurrency(successOrder.charge)}
+                  {successOrder.serviceName} • {successOrder.quantity != null ? Number(successOrder.quantity).toLocaleString() : 0} units • {formatCurrency(successOrder.charge)}
                 </p>
               </div>
             </div>
@@ -464,10 +468,10 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                   <span className="text-slate-400">
-                    Min: <strong className="text-white font-mono">{selectedService.min.toLocaleString()}</strong>
+                    Min: <strong className="text-white font-mono">{selectedService.min != null ? Number(selectedService.min).toLocaleString() : '-'}</strong>
                   </span>
                   <span className="text-slate-400">
-                    Max: <strong className="text-white font-mono">{selectedService.max.toLocaleString()}</strong>
+                    Max: <strong className="text-white font-mono">{selectedService.max != null ? Number(selectedService.max).toLocaleString() : '-'}</strong>
                   </span>
                   <span className="text-emerald-400 font-bold font-mono">
                     {formatCurrency(selectedService.rate)} / 1000
@@ -546,7 +550,7 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
                 <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-400 mt-1.5 px-1">
                   <span>Enter each comment on a new line. Empty lines are ignored.</span>
                   <span>
-                    Min: <strong className="text-slate-200">{selectedService?.min.toLocaleString()}</strong> • Max: <strong className="text-slate-200">{selectedService?.max.toLocaleString()}</strong>
+                    Min: <strong className="text-slate-200">{selectedService?.min != null ? Number(selectedService.min).toLocaleString() : '-'}</strong> • Max: <strong className="text-slate-200">{selectedService?.max != null ? Number(selectedService.max).toLocaleString() : '-'}</strong>
                   </span>
                 </div>
 
@@ -558,8 +562,8 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
                       <span className="font-semibold block">{commentsValidation.error}</span>
                       <span className="text-[11px] text-amber-400/80">
                         {commentsValidation.type === 'below_min'
-                          ? `Please add at least ${(selectedService?.min || 0) - (typeof quantity === 'number' ? quantity : 0)} more comment(s) to reach the minimum of ${selectedService?.min.toLocaleString()}.`
-                          : `Please remove ${(typeof quantity === 'number' ? quantity : 0) - (selectedService?.max || 0)} comment(s) to stay within the maximum limit of ${selectedService?.max.toLocaleString()}.`}
+                          ? `Please add at least ${(Number(selectedService?.min) || 0) - (typeof quantity === 'number' ? quantity : 0)} more comment(s) to reach the minimum of ${(Number(selectedService?.min) || 0).toLocaleString()}.`
+                          : `Please remove ${(typeof quantity === 'number' ? quantity : 0) - (Number(selectedService?.max) || 0)} comment(s) to stay within the maximum limit of ${(Number(selectedService?.max) || 0).toLocaleString()}.`}
                       </span>
                     </div>
                   </div>
@@ -569,7 +573,7 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
                   <div className="mt-2.5 flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3.5 py-2">
                     <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
                     <span>
-                      Valid: <strong>{quantity} comments</strong> entered (Meets min {selectedService?.min.toLocaleString()} / max {selectedService?.max.toLocaleString()})
+                      Valid: <strong>{quantity} comments</strong> entered (Meets min {(Number(selectedService?.min) || 0).toLocaleString()} / max {(Number(selectedService?.max) || 0).toLocaleString()})
                     </span>
                   </div>
                 )}

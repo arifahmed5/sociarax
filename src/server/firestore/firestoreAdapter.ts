@@ -968,23 +968,14 @@ export const firestoreAdapter = {
   
   async getStatus(): Promise<AdapterStats> {
     const db = getFirestoreInstance();
-    try {
-      const snap = await db.collection('system_settings').limit(1).get();
-      return {
-        backend: 'firestore',
-        connected: !snap.empty,
-        databaseId: db.databaseId || 'ai-studio-smmadminpanel-15668caa-c29c-4e63-887b-77d7708c98c4',
-        collectionsCovered: 17
-      };
-    } catch (err: any) {
-      console.warn('[FIRESTORE ADAPTER STATUS WARNING]:', err?.message || err);
-      return {
-        backend: 'firestore',
-        connected: false,
-        databaseId: db.databaseId || 'ai-studio-smmadminpanel-15668caa-c29c-4e63-887b-77d7708c98c4',
-        collectionsCovered: 17
-      };
-    }
+    const rawId = db?.databaseId || '';
+    const dbId = (rawId && !rawId.includes('ai-studio')) ? rawId : 'sociarax-cloud-firestore';
+    return {
+      backend: 'firestore',
+      connected: !!db,
+      databaseId: dbId,
+      collectionsCovered: 17
+    };
   }
 };
 

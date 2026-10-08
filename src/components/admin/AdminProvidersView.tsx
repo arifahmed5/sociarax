@@ -13,7 +13,12 @@ import {
   ExternalLink, 
   X,
   ShieldCheck,
-  Zap
+  Zap,
+  Trash2,
+  Power,
+  Search,
+  ListFilter,
+  Download
 } from 'lucide-react';
 
 export const AdminProvidersView: React.FC = () => {
@@ -23,7 +28,11 @@ export const AdminProvidersView: React.FC = () => {
     loadAdminProviders, 
     createAdminProvider, 
     updateAdminProvider, 
+    deleteAdminProvider,
+    toggleAdminProviderStatus,
     testAdminProvider,
+    scanProviderServices,
+    syncProviderServices,
     settings 
   } = useSociarax();
 
@@ -31,6 +40,17 @@ export const AdminProvidersView: React.FC = () => {
 
   const [testingId, setTestingId] = useState<number | null>(null);
   const [testResult, setTestResult] = useState<{ id: number; success: boolean; message: string; balance?: number; rawBalanceString?: string } | null>(null);
+
+  // Scanning Modal State
+  const [scanningId, setScanningId] = useState<number | null>(null);
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+  const [scannedData, setScannedData] = useState<{ providerId: number; providerName: string; totalServices: number; services: any[] } | null>(null);
+  const [scanSearch, setScanSearch] = useState('');
+  const [isSyncingFromScan, setIsSyncingFromScan] = useState(false);
+  const [syncStatusMsg, setSyncStatusMsg] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Delete State
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<ApiProvider | null>(null);
@@ -58,6 +78,53 @@ export const AdminProvidersView: React.FC = () => {
       balance: res.balance,
       rawBalanceString: res.rawBalanceString
     });
+  };
+
+  const handleScanServices = async (provider: ApiProvider) => {
+    setScanningId(provider.id);
+    setSyncStatusMsg(null);
+    const res = await scanProviderServices(provider.id);
+    setScanningId(null);
+
+    if (res.success && res.services) {
+      setScannedData({
+        providerId: provider.id,
+        providerName: provider.name,
+        totalServices: res.totalServices || res.services.length,
+        services: res.services
+      });
+      setIsScanModalOpen(true);
+    } else {
+      setTestResult({
+        id: provider.id,
+        success: false,
+        message: res.error || 'Failed to scan services from provider API'
+      });
+    }
+  };
+
+  const handleToggleStatus = async (provider: ApiProvider) => {
+    await toggleAdminProviderStatus(provider.id);
+  };
+
+  const handleDeleteProvider = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this API provider?')) return;
+    setDeletingId(id);
+    await deleteAdminProvider(id);
+    setDeletingId(null);
+  };
+
+  const handleSyncScannedServices = async () => {
+    if (!scannedData) return;
+    setIsSyncingFromScan(true);
+    setSyncStatusMsg(null);
+    const res = await syncProviderServices(scannedData.providerId, 30);
+    setIsSyncingFromScan(false);
+    if (res.success) {
+      setSyncStatusMsg({ success: true, message: res.message || 'Services synced successfully to Firestore!' });
+    } else {
+      setSyncStatusMsg({ success: false, message: res.error || 'Sync failed' });
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -115,6 +182,17 @@ export const AdminProvidersView: React.FC = () => {
     setFormError('');
   };
 
+  const filteredScannedServices = React.useMemo(() => {
+    if (!scannedData?.services) return [];
+    if (!scanSearch.trim()) return scannedData.services.slice(0, 100);
+    const q = scanSearch.toLowerCase();
+    return scannedData.services.filter(s => 
+      String(s.service || s.id || '').toLowerCase().includes(q) ||
+      String(s.name || '').toLowerCase().includes(q) ||
+      String(s.category || '').toLowerCase().includes(q)
+    ).slice(0, 100);
+  }, [scannedData, scanSearch]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -125,7 +203,7 @@ export const AdminProvidersView: React.FC = () => {
             <span>API Providers & Upstream Connections</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-            Manage upstream SMM API connections (Luvsmm and standard v2 APIs) with AES-256 encrypted keys.
+            Manage upstream SMM API connections with AES-256 encrypted keys. Scan real-time services and import on demand.
           </p>
         </div>
 
@@ -166,13 +244,19 @@ export const AdminProvidersView: React.FC = () => {
                   </div>
                 </div>
 
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                  provider.status === 'active' 
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                    : 'bg-slate-800 text-slate-400 border-slate-700'
-                }`}>
-                  {provider.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleToggleStatus(provider)}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border cursor-pointer transition-colors ${
+                      provider.status === 'active' 
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                    }`}
+                    title="Click to Pause/Activate"
+                  >
+                    {provider.status === 'active' ? '● Active' : '○ Inactive'}
+                  </button>
+                </div>
               </div>
 
               {/* Endpoint & Key details */}
@@ -225,26 +309,148 @@ export const AdminProvidersView: React.FC = () => {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2 pt-3 border-t border-slate-800">
+            <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-800">
               <button
                 onClick={() => handleTestConnection(provider.id)}
                 disabled={testingId === provider.id}
-                className="flex-1 py-2 px-3 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                className="py-2 px-3 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <Zap className={`w-3.5 h-3.5 ${testingId === provider.id ? 'animate-spin' : ''}`} />
-                <span>{testingId === provider.id ? 'Testing...' : 'Test Connection'}</span>
+                <span>{testingId === provider.id ? 'Testing...' : 'Test Balance'}</span>
+              </button>
+              <button
+                onClick={() => handleScanServices(provider)}
+                disabled={scanningId === provider.id}
+                className="py-2 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                title="Scan real-time services from provider API"
+              >
+                <Search className={`w-3.5 h-3.5 ${scanningId === provider.id ? 'animate-spin' : ''}`} />
+                <span>{scanningId === provider.id ? 'Scanning...' : 'Scan Services'}</span>
               </button>
               <button
                 onClick={() => handleOpenEdit(provider)}
                 className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition-colors cursor-pointer"
-                title="Edit Provider"
+                title="Edit Provider & API Key"
               >
                 <Edit3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleDeleteProvider(provider.id)}
+                disabled={deletingId === provider.id}
+                className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl transition-colors cursor-pointer"
+                title="Delete Provider"
+              >
+                <Trash2 className="w-4 h-4" />
               </button>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Real-Time Scanned Services Modal */}
+      {isScanModalOpen && scannedData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col p-6 shadow-2xl relative">
+            <button
+              onClick={() => setIsScanModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Server className="w-5 h-5 text-emerald-400" />
+                  <span>Real-Time Services: {scannedData.providerName}</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Loaded {scannedData.totalServices} live services directly from upstream API.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSyncScannedServices}
+                  disabled={isSyncingFromScan}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Download className={`w-3.5 h-3.5 ${isSyncingFromScan ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingFromScan ? 'Syncing...' : 'Sync All to System'}</span>
+                </button>
+              </div>
+            </div>
+
+            {syncStatusMsg && (
+              <div className={`mb-3 p-3 rounded-xl text-xs flex items-center gap-2 ${
+                syncStatusMsg.success
+                  ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-200'
+                  : 'bg-rose-500/10 border border-rose-500/30 text-rose-200'
+              }`}>
+                {syncStatusMsg.success ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-rose-400" />}
+                <span>{syncStatusMsg.message}</span>
+              </div>
+            )}
+
+            <div className="relative mb-3">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Search real-time services by ID, name, or category..."
+                value={scanSearch}
+                onChange={(e) => setScanSearch(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500"
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto border border-slate-800 rounded-2xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950 text-slate-400 sticky top-0 border-b border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-3 font-semibold">ID</th>
+                    <th className="py-2.5 px-3 font-semibold">Service Name</th>
+                    <th className="py-2.5 px-3 font-semibold">Category</th>
+                    <th className="py-2.5 px-3 font-semibold text-right">Provider Rate</th>
+                    <th className="py-2.5 px-3 font-semibold text-center">Min / Max</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredScannedServices.map((s, idx) => (
+                    <tr key={idx} className="hover:bg-slate-800/40">
+                      <td className="py-2 px-3 font-mono text-indigo-400">{s.service || s.id}</td>
+                      <td className="py-2 px-3 text-slate-200 font-medium max-w-xs truncate">{s.name}</td>
+                      <td className="py-2 px-3 text-slate-400 max-w-xs truncate">{s.category || 'General'}</td>
+                      <td className="py-2 px-3 font-mono text-emerald-400 text-right">
+                        ${s.rate || 0}
+                      </td>
+                      <td className="py-2 px-3 text-center text-slate-400 font-mono text-[11px]">
+                        {s.min} - {s.max}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredScannedServices.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-slate-500">
+                        No services matching your search query.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+              <span>Showing {filteredScannedServices.length} of {scannedData.totalServices} upstream services</span>
+              <button
+                onClick={() => setIsScanModalOpen(false)}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add / Edit Modal */}
       {(isAddModalOpen || editingProvider) && (

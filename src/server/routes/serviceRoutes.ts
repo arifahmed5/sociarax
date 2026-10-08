@@ -1,9 +1,20 @@
 import { Router, Request, Response } from 'express';
-import { getDbPool } from '../db';
+import { getDbPool, getActiveDataBackend } from '../db';
 import { requireAdminAuth } from '../auth';
 import { providerRegistry } from '../providers/providerRegistry';
+import { getDataStore, syncDocToFirestore, allocateId, saveSnapshotToDisk } from '../firestore/firestoreSqlBridge';
 
 export const serviceRouter = Router();
+
+// In-memory cache for default public services catalog (30s TTL)
+let cachedPublicServicesPayload: any = null;
+let cachedPublicServicesTimestamp = 0;
+const PUBLIC_SERVICES_CACHE_TTL = 30 * 1000;
+
+export function invalidatePublicServicesCache() {
+  cachedPublicServicesPayload = null;
+  cachedPublicServicesTimestamp = 0;
+}
 
 // ==========================================
 // CUSTOMER-FACING SERVICES (SANITIZED)
@@ -15,6 +26,16 @@ export const serviceRouter = Router();
  * ONLY exposes SociaraX customer fields. Provider cost and IDs are strictly hidden.
  */
 serviceRouter.get('/', async (req: Request, res: Response): Promise<void> => {
+  const { platform, category, search } = req.query;
+
+  // Serve from in-memory cache if default query and cache is warm
+  const isDefaultQuery = !platform && !category && !search;
+  const now = Date.now();
+  if (isDefaultQuery && cachedPublicServicesPayload && (now - cachedPublicServicesTimestamp < PUBLIC_SERVICES_CACHE_TTL)) {
+    res.json(cachedPublicServicesPayload);
+    return;
+  }
+
   const db = getDbPool();
   if (!db) {
     res.status(503).json({ success: false, error: 'Database service unavailable' });
@@ -22,7 +43,6 @@ serviceRouter.get('/', async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    const { platform, category, search } = req.query;
 
     let query = `
       SELECT 
@@ -84,7 +104,7 @@ serviceRouter.get('/', async (req: Request, res: Response): Promise<void> => {
       platforms = Array.from(new Set<string>(catResult.rows.map(r => String(r.platform || '')))).filter(Boolean);
     }
 
-    res.json({
+    const payload = {
       success: true,
       services: result.rows.map(row => ({
         id: row.id,
@@ -103,7 +123,14 @@ serviceRouter.get('/', async (req: Request, res: Response): Promise<void> => {
       })),
       categories,
       platforms
-    });
+    };
+
+    if (isDefaultQuery) {
+      cachedPublicServicesPayload = payload;
+      cachedPublicServicesTimestamp = Date.now();
+    }
+
+    res.json(payload);
   } catch (err: any) {
     console.error('[SERVICES FETCH ERROR]:', err);
     res.status(500).json({ success: false, error: 'Failed to load services' });
@@ -523,6 +550,162 @@ serviceRouter.post('/admin/sync', requireAdminAuth, async (req: Request, res: Re
     const fetchedServices = providerResult.services;
     const markupPct = Math.max(0, parseFloat(defaultMarkupPct) || 35);
 
+    // Direct, resilient Firestore Authority Sync
+    const isFirestorePrimary = getActiveDataBackend() === 'firestore' || !process.env.DATABASE_URL;
+
+    if (isFirestorePrimary) {
+      const store = getDataStore();
+      const activeUpstreamIds = new Set<string>();
+      let addedCount = 0;
+      let updatedCount = 0;
+
+      for (const item of fetchedServices) {
+        const provServiceId = String(item.service).trim();
+        const provRateUsd = parseFloat(String(item.rate)) || 0;
+        const provRateInr = Number((provRateUsd * usdRate).toFixed(4));
+        const sellingPrice = provRateInr > 0 ? Number((provRateInr * (1 + markupPct / 100)).toFixed(4)) : 10;
+        const categoryName = item.category || 'General Services';
+
+        const isUpstreamActive = (item as any).status !== 'inactive' && 
+                                 (item as any).status !== 'disabled' && 
+                                 (item as any).status !== 0 && 
+                                 (item as any).active !== false;
+
+        if (isUpstreamActive) {
+          activeUpstreamIds.add(provServiceId);
+        }
+
+        // Detect platform from category or service name
+        const lowerName = `${item.name} ${categoryName}`.toLowerCase();
+        let platform = 'other';
+        if (lowerName.includes('instagram') || lowerName.includes('ig ') || lowerName.includes('ig_') || lowerName.includes('insta') || lowerName.includes('threads')) platform = 'instagram';
+        else if (lowerName.includes('youtube') || lowerName.includes('yt ') || lowerName.includes('yt_') || lowerName.includes('shorts')) platform = 'youtube';
+        else if (lowerName.includes('facebook') || lowerName.includes('fb ') || lowerName.includes('fb_')) platform = 'facebook';
+        else if (lowerName.includes('telegram') || lowerName.includes('tg ') || lowerName.includes('tg_')) platform = 'telegram';
+        else if (lowerName.includes('tiktok') || lowerName.includes('tik tok') || lowerName.includes('tt ')) platform = 'tiktok';
+        else if (lowerName.includes('twitter') || lowerName.includes('tweet') || lowerName.includes('x.com') || lowerName.includes(' x ') || lowerName.includes('x post') || lowerName.includes('x follower')) platform = 'twitter';
+        else if (lowerName.includes('snapchat') || lowerName.includes('snap ') || lowerName.includes('snap score') || lowerName.includes('spotlight')) platform = 'snapchat';
+        else if (lowerName.includes('spotify') || lowerName.includes('podcast')) platform = 'spotify';
+        else if (lowerName.includes('discord')) platform = 'discord';
+        else if (lowerName.includes('linkedin')) platform = 'linkedin';
+        else if (lowerName.includes('pinterest')) platform = 'pinterest';
+        else if (lowerName.includes('twitch')) platform = 'twitch';
+        else if (lowerName.includes('traffic') || lowerName.includes('website visitor')) platform = 'traffic';
+        else if (lowerName.includes('google') || lowerName.includes('review') || lowerName.includes('play store')) platform = 'google';
+
+        const existing = store.services.find(s => s.provider_id === providerInfo.id && String(s.provider_service_id) === provServiceId);
+        if (existing) {
+          existing.name = item.name || existing.name;
+          existing.category_name = categoryName;
+          existing.platform = platform;
+          existing.description = item.description || (item as any).desc || existing.description;
+          existing.type = item.type || existing.type || 'Default';
+          existing.min_quantity = parseInt(String(item.min), 10) || existing.min_quantity;
+          existing.max_quantity = parseInt(String(item.max), 10) || existing.max_quantity;
+          existing.provider_rate = provRateInr;
+          existing.provider_rate_usd = provRateUsd;
+          existing.rate_per_1000 = sellingPrice;
+          existing.markup_percentage = markupPct;
+          existing.refill_available = Boolean(item.refill);
+          existing.cancel_available = Boolean(item.cancel);
+          existing.status = isUpstreamActive ? 'active' : 'inactive';
+          existing.updated_at = new Date().toISOString();
+          syncDocToFirestore('services', String(existing.id), existing);
+          updatedCount++;
+        } else {
+          const nextId = allocateId('services');
+          const newDoc = {
+            id: nextId,
+            name: item.name || '',
+            category_name: categoryName,
+            platform,
+            description: item.description || (item as any).desc || '',
+            type: item.type || 'Default',
+            min_quantity: parseInt(String(item.min), 10) || 10,
+            max_quantity: parseInt(String(item.max), 10) || 100000,
+            provider_rate: provRateInr,
+            provider_rate_usd: provRateUsd,
+            rate_per_1000: sellingPrice,
+            markup_percentage: markupPct,
+            refill_available: Boolean(item.refill),
+            cancel_available: Boolean(item.cancel),
+            average_time: 'Instant - 1 Hour',
+            status: isUpstreamActive ? 'active' : 'inactive',
+            provider_id: providerInfo.id,
+            provider_service_id: provServiceId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          store.services.push(newDoc);
+          syncDocToFirestore('services', String(nextId), newDoc);
+          addedCount++;
+        }
+
+        // Ensure category is in store
+        if (!store.service_categories.some(c => c.name.toLowerCase() === categoryName.toLowerCase())) {
+          const catId = allocateId('service_categories');
+          const newCat = {
+            id: catId,
+            name: categoryName,
+            platform,
+            status: 'active',
+            display_order: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          store.service_categories.push(newCat);
+          syncDocToFirestore('service_categories', String(catId), newCat);
+        }
+      }
+
+      // Detect discontinued/closed services upstream and mark inactive (bandh ho gaya)
+      let deactivatedCount = 0;
+      let activeCount = 0;
+      for (const s of store.services) {
+        if (s.provider_id === providerInfo.id && s.provider_service_id) {
+          const sId = String(s.provider_service_id).trim();
+          if (!activeUpstreamIds.has(sId)) {
+            if (s.status !== 'inactive') {
+              s.status = 'inactive';
+              s.updated_at = new Date().toISOString();
+              syncDocToFirestore('services', String(s.id), s);
+              deactivatedCount++;
+            }
+          } else {
+            activeCount++;
+          }
+        }
+      }
+
+      // Update provider last checked in Firestore & store
+      const prov = store.api_providers.find(p => p.id === providerInfo.id);
+      if (prov) {
+        prov.last_checked_at = new Date().toISOString();
+        prov.last_error = null;
+        syncDocToFirestore('api_providers', String(prov.id), prov);
+      }
+
+      saveSnapshotToDisk();
+      invalidatePublicServicesCache();
+
+      res.json({
+        success: true,
+        message: `Real-time scan complete: ${activeCount} active services synced, ${deactivatedCount} discontinued/closed services marked as Inactive (Bandh), ${addedCount} new services added from ${providerInfo.name} API.`,
+        stats: {
+          totalFetched: fetchedServices.length,
+          activeCount,
+          deactivatedCount,
+          added: addedCount,
+          updated: updatedCount,
+          deleted: 0,
+          usdToInrRate: usdRate,
+          markupPct,
+          providerName: providerInfo.name
+        }
+      });
+      return;
+    }
+
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -684,6 +867,7 @@ serviceRouter.post('/admin/sync', requireAdminAuth, async (req: Request, res: Re
       await client.query('UPDATE api_providers SET last_checked_at = CURRENT_TIMESTAMP, last_error = NULL WHERE id = $1', [providerInfo.id]);
 
       await client.query('COMMIT');
+      invalidatePublicServicesCache();
 
       const addedCount = insRes.rowCount || 0;
       const updatedCount = updRes.rowCount || 0;

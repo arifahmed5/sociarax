@@ -1,7 +1,7 @@
 import { logEvent, LogLevel } from './logger';
 import { circuitRegistry } from './circuitBreaker';
 import { metricsTracker } from './metricsTracker';
-import { checkDbConnection, getDbPool, reconnectDatabasePool, pingDatabaseFast } from '../db';
+import { checkDbConnection, getDbPool, reconnectDatabasePool, pingDatabaseFast, getActiveDataBackend } from '../db';
 import crypto from 'crypto';
 
 export type SubsystemStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL';
@@ -162,9 +162,10 @@ class SelfHealingEngine {
     try {
       const pingStatus = await pingDatabaseFast();
       
+      const dbEngineName = getActiveDataBackend() === 'firestore' ? 'Firebase Firestore (Primary Database)' : 'PostgreSQL Database Engine';
       if (pingStatus.connected) {
         this.healthCache.database = {
-          name: 'PostgreSQL Database Engine',
+          name: dbEngineName,
           status: 'HEALTHY',
           lastChecked: nowIso,
           latencyMs: pingStatus.latencyMs,
@@ -173,7 +174,7 @@ class SelfHealingEngine {
         };
       } else {
         this.healthCache.database = {
-          name: 'PostgreSQL Database Engine',
+          name: dbEngineName,
           status: 'WARNING',
           lastChecked: nowIso,
           latencyMs: pingStatus.latencyMs,
@@ -181,14 +182,15 @@ class SelfHealingEngine {
           details: { error: pingStatus.message }
         };
 
-        // Attempt safe pool reconnect if allowed
-        if (this.canAttemptAutoRecovery()) {
+        // Attempt safe pool reconnect if allowed and running with Postgres
+        if (this.canAttemptAutoRecovery() && getActiveDataBackend() !== 'firestore') {
           this.attemptDatabasePoolRecovery(pingStatus.message || 'Connection ping failed');
         }
       }
     } catch (err: any) {
+      const dbEngineName = getActiveDataBackend() === 'firestore' ? 'Firebase Firestore (Primary Database)' : 'PostgreSQL Database Engine';
       this.healthCache.database = {
-        name: 'PostgreSQL Database Engine',
+        name: dbEngineName,
         status: 'CRITICAL',
         lastChecked: nowIso,
         latencyMs: 5,

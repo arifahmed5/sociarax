@@ -194,7 +194,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Fetch current logged in admin
   const refreshAdmin = useCallback(async () => {
-    const token = localStorage.getItem('sociarax_admin_token');
+    let token = localStorage.getItem('sociarax_admin_token');
+    const userTokenFallback = localStorage.getItem('sociarax_user_token');
+    
+    // If no dedicated admin token, try checking user token if it belongs to admin/owner
+    if (!token && userTokenFallback) {
+      token = userTokenFallback;
+    }
+
     if (!token) {
       setAdmin(null);
       setIsAdminLoading(false);
@@ -209,6 +216,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAdminToken(null);
       } else if (data && data.success && data.admin) {
         setAdmin(data.admin);
+        setAdminToken(token);
+        localStorage.setItem('sociarax_admin_token', token);
       }
     } catch (err: any) {
       console.warn('[AUTH] Admin session check deferred (server booting or offline):', err?.message || err);
