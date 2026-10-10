@@ -185,6 +185,84 @@ async function deleteDocFromFirestore(collection: string, docId: string) {
   }
 }
 
+export async function syncFromCloudFirestore(): Promise<void> {
+  try {
+    const db = getFirestoreInstance();
+    // 1. Sync users
+    const usersSnap = await db.collection('users').get();
+    if (!usersSnap.empty) {
+      const userMap = new Map<number, any>();
+      for (const u of store.users) {
+        userMap.set(Number(u.id), u);
+      }
+      usersSnap.forEach((doc) => {
+        const data = doc.data();
+        const numId = Number(data.id || doc.id);
+        if (numId) {
+          const existing = userMap.get(numId);
+          userMap.set(numId, { ...existing, ...data, id: numId });
+        }
+      });
+      store.users = Array.from(userMap.values()).sort((a, b) => Number(a.id) - Number(b.id));
+      if (store._counters) {
+        const maxU = Math.max(...store.users.map(u => Number(u.id) || 0));
+        store._counters.users = Math.max(store._counters.users || 0, maxU);
+      }
+    }
+
+    // 2. Sync payment requests
+    const paySnap = await db.collection('payment_requests').get();
+    if (!paySnap.empty) {
+      const payMap = new Map<number, any>();
+      for (const p of store.payment_requests) {
+        payMap.set(Number(p.id), p);
+      }
+      paySnap.forEach((doc) => {
+        const data = doc.data();
+        const numId = Number(data.id || doc.id);
+        if (numId) {
+          const existing = payMap.get(numId);
+          payMap.set(numId, { ...existing, ...data, id: numId });
+        }
+      });
+      store.payment_requests = Array.from(payMap.values()).sort((a, b) => Number(b.id) - Number(a.id));
+    }
+
+    // 3. Sync orders
+    const orderSnap = await db.collection('orders').get();
+    if (!orderSnap.empty) {
+      const orderMap = new Map<number, any>();
+      for (const o of store.orders) {
+        orderMap.set(Number(o.id), o);
+      }
+      orderSnap.forEach((doc) => {
+        const data = doc.data();
+        const numId = Number(data.id || doc.id);
+        if (numId) {
+          const existing = orderMap.get(numId);
+          orderMap.set(numId, { ...existing, ...data, id: numId });
+        }
+      });
+      store.orders = Array.from(orderMap.values()).sort((a, b) => Number(b.id) - Number(a.id));
+    }
+
+    saveSnapshotToDisk();
+  } catch (err: any) {
+    // Graceful handling of transient network delay
+  }
+}
+
+// Background sync daemon: sync right away after server boot and every 30s
+const initialSyncTimer = setTimeout(() => {
+  syncFromCloudFirestore().catch(() => {});
+}, 1500);
+if (initialSyncTimer.unref) initialSyncTimer.unref();
+
+const periodicSyncInterval = setInterval(() => {
+  syncFromCloudFirestore().catch(() => {});
+}, 30000);
+if (periodicSyncInterval.unref) periodicSyncInterval.unref();
+
 export { syncDocToFirestore, deleteDocFromFirestore, allocateId, saveSnapshotToDisk };
 
 export function getDataStore(): DataStore {
@@ -553,7 +631,7 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
       }
 
       if (lowerSql.includes('count(*)')) {
-        return { rows: [{ c: store.users.length, count: store.users.length }], rowCount: 1 };
+        return { rows: [{ c: store.users.length, count: store.users.length, user_count: store.users.length }], rowCount: 1 };
       }
       // 5c. User lookup by ID (e.g., WHERE id = $1 or WHERE (id = $1 OR LOWER(email) = LOWER($2)))
       if (
@@ -730,6 +808,9 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
   // 7. Services
   if (primaryTable === 'services' || (!primaryTable && lowerSql.includes('services') && !lowerSql.includes('service_categories') && !['orders', 'wallet_transactions'].includes(primaryTable))) {
     if (lowerSql.startsWith('select')) {
+      if (lowerSql.includes('count(*)')) {
+        return { rows: [{ count: store.services.length, c: store.services.length, srv_count: store.services.length }], rowCount: 1 };
+      }
       if (lowerSql.includes('where id = $1') || lowerSql.includes('where s.id = $1')) {
         const sId = Number(params[0]);
         const s = store.services.find(item => item.id === sId);

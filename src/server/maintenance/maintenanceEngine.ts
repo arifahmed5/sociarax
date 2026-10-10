@@ -1503,8 +1503,16 @@ export async function loadConfigFromDatabase(): Promise<void> {
   try {
     const res = await db.query("SELECT value FROM system_settings WHERE key = 'website_maintenance_config'");
     if (res.rowCount && res.rowCount > 0 && res.rows[0].value) {
-      const parsed = JSON.parse(res.rows[0].value);
-      currentConfig = { ...DEFAULT_MAINTENANCE_CONFIG, ...parsed };
+      const raw = res.rows[0].value;
+      let parsed: any = null;
+      if (typeof raw === 'object' && raw !== null) {
+        parsed = raw;
+      } else if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+        parsed = JSON.parse(raw);
+      }
+      if (parsed) {
+        currentConfig = { ...DEFAULT_MAINTENANCE_CONFIG, ...parsed };
+      }
     }
   } catch (err: any) {
     console.warn('[AI MAINTENANCE] Config load notice:', err?.message || err);

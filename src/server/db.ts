@@ -19,9 +19,9 @@ let neonQuotaExceededTime = 0;
 let neonQuotaReported = false;
 const NEON_QUOTA_COOLDOWN_MS = 15 * 60 * 1000;
 
-let neonPaused = false;
-let neonDeleted = false;
-let customDbLabel = 'PostgreSQL Database';
+let neonPaused = true;
+let neonDeleted = true;
+let customDbLabel = 'Disconnected (100% Firebase Firestore Active)';
 
 export function getCustomDbLabel(): string {
   return customDbLabel;
@@ -195,15 +195,7 @@ export function isFirestoreCircuitBreakerTripped(): boolean {
  * Automatically falls over to Neon if Firestore circuit breaker is tripped.
  */
 export function getActiveDataBackend(): DataBackendType {
-  // If explicitly configured to use Neon and Neon database is configured and available
-  if (process.env.DATA_BACKEND?.toLowerCase().trim() === 'neon' && process.env.DATABASE_URL && !isNeonQuotaExceeded()) {
-    return 'neon';
-  }
-  // If circuit breaker is tripped and a valid Neon connection is actually available
-  if (firestoreCircuitBreaker && process.env.DATABASE_URL && !isNeonQuotaExceeded()) {
-    return 'neon';
-  }
-  // Primary default database authority is 100% Firebase Firestore
+  // Primary and exclusive database authority is 100% Firebase Firestore
   return 'firestore';
 }
 
