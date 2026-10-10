@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useSociarax } from '../../context/SociaraxContext';
 import { PaymentRequestItem } from '../../types';
 import { 
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 
 export const AdminPaymentsView: React.FC = () => {
+  const { refreshUser } = useAuth();
   const { 
     adminPendingPayments, 
     adminPaymentHistory, 
@@ -54,6 +56,7 @@ export const AdminPaymentsView: React.FC = () => {
     setIsProcessing(false);
 
     if (res.success) {
+      await refreshUser();
       setActionNotice({ type: 'success', message: res.message || 'Payment approved and wallet credited!' });
       setTimeout(() => setActionNotice(null), 4000);
     } else {

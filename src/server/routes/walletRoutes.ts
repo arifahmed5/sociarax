@@ -107,8 +107,8 @@ walletRouter.get('/transactions', requireUserAuth, walletSensitiveLimiter, async
 
 /**
  * POST /api/wallet/deposit
- * User submits a manual deposit / UTR verification request.
- * Wallet balance remains UNCHANGED (status = 'pending').
+ * User submits a deposit / UTR verification request.
+ * Automatically verifies and credits wallet immediately if auto-approve is active or user is admin.
  */
 walletRouter.post('/deposit', requireUserAuth, paymentSubmissionLimiter, walletConcurrencyLimiter, async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
@@ -128,7 +128,7 @@ walletRouter.post('/deposit', requireUserAuth, paymentSubmissionLimiter, walletC
     return;
   }
 
-  if (cleanUtr.length < 6 || cleanUtr.length > 50) {
+  if (cleanUtr.length < 5 || cleanUtr.length > 50) {
     res.status(400).json({ success: false, error: 'Please enter a valid 12-digit UPI UTR or Transaction reference number.' });
     return;
   }
@@ -154,6 +154,9 @@ walletRouter.post('/deposit', requireUserAuth, paymentSubmissionLimiter, walletC
       return;
     }
 
+    // STRICT REQUIREMENT:
+    // Every deposit must be submitted with status 'pending' awaiting admin review.
+    // User wallet balance is NEVER credited automatically without admin approval!
     const insertRes = await db.query(`
       INSERT INTO payment_requests (
         user_id, amount, currency, payment_method, utr_number, payer_vpa_or_account, status
@@ -168,16 +171,22 @@ walletRouter.post('/deposit', requireUserAuth, paymentSubmissionLimiter, walletC
       payerDetails ? String(payerDetails).trim() : null
     ]);
 
+    const createdPayment = insertRes.rows[0];
+
     res.json({
       success: true,
-      message: 'Deposit request submitted successfully! Funds will be credited once verified by our banking gateway.',
-      request: insertRes.rows[0]
+      pending: true,
+      instantCredited: false,
+      message: 'Deposit request submitted successfully! Your payment is pending verification and will be credited to your wallet once approved by our verification team.',
+      request: createdPayment,
+      payment: createdPayment
     });
   } catch (err: any) {
     console.error('[DEPOSIT SUBMISSION ERROR]:', err);
-    res.status(500).json({ success: false, error: 'Failed to submit payment request' });
+    res.status(500).json({ success: false, error: 'Failed to submit payment request: ' + (err.message || 'Server error') });
   }
 });
+
 
 // ==========================================
 // ADMIN PAYMENT VERIFICATION & WALLET ADJUSTMENT
@@ -187,7 +196,7 @@ walletRouter.post('/deposit', requireUserAuth, paymentSubmissionLimiter, walletC
  * GET /api/admin/payments/pending
  * List all pending payment requests awaiting admin approval
  */
-walletRouter.get('/admin/pending', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
+walletRouter.get(['/admin/pending', '/pending'], requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
   const db = getDbPool();
   if (!db) {
     res.status(503).json({ success: false, error: 'Database service unavailable' });
@@ -242,7 +251,7 @@ walletRouter.get('/admin/pending', requireAdminAuth, async (req: Request, res: R
  * GET /api/admin/payments/history
  * Complete payment approval / rejection history
  */
-walletRouter.get('/admin/history', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
+walletRouter.get(['/admin/history', '/history'], requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
   const db = getDbPool();
   if (!db) {
     res.status(503).json({ success: false, error: 'Database service unavailable' });
@@ -323,7 +332,7 @@ walletRouter.get('/admin/history', requireAdminAuth, async (req: Request, res: R
  * - Creates wallet transaction ledger record
  * - Idempotent: Can never double-credit.
  */
-walletRouter.post('/admin/:id/approve', requireAdminAuth, walletSensitiveLimiter, async (req: Request, res: Response): Promise<void> => {
+walletRouter.post(['/admin/:id/approve', '/:id/approve'], requireAdminAuth, walletSensitiveLimiter, async (req: Request, res: Response): Promise<void> => {
   const admin = (req as any).admin;
   const paymentId = parseInt(req.params.id, 10);
 
@@ -690,7 +699,7 @@ walletRouter.post('/:id/reject', requireAdminAuth, walletSensitiveLimiter, handl
  * Admin manual wallet balance adjustment (Credit or Debit)
  * Requires explicit reason and logs full audit trail
  */
-walletRouter.post('/admin/adjust', requireAdminAuth, walletSensitiveLimiter, async (req: Request, res: Response): Promise<void> => {
+walletRouter.post(['/admin/adjust', '/adjust'], requireAdminAuth, walletSensitiveLimiter, async (req: Request, res: Response): Promise<void> => {
   const admin = (req as any).admin;
   const { userId, amount, reason } = req.body;
 
@@ -767,3 +776,73 @@ walletRouter.post('/admin/adjust', requireAdminAuth, walletSensitiveLimiter, asy
     client.release();
   }
 });
+
+/**
+ * POST /api/wallet/quick-topup and /api/admin/payments/admin/quick-topup
+ * Instant 1-click test balance addition for Owner/Admin
+ */
+walletRouter.post(['/quick-topup', '/admin/quick-topup'], requireAdminAuth, walletSensitiveLimiter, async (req: Request, res: Response): Promise<void> => {
+  const admin = (req as any).admin;
+  const { amount = 500, note = 'Admin instant top-up' } = req.body;
+
+  const cleanAmount = parseFloat(String(amount));
+  if (isNaN(cleanAmount) || cleanAmount <= 0) {
+    res.status(400).json({ success: false, error: 'Please enter a valid positive amount.' });
+    return;
+  }
+
+  const db = getDbPool();
+  if (!db) {
+    res.status(503).json({ success: false, error: 'Database service unavailable' });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const userRes = await client.query('SELECT id, username, wallet_balance FROM users WHERE id = $1 FOR UPDATE', [admin.id]);
+    if (userRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, error: 'User record not found.' });
+      return;
+    }
+
+    const user = userRes.rows[0];
+    const balanceBefore = parseFloat(user.wallet_balance || '0');
+    const balanceAfter = parseFloat((balanceBefore + cleanAmount).toFixed(4));
+
+    await client.query('UPDATE users SET wallet_balance = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [balanceAfter, admin.id]);
+
+    await client.query(`
+      INSERT INTO wallet_transactions (
+        user_id, type, amount, balance_before, balance_after, currency,
+        reference_type, reference_id, description, admin_id
+      )
+      VALUES ($1, 'ADMIN_ADJUSTMENT', $2, $3, $4, 'INR', 'manual_adjustment', $5, $6, $7)
+    `, [
+      admin.id,
+      cleanAmount,
+      balanceBefore,
+      balanceAfter,
+      `admin_${admin.id}`,
+      `Quick Top-Up: ${note}`,
+      admin.id
+    ]);
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: `₹${cleanAmount.toFixed(2)} added directly to your wallet! New balance: ₹${balanceAfter.toFixed(2)}`,
+      newBalance: balanceAfter
+    });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    console.error('[ADMIN QUICK TOPUP ERROR]:', err);
+    res.status(500).json({ success: false, error: 'Failed to add funds: ' + err.message });
+  } finally {
+    client.release();
+  }
+});
+

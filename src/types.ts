@@ -312,6 +312,7 @@ export interface SystemSettings {
   usd_to_inr_rate?: string;
   default_markup_percentage?: string;
   min_deposit: string;
+  auto_approve_deposits?: string;
   upi_id: string;
   upi_secondary_id?: string;
   upi_merchant_name: string;

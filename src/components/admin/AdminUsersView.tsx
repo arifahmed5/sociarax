@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useSociarax } from '../../context/SociaraxContext';
 import { ManagedUser } from '../../types';
 import { 
@@ -12,10 +13,12 @@ import {
   X, 
   CheckCircle2, 
   AlertCircle,
-  Trash2 
+  Trash2,
+  Zap 
 } from 'lucide-react';
 
 export const AdminUsersView: React.FC = () => {
+  const { refreshUser } = useAuth();
   const { 
     adminUsers, 
     formatCurrency, 
@@ -65,6 +68,7 @@ export const AdminUsersView: React.FC = () => {
     setIsAdjusting(false);
 
     if (res.success) {
+      await refreshUser();
       setAdjustNotice({ type: 'success', message: res.message || 'User wallet updated successfully!' });
       setAdjustingUser(null);
       setAdjustAmount('');
@@ -247,8 +251,30 @@ export const AdminUsersView: React.FC = () => {
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-3.5 py-2.5 text-sm text-white font-mono"
                   />
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Enter positive (e.g. 100) to add money, negative (e.g. -50) to deduct.
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {[100, 250, 500, 1000, 2000, 5000].map(val => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setAdjustAmount(val)}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-mono font-semibold transition-colors cursor-pointer"
+                    >
+                      +₹{val}
+                    </button>
+                  ))}
+                  {[-100, -500].map(val => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setAdjustAmount(val)}
+                      className="px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 text-rose-300 text-xs font-mono font-semibold transition-colors cursor-pointer"
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5">
+                  Enter positive (e.g. 500) to credit funds, negative (e.g. -100) to debit.
                 </p>
               </div>
 

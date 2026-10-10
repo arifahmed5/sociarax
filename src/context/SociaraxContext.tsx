@@ -81,12 +81,13 @@ interface SociaraxContextType {
   adminPaymentHistory: PaymentRequestItem[];
   isPaymentsLoading: boolean;
   loadUserTransactions: () => Promise<void>;
-  submitDeposit: (amount: number, method: string, utr: string, payerDetails?: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  submitDeposit: (amount: number, method: string, utr: string, payerDetails?: string) => Promise<{ success: boolean; message?: string; instantCredited?: boolean; newBalance?: number; error?: string }>;
+  quickTopupWallet: (amount: number, note?: string) => Promise<{ success: boolean; message?: string; newBalance?: number; error?: string }>;
   loadAdminPendingPayments: () => Promise<void>;
   loadAdminPaymentHistory: () => Promise<void>;
-  approvePayment: (paymentId: number) => Promise<{ success: boolean; message?: string; error?: string }>;
+  approvePayment: (paymentId: number) => Promise<{ success: boolean; message?: string; newBalance?: number; error?: string }>;
   rejectPayment: (paymentId: number, reason: string) => Promise<{ success: boolean; message?: string; error?: string }>;
-  adjustUserWallet: (userId: number, amount: number, reason: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  adjustUserWallet: (userId: number, amount: number, reason: string) => Promise<{ success: boolean; message?: string; newBalance?: number; error?: string }>;
 
   // Providers
   adminProviders: ApiProvider[];
@@ -555,9 +556,37 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
       if (data && data.success) {
         await loadUserTransactions();
-        return { success: true, message: data.message };
+        return { 
+          success: true, 
+          message: data.message || 'Deposit request submitted successfully! Your payment is pending verification and will be credited once approved.', 
+          pending: true
+        };
       }
       return { success: false, error: data?.error || 'Deposit submission failed' };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  const quickTopupWallet = async (amount: number, note?: string) => {
+    try {
+      const token = getEffectiveAdminToken();
+      const data = await safeFetchJson('/api/wallet/quick-topup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ amount, note: note || 'Owner Instant Top-Up' })
+      });
+      if (data && data.success) {
+        if (data.newBalance !== undefined) {
+          updateLocalWalletBalance(data.newBalance);
+        }
+        await Promise.all([loadUserTransactions(), loadAdminUsers()]);
+        return { success: true, message: data.message, newBalance: data.newBalance };
+      }
+      return { success: false, error: data?.error || 'Quick top-up failed' };
     } catch (err: any) {
       return { success: false, error: err.message };
     }
@@ -607,9 +636,16 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (data && data.success) {
-        await loadAdminPendingPayments();
-        await loadAdminPaymentHistory();
-        return { success: true, message: data.message };
+        if (data.newBalance !== undefined && user) {
+          updateLocalWalletBalance(data.newBalance);
+        }
+        await Promise.all([
+          loadAdminPendingPayments(), 
+          loadAdminPaymentHistory(), 
+          loadAdminUsers(), 
+          loadUserTransactions()
+        ]);
+        return { success: true, message: data.message, newBalance: data.newBalance };
       }
       return { success: false, error: data?.error || 'Approval failed' };
     } catch (err: any) {
@@ -651,8 +687,11 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         body: JSON.stringify({ userId, amount, reason })
       });
       if (data && data.success) {
-        await loadAdminUsers();
-        return { success: true, message: data.message };
+        if (data.newBalance !== undefined && user && user.id === userId) {
+          updateLocalWalletBalance(data.newBalance);
+        }
+        await Promise.all([loadAdminUsers(), loadUserTransactions()]);
+        return { success: true, message: data.message, newBalance: data.newBalance };
       }
       return { success: false, error: data?.error || 'Adjustment failed' };
     } catch (err: any) {
@@ -1040,6 +1079,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isPaymentsLoading,
         loadUserTransactions,
         submitDeposit,
+        quickTopupWallet,
         loadAdminPendingPayments,
         loadAdminPaymentHistory,
         approvePayment,

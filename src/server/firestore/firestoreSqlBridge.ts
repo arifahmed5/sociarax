@@ -301,14 +301,14 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
   // 3. Admin Security
   if (lowerSql.includes('admin_security')) {
     if (lowerSql.startsWith('select')) {
-      if (lowerSql.includes('where id = $1')) {
-        const id = Number(params[0]);
-        const found = store.admin_security.filter(a => a.id === id);
-        return { rows: found, rowCount: found.length };
-      }
-      if (lowerSql.includes('where email = $1') || lowerSql.includes('lower(email) = $1')) {
-        const searchEmail = String(params[0] || '').toLowerCase().trim();
-        const found = store.admin_security.filter(a => String(a.email || '').toLowerCase() === searchEmail);
+      const targetId = Number(params[0] || 0);
+      const targetEmail = String(params[1] || (typeof params[0] === 'string' && params[0].includes('@') ? params[0] : '') || '').toLowerCase().trim();
+
+      if (targetId > 0 || targetEmail) {
+        const found = store.admin_security.filter(a => 
+          (targetId > 0 && Number(a.id) === targetId) ||
+          (targetEmail && String(a.email || '').toLowerCase() === targetEmail)
+        );
         return { rows: found, rowCount: found.length };
       }
       return { rows: store.admin_security, rowCount: store.admin_security.length };
@@ -555,10 +555,38 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
       if (lowerSql.includes('count(*)')) {
         return { rows: [{ c: store.users.length, count: store.users.length }], rowCount: 1 };
       }
-      // User login: WHERE LOWER(username) = $1 OR LOWER(email) = $1
+      // 5c. User lookup by ID (e.g., WHERE id = $1 or WHERE (id = $1 OR LOWER(email) = LOWER($2)))
       if (
-        lowerSql.includes('lower(username) = $1 or lower(email) = $1') ||
-        (lowerSql.includes('username') && lowerSql.includes('email') && lowerSql.includes('$1'))
+        lowerSql.includes('where id = $1') || 
+        lowerSql.includes('where u.id = $1') ||
+        lowerSql.includes('where (id = $1') ||
+        lowerSql.includes('(id = $1')
+      ) {
+        const uId = Number(params[0] || 0);
+        const emailParam = params[1] ? String(params[1]).toLowerCase().trim() : '';
+        let found = store.users.find(u => (uId > 0 && Number(u.id) === uId) || (emailParam && String(u.email || '').toLowerCase() === emailParam));
+        if (!found && uId > 0) {
+          found = store.users.find(u => Number(u.id) === uId);
+        }
+
+        // Check if admin filter was requested
+        if (found && (lowerSql.includes("role = 'admin'") || lowerSql.includes('arifahmed87204@gmail.com'))) {
+          const isAdm = found.role === 'admin' || 
+            String(found.email || '').toLowerCase() === 'arifahmed87204@gmail.com' || 
+            String(found.username || '').toLowerCase() === 'arifahmed56';
+          if (!isAdm) {
+            return { rows: [], rowCount: 0 };
+          }
+        }
+        return { rows: found ? [found] : [], rowCount: found ? 1 : 0 };
+      }
+
+      // 5d. User login lookup: WHERE LOWER(username) = $1 OR LOWER(email) = $1 (NOT by ID)
+      if (
+        (lowerSql.includes('lower(username) = $1 or lower(email) = $1') ||
+         lowerSql.includes('lower(username) = lower($1) or lower(email) = lower($1)') ||
+         lowerSql.includes('username = $1 or email = $1')) &&
+        !lowerSql.includes('id =')
       ) {
         const identifier = String(params[0] || '').toLowerCase().trim();
         const found = store.users.find(u => 
@@ -567,11 +595,7 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
         );
         return { rows: found ? [found] : [], rowCount: found ? 1 : 0 };
       }
-      if (lowerSql.includes('where id = $1') || lowerSql.includes('where u.id = $1')) {
-        const uId = Number(params[0]);
-        const found = store.users.find(u => u.id === uId);
-        return { rows: found ? [found] : [], rowCount: found ? 1 : 0 };
-      }
+
       if (lowerSql.includes('where email = $1') || lowerSql.includes('where lower(email) = $1')) {
         const email = String(params[0] || '').toLowerCase().trim();
         const found = store.users.find(u => String(u.email || '').toLowerCase() === email);
@@ -1072,18 +1096,59 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
 
     if (lowerSql.startsWith('insert into wallet_transactions')) {
       const nextId = allocateId('wallet_transactions');
+      
+      let txType = 'ORDER_PAYMENT';
+      if (lowerSql.includes('deposit_approved')) txType = 'DEPOSIT_APPROVED';
+      else if (lowerSql.includes('admin_adjustment')) txType = 'ADMIN_ADJUSTMENT';
+      else if (lowerSql.includes('referral_bonus')) txType = 'REFERRAL_BONUS';
+      else if (lowerSql.includes('order_refund')) txType = 'ORDER_REFUND';
+      else if (lowerSql.includes('order_payment')) txType = 'ORDER_PAYMENT';
+      else if (params[1] && typeof params[1] === 'string' && isNaN(Number(params[1]))) txType = String(params[1]);
+
+      let refType = 'system';
+      if (lowerSql.includes('payment_request')) refType = 'payment_request';
+      else if (lowerSql.includes('manual_adjustment')) refType = 'manual_adjustment';
+      else if (lowerSql.includes('referral_milestone') || lowerSql.includes('referral_reward')) refType = 'referral_milestone';
+      else if (lowerSql.includes('order_refund')) refType = 'order_refund';
+      else if (lowerSql.includes("'order'") || lowerSql.includes('"order"')) refType = 'order';
+
+      let txAmount = '0.0000';
+      let balBefore = '0.0000';
+      let balAfter = '0.0000';
+      let refId: string | null = null;
+      let txDesc = '';
+      let admId: number | null = null;
+
+      if (params[1] !== undefined && (typeof params[1] === 'number' || !isNaN(Number(params[1])))) {
+        txAmount = Number(params[1]).toFixed(4);
+        balBefore = Number(params[2] || 0).toFixed(4);
+        balAfter = Number(params[3] || 0).toFixed(4);
+        refId = params[4] !== undefined && params[4] !== null ? String(params[4]) : null;
+        txDesc = String(params[5] || '');
+        admId = params[6] ? Number(params[6]) : null;
+      } else {
+        if (params[1]) txType = String(params[1]);
+        txAmount = Number(params[2] || 0).toFixed(4);
+        balBefore = Number(params[3] || 0).toFixed(4);
+        balAfter = Number(params[4] || 0).toFixed(4);
+        if (params[6]) refType = String(params[6]);
+        refId = params[7] !== undefined && params[7] !== null ? String(params[7]) : null;
+        txDesc = String(params[8] || '');
+        admId = params[9] ? Number(params[9]) : null;
+      }
+
       const txDoc = {
         id: nextId,
         user_id: Number(params[0]),
-        type: String(params[1] || 'ORDER_PAYMENT'),
-        amount: String(params[2] || '0.0000'),
-        balance_before: String(params[3] || '0.0000'),
-        balance_after: String(params[4] || '0.0000'),
+        type: txType,
+        amount: txAmount,
+        balance_before: balBefore,
+        balance_after: balAfter,
         currency: 'INR',
-        reference_type: String(params[5] || ''),
-        reference_id: params[6] ? String(params[6]) : null,
-        description: String(params[7] || ''),
-        admin_id: params[8] ? Number(params[8]) : null,
+        reference_type: refType,
+        reference_id: refId,
+        description: txDesc,
+        admin_id: admId,
         created_at: new Date().toISOString()
       };
       store.wallet_transactions.unshift(txDoc);
@@ -1206,14 +1271,14 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
       const id = Number(params[params.length - 1]);
       const pay = store.payment_requests.find(p => p.id === id);
       if (pay) {
-        if (lowerSql.includes("status = 'approved'")) {
+        if (lowerSql.includes('approved')) {
           pay.status = 'approved';
-          pay.approved_by_admin_id = params[0];
+          pay.approved_by_admin_id = params[0] ? Number(params[0]) : 1;
           pay.approved_at = new Date().toISOString();
-        } else if (lowerSql.includes("status = 'rejected'")) {
+        } else if (lowerSql.includes('rejected')) {
           pay.status = 'rejected';
-          pay.rejection_reason = params[0];
-          pay.approved_by_admin_id = params[1];
+          pay.rejection_reason = String(params[0] || 'Rejected by administrator');
+          pay.approved_by_admin_id = params[1] ? Number(params[1]) : 1;
         }
         pay.updated_at = new Date().toISOString();
         syncDocToFirestore('payment_requests', String(id), pay);

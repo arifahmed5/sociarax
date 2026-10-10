@@ -34,7 +34,8 @@ import {
   Layers,
   Upload,
   Info,
-  RotateCcw
+  RotateCcw,
+  Zap
 } from 'lucide-react';
 
 interface AdminAccount {
@@ -59,6 +60,7 @@ export const AdminSettingsView: React.FC = () => {
     usd_to_inr_rate: settings.usd_to_inr_rate || '88.0',
     default_markup_percentage: settings.default_markup_percentage || '35.0',
     min_deposit: settings.min_deposit || '10',
+    auto_approve_deposits: settings.auto_approve_deposits ?? 'true',
     upi_id: settings.upi_id || 'merchant@axisbank',
     upi_secondary_id: settings.upi_secondary_id || '',
     upi_merchant_name: settings.upi_merchant_name || 'SociaraX Official',
@@ -1073,6 +1075,31 @@ export const AdminSettingsView: React.FC = () => {
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
                 />
               </div>
+            </div>
+
+            {/* Auto-Approve Deposits Toggle */}
+            <div className="sm:col-span-2 p-4 rounded-xl bg-slate-950/90 border border-slate-800 flex items-center justify-between gap-4 mt-2">
+              <div>
+                <div className="text-xs font-bold text-white flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Real-time Automated UPI Verification & Credit</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Recommended
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  When active, customer deposits with 12-digit UPI UTR are verified and credited to their wallet balance in real-time. Turn off to require manual admin approval.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={formData.auto_approve_deposits !== 'false'}
+                  onChange={(e) => setFormData({ ...formData, auto_approve_deposits: e.target.checked ? 'true' : 'false' })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              </label>
             </div>
           </div>
 

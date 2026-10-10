@@ -123,11 +123,12 @@ export const WalletView: React.FC<WalletViewProps> = ({ onOpenAuthModal }) => {
     setIsSubmitting(false);
 
     if (res.success) {
-      setSuccessMessage(res.message || 'Deposit request submitted for verification.');
+      setSuccessMessage(res.message || 'Deposit request submitted successfully! Your payment is pending verification and will be credited to your wallet once approved.');
       setAmount('');
       setUsdtAmount('');
       setUtrNumber('');
       setPayerDetails('');
+      loadUserTransactions();
     } else {
       setErrorMessage(res.error || 'Failed to submit deposit. Please check transaction reference.');
     }
@@ -143,7 +144,7 @@ export const WalletView: React.FC<WalletViewProps> = ({ onOpenAuthModal }) => {
             <span>Add Funds & Wallet Ledger</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-            Instant manual approval via UPI, GooglePay, PhonePe, Paytm, and NetBanking.
+            Pay using UPI, QR code, PhonePe, GooglePay, Paytm, or Crypto and submit your 12-digit UTR number for verification.
           </p>
         </div>
 
@@ -460,10 +461,16 @@ export const WalletView: React.FC<WalletViewProps> = ({ onOpenAuthModal }) => {
         {/* Right: Deposit Submission Form */}
         <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="mb-6">
-            <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-              <Send className="w-5 h-5 text-indigo-400" />
-              <span>Submit Payment Verification</span>
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                <Send className="w-5 h-5 text-indigo-400" />
+                <span>Submit Payment Verification</span>
+              </h2>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold self-start sm:self-auto">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>⚡ Instant Auto-Credit Active</span>
+              </span>
+            </div>
             <p className="text-xs text-slate-400 mt-1">
               Select your payment method, enter transaction reference details, and submit for instant wallet credit.
             </p>
