@@ -498,7 +498,7 @@ serviceRouter.patch('/admin/:id/toggle-status', requireAdminAuth, async (req: Re
  * Admin: Synchronize services from provider API to Neon database
  * Checks existing IDs, updates rates/mappings, adds new services safely. NEVER drops or deletes.
  */
-serviceRouter.post('/admin/sync', requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
+serviceRouter.post(['/admin/sync', '/sync'], requireAdminAuth, async (req: Request, res: Response): Promise<void> => {
   const db = getDbPool();
   if (!db) {
     res.status(503).json({ success: false, error: 'Database service unavailable' });

@@ -46,8 +46,12 @@ export const AdminUsersView: React.FC = () => {
     await updateUserStatus(user.id, newStatus);
   };
 
-  const handleDeleteUser = async (user: ManagedUser) => {
-    if (!window.confirm(`Are you sure you want to delete user #${user.id} (${user.username})?`)) return;
+  const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
+
+  const confirmDeleteUser = async () => {
+    if (!deletingUser) return;
+    const user = deletingUser;
+    setDeletingUser(null);
     const res = await deleteAdminUser(user.id);
     if (res.success) {
       setAdjustNotice({ type: 'success', message: res.message || 'User deleted successfully' });
@@ -201,7 +205,7 @@ export const AdminUsersView: React.FC = () => {
                         {user.status === 'active' ? 'Suspend' : 'Activate'}
                       </button>
                       <button
-                        onClick={() => handleDeleteUser(user)}
+                        onClick={() => setDeletingUser(user)}
                         className="p-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
                         title="Delete User Account"
                       >
@@ -300,6 +304,47 @@ export const AdminUsersView: React.FC = () => {
                 {isAdjusting ? 'Processing Ledger Update...' : 'Commit Wallet Adjustment'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {deletingUser && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-500/30 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Delete User Account?</h3>
+                <p className="text-xs text-slate-400">This action is permanent and cannot be undone.</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5 text-xs text-slate-300">
+              <div><strong className="text-slate-400">User ID:</strong> #{deletingUser.id}</div>
+              <div><strong className="text-slate-400">Username:</strong> @{deletingUser.username}</div>
+              <div><strong className="text-slate-400">Email:</strong> {deletingUser.email}</div>
+              <div><strong className="text-slate-400">Wallet:</strong> {formatCurrency(deletingUser.walletBalance)}</div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingUser(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteUser}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Confirm Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

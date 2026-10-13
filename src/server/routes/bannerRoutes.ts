@@ -346,7 +346,15 @@ bannerRouter.post(['/', '/admin'], requireAdminAuth, async (req: Request, res: R
         GREATEST(0, EXTRACT(EPOCH FROM (expires_at - CURRENT_TIMESTAMP)))::int AS seconds_remaining;
     `, [sanitizedImageUrl, sanitizedTargetUrl, validHours, expiresAt, adminId]);
 
-    const created = insertRes.rows[0];
+    const created = insertRes?.rows?.[0] || {
+      id: Date.now(),
+      image_url: sanitizedImageUrl,
+      target_url: sanitizedTargetUrl,
+      duration_hours: validHours,
+      published_at: new Date().toISOString(),
+      expires_at: expiresAt.toISOString(),
+      seconds_remaining: validHours * 3600
+    };
 
     res.json({
       success: true,

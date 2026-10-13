@@ -489,10 +489,10 @@ export const AdminSettingsView: React.FC = () => {
     }
   };
 
-  const handleDeleteAdmin = async (adminId: number, email: string) => {
-    if (!window.confirm(`Are you sure you want to remove ${email} from Admin Access?`)) {
-      return;
-    }
+  const [confirmDeleteAdminId, setConfirmDeleteAdminId] = useState<number | null>(null);
+
+  const handleDeleteAdmin = async (adminId: number) => {
+    setConfirmDeleteAdminId(null);
 
     try {
       const res = await fetch(`/api/auth/admin/admins/${adminId}`, {
@@ -747,14 +747,33 @@ export const AdminSettingsView: React.FC = () => {
                     </div>
 
                     {!adm.isPrimary && !isCurrent && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteAdmin(adm.id, adm.email)}
-                        className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer shrink-0"
-                        title="Remove Admin"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      confirmDeleteAdminId === adm.id ? (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAdmin(adm.id)}
+                            className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteAdminId(null)}
+                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition-colors cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteAdminId(adm.id)}
+                          className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer shrink-0"
+                          title="Remove Admin"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )
                     )}
                   </div>
                 );

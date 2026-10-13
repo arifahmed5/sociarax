@@ -209,6 +209,8 @@ async function startServer() {
   app.use('/api/maintenance', maintenanceRouter);
   app.use('/api/banner', bannerRouter);
   app.use('/api/admin/banner', bannerRouter);
+  app.use('/api/admin/services', serviceRouter);
+  app.use('/api/admin/settings', settingsRouter);
   app.use('/api/admin/database', databaseRouter);
 
   // Global API Error Handler (Never let an API route throw an unhandled 500 error; handle 413 Payload Too Large)

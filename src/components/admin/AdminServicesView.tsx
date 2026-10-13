@@ -487,8 +487,8 @@ export const AdminServicesView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {paginatedServices.map(srv => (
-                  <tr key={srv.id} className="hover:bg-slate-800/40 transition-colors">
+                {paginatedServices.map((srv, idx) => (
+                  <tr key={`admin-srv-${srv.id || idx}-${srv.providerServiceId || idx}`} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-400">
                       #{srv.id}
                     </td>

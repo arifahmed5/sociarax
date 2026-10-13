@@ -60,7 +60,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
  * GET /api/settings
  * Public application settings
  */
-settingsRouter.get('/', async (req: Request, res: Response): Promise<void> => {
+settingsRouter.get(['/', '/public'], async (req: Request, res: Response): Promise<void> => {
   const db = getDbPool();
   if (!db) {
     res.json({ success: true, settings: DEFAULT_SETTINGS });

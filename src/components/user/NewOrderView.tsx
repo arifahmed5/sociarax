@@ -450,8 +450,8 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
               onChange={(e) => setSelectedServiceId(Number(e.target.value))}
               className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium"
             >
-              {availableServices.map(srv => (
-                <option key={srv.id} value={srv.id} className="bg-slate-950 text-white">
+              {availableServices.map((srv, idx) => (
+                <option key={`order-srv-${srv.id || idx}-${idx}`} value={srv.id} className="bg-slate-950 text-white">
                   #{srv.id} - {srv.name} — {formatCurrency(srv.rate)}/1k
                 </option>
               ))}

@@ -2058,7 +2058,70 @@ function executeFallbackQuery(text: string, params: any[] = []): { rows: any[]; 
     return { rows: [newAudit], rowCount: 1 };
   }
 
-  // 10. Transaction statements
+  // 10. User Banners
+  if (lowerSql.includes('user_banners')) {
+    if (lowerSql.startsWith('select')) {
+      const activeOnly = lowerSql.includes('where is_active = true') || lowerSql.includes('where is_active = $1');
+      let banners = activeOnly ? fallbackStore.user_banners.filter(b => b.is_active) : [...fallbackStore.user_banners];
+      if (lowerSql.includes('expires_at > current_timestamp') || lowerSql.includes('expires_at > now()')) {
+        const nowMs = Date.now();
+        banners = banners.filter(b => !b.expires_at || new Date(b.expires_at).getTime() > nowMs);
+      }
+      banners.sort((a, b) => (new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()) || (Number(b.id || 0) - Number(a.id || 0)));
+      const rows = banners.map(b => {
+        const remaining = b.expires_at ? Math.max(0, Math.floor((new Date(b.expires_at).getTime() - Date.now()) / 1000)) : 0;
+        return {
+          id: b.id,
+          image_url: b.image_url || null,
+          target_url: b.target_url || null,
+          duration_hours: Number(b.duration_hours || 24),
+          published_at: b.published_at,
+          expires_at: b.expires_at,
+          is_active: Boolean(b.is_active),
+          created_by: b.created_by,
+          seconds_remaining: remaining
+        };
+      });
+      if (lowerSql.includes('limit 1')) {
+        return { rows: rows.slice(0, 1), rowCount: rows.length > 0 ? 1 : 0 };
+      }
+      return { rows, rowCount: rows.length };
+    }
+    if (lowerSql.startsWith('update user_banners')) {
+      let count = 0;
+      for (const b of fallbackStore.user_banners) {
+        if (!lowerSql.includes('where is_active = true') || b.is_active) {
+          b.is_active = false;
+          b.updated_at = new Date().toISOString();
+          count++;
+        }
+      }
+      return { rows: [], rowCount: count };
+    }
+    if (lowerSql.startsWith('insert into user_banners')) {
+      const nextId = (fallbackStore.user_banners.length > 0 ? Math.max(...fallbackStore.user_banners.map(b => Number(b.id) || 0)) : 0) + 1;
+      const now = new Date();
+      const validHours = Number(params[2] || 24);
+      const expiresAt = params[3] ? new Date(params[3]) : new Date(now.getTime() + validHours * 3600 * 1000);
+      const secondsRemaining = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
+      const bannerDoc = {
+        id: nextId,
+        image_url: params[0] || null,
+        target_url: params[1] || null,
+        duration_hours: validHours,
+        published_at: now.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        is_active: true,
+        created_by: Number(params[4] || 1),
+        created_at: now.toISOString(),
+        seconds_remaining: secondsRemaining
+      };
+      fallbackStore.user_banners.push(bannerDoc);
+      return { rows: [bannerDoc], rowCount: 1 };
+    }
+  }
+
+  // 11. Transaction statements
   if (lowerSql === 'begin' || lowerSql === 'commit' || lowerSql === 'rollback') {
     return { rows: [], rowCount: 0 };
   }

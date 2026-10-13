@@ -142,7 +142,16 @@ initStore();
 
 function allocateId(collectionName: string): number {
   initStore();
-  const nextId = (store._counters[collectionName] || 0) + 1;
+  const rows = (store as any)[collectionName];
+  let maxExisting = 0;
+  if (Array.isArray(rows) && rows.length > 0) {
+    for (const r of rows) {
+      const num = Number(r.id);
+      if (!isNaN(num) && num > maxExisting) maxExisting = num;
+    }
+  }
+  const currentCounter = store._counters[collectionName] || 0;
+  const nextId = Math.max(maxExisting, currentCounter) + 1;
   store._counters[collectionName] = nextId;
 
   // Asynchronously sync counter to Firestore in background
@@ -633,14 +642,16 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
       if (lowerSql.includes('count(*)')) {
         return { rows: [{ c: store.users.length, count: store.users.length, user_count: store.users.length }], rowCount: 1 };
       }
-      // 5c. User lookup by ID (e.g., WHERE id = $1 or WHERE (id = $1 OR LOWER(email) = LOWER($2)))
+      // 5c. User lookup by ID (parameterized $1 or literal number e.g. WHERE id = 2)
+      const litIdMatch = lowerSql.match(/where\s+(?:u\.)?id\s*=\s*(\d+)/i);
       if (
+        litIdMatch ||
         lowerSql.includes('where id = $1') || 
         lowerSql.includes('where u.id = $1') ||
         lowerSql.includes('where (id = $1') ||
         lowerSql.includes('(id = $1')
       ) {
-        const uId = Number(params[0] || 0);
+        const uId = litIdMatch ? Number(litIdMatch[1]) : Number(params[0] || 0);
         const emailParam = params[1] ? String(params[1]).toLowerCase().trim() : '';
         let found = store.users.find(u => (uId > 0 && Number(u.id) === uId) || (emailParam && String(u.email || '').toLowerCase() === emailParam));
         if (!found && uId > 0) {
@@ -695,7 +706,13 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
     }
 
     if (lowerSql.startsWith('update users')) {
-      const id = Number(params[params.length - 1]);
+      let id = 0;
+      const idMatch = lowerSql.match(/where\s+(?:u\.)?id\s*=\s*(\d+)/);
+      if (idMatch) {
+        id = Number(idMatch[1]);
+      } else if (params && params.length > 0) {
+        id = Number(params[params.length - 1]);
+      }
       const user = store.users.find(u => u.id === id);
       if (user) {
         if (lowerSql.includes('wallet_balance = wallet_balance - $1')) {
@@ -705,7 +722,10 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
           const current = parseFloat(user.wallet_balance || '0');
           user.wallet_balance = (current + parseFloat(params[0])).toFixed(4);
         } else if (lowerSql.includes('wallet_balance = $1')) {
-          user.wallet_balance = String(params[0]);
+          user.wallet_balance = parseFloat(String(params[0])).toFixed(4);
+        }
+        if (lowerSql.includes('referral_code = $1')) {
+          user.referral_code = String(params[0]);
         }
         if (lowerSql.includes('password_hash = $1')) {
           user.password_hash = params[0];
@@ -714,11 +734,15 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
         if (lowerSql.includes('status = $1') || lowerSql.includes('status = $2')) {
           user.status = params[0];
         }
+        if (lowerSql.includes('suspension_reason = $1')) {
+          user.suspension_reason = params[0];
+        }
         user.updated_at = new Date().toISOString();
         syncDocToFirestore('users', String(id), user);
         saveSnapshotToDisk();
         return { rows: [user], rowCount: 1 };
       }
+      return { rows: [], rowCount: 0 };
     }
 
     if (lowerSql.startsWith('insert into users')) {
@@ -1424,8 +1448,75 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
   if (lowerSql.includes('user_banners')) {
     if (lowerSql.startsWith('select')) {
       const activeOnly = lowerSql.includes('where is_active = true') || lowerSql.includes('where is_active = $1');
-      const banners = activeOnly ? store.user_banners.filter(b => b.is_active) : store.user_banners;
-      return { rows: banners, rowCount: banners.length };
+      let banners = activeOnly ? store.user_banners.filter(b => b.is_active) : [...store.user_banners];
+      if (lowerSql.includes('expires_at > current_timestamp') || lowerSql.includes('expires_at > now()')) {
+        const nowMs = Date.now();
+        banners = banners.filter(b => !b.expires_at || new Date(b.expires_at).getTime() > nowMs);
+      }
+      banners.sort((a, b) => (new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()) || (Number(b.id || 0) - Number(a.id || 0)));
+      const rows = banners.map(b => {
+        const remaining = b.expires_at ? Math.max(0, Math.floor((new Date(b.expires_at).getTime() - Date.now()) / 1000)) : 0;
+        return {
+          id: b.id,
+          image_url: b.image_url || null,
+          target_url: b.target_url || null,
+          duration_hours: Number(b.duration_hours || 24),
+          published_at: b.published_at,
+          expires_at: b.expires_at,
+          is_active: Boolean(b.is_active),
+          created_by: b.created_by,
+          seconds_remaining: remaining
+        };
+      });
+      if (lowerSql.includes('limit 1')) {
+        return { rows: rows.slice(0, 1), rowCount: rows.length > 0 ? 1 : 0 };
+      }
+      return { rows, rowCount: rows.length };
+    }
+    if (lowerSql.startsWith('update user_banners')) {
+      let count = 0;
+      for (const b of store.user_banners) {
+        if (!lowerSql.includes('where is_active = true') || b.is_active) {
+          b.is_active = false;
+          b.updated_at = new Date().toISOString();
+          count++;
+          syncDocToFirestore('user_banners', String(b.id), b);
+        }
+      }
+      saveSnapshotToDisk();
+      return { rows: [], rowCount: count };
+    }
+    if (lowerSql.startsWith('insert into user_banners')) {
+      const nextId = allocateId('user_banners');
+      const now = new Date();
+      const validHours = Number(params[2] || 24);
+      const expiresAt = params[3] ? new Date(params[3]) : new Date(now.getTime() + validHours * 3600 * 1000);
+      const secondsRemaining = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
+      const bannerDoc = {
+        id: nextId,
+        image_url: params[0] || null,
+        target_url: params[1] || null,
+        duration_hours: validHours,
+        published_at: now.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        is_active: true,
+        created_by: Number(params[4] || 1),
+        created_at: now.toISOString(),
+        seconds_remaining: secondsRemaining
+      };
+      store.user_banners.push(bannerDoc);
+      syncDocToFirestore('user_banners', String(nextId), bannerDoc);
+      saveSnapshotToDisk();
+      return { rows: [bannerDoc], rowCount: 1 };
+    }
+    if (lowerSql.startsWith('delete from user_banners')) {
+      const count = store.user_banners.length;
+      for (const b of store.user_banners) {
+        deleteDocFromFirestore('user_banners', String(b.id));
+      }
+      store.user_banners = [];
+      saveSnapshotToDisk();
+      return { rows: [], rowCount: count };
     }
   }
 

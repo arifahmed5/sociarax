@@ -107,9 +107,11 @@ export const AdminProvidersView: React.FC = () => {
     await toggleAdminProviderStatus(provider.id);
   };
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
   const handleDeleteProvider = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this API provider?')) return;
     setDeletingId(id);
+    setConfirmDeleteId(null);
     await deleteAdminProvider(id);
     setDeletingId(null);
   };
@@ -334,14 +336,32 @@ export const AdminProvidersView: React.FC = () => {
               >
                 <Edit3 className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => handleDeleteProvider(provider.id)}
-                disabled={deletingId === provider.id}
-                className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl transition-colors cursor-pointer"
-                title="Delete Provider"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {confirmDeleteId === provider.id ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleDeleteProvider(provider.id)}
+                    disabled={deletingId === provider.id}
+                    className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDeleteId(provider.id)}
+                  disabled={deletingId === provider.id}
+                  className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl transition-colors cursor-pointer"
+                  title="Delete Provider"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         ))}
