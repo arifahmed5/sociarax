@@ -323,9 +323,14 @@ export const NewOrderView: React.FC<NewOrderViewProps> = ({
                 <h3 className="text-base font-bold text-white">
                   Order #{successOrder.id} Placed Successfully!
                 </h3>
-                <p className="text-xs text-emerald-300/90 mt-0.5">
-                  {successOrder.serviceName} • {successOrder.quantity != null ? Number(successOrder.quantity).toLocaleString() : 0} units • {formatCurrency(successOrder.charge)}
-                </p>
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <span className="text-xs text-emerald-300/90">
+                    {successOrder.serviceName} • {successOrder.quantity != null ? Number(successOrder.quantity).toLocaleString() : 0} units • {formatCurrency(successOrder.charge)}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    Status: {successOrder.status === 'pending' ? 'API Pending (Queued)' : successOrder.status}
+                  </span>
+                </div>
               </div>
             </div>
             <button

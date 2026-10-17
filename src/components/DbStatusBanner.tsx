@@ -3,11 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { Database, AlertTriangle, CheckCircle2, X, RefreshCw } from 'lucide-react';
 
 export const DbStatusBanner: React.FC = () => {
-  const { dbStatus, checkDbStatus } = useAuth();
+  const { dbStatus, checkDbStatus, admin } = useAuth();
   const [isDismissed, setIsDismissed] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
 
-  if (isDismissed || !dbStatus) return null;
+  // Technical database alerts are strictly for Admin/Owner only. Never display to customer portal.
+  if (!admin || isDismissed || !dbStatus) return null;
 
   const handleRefresh = async () => {
     setIsChecking(true);

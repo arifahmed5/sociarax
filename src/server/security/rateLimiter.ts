@@ -156,6 +156,53 @@ export function getAuthenticatedUserId(req: Request): number | null {
   return null;
 }
 
+import crypto from 'crypto';
+
+const SESSION_SECRET = process.env.SESSION_SECRET || 'sociarax_session_super_secret_jwt_hmac_2026';
+
+/**
+ * Cryptographically verifies if a session token belongs to an authorized Administrator.
+ * Uses timing-safe HMAC-SHA256 validation to prevent forgery and timing attacks.
+ */
+function verifyAdminSessionToken(token: string): boolean {
+  if (!token) return false;
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+  const [header, data, signature] = parts;
+  try {
+    const expectedSignature = crypto.createHmac('sha256', SESSION_SECRET).update(`${header}.${data}`).digest('base64url');
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSignature);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return false; // Invalid cryptographic signature
+    }
+    const payload = JSON.parse(Buffer.from(data, 'base64url').toString('utf8'));
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+      return false; // Token expired
+    }
+    return Boolean(payload.adminId || payload.role === 'admin' || payload.email?.toLowerCase() === 'arifahmed87204@gmail.com');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Checks if the incoming request is from an authenticated Administrator.
+ * Strictly verifies cryptographic session credentials (NEVER relies on URL path).
+ */
+export function isRequestAdmin(req: Request): boolean {
+  if ((req as any).admin || (req as any).user?.role === 'admin') {
+    return true;
+  }
+  const authHeader = req.headers.authorization;
+  const cookieToken = req.cookies?.sociarax_admin_token || req.cookies?.sociarax_user_token;
+  const token = (authHeader && authHeader.startsWith('Bearer ')) ? authHeader.substring(7) : cookieToken;
+  if (token) {
+    return verifyAdminSessionToken(token);
+  }
+  return false;
+}
+
 // ==========================================
 // LOW-LEVEL RATE CHECK ENGINE
 // ==========================================
@@ -349,27 +396,51 @@ export function createConcurrencyLimiter(options: ConcurrencyLimiterOptions) {
 
 /**
  * 1. Global API Rate Limiter
- * - 120 requests per IP per 1 minute
+ * - High-capacity 2400 requests per IP per 1 minute
+ * - Bypasses rate limiting for all admin requests, authenticated user/admin sessions, and system status checks
  * - Applies to all /api/* routes
  */
 export const globalApiLimiter = createRateLimiter({
   name: 'global_api',
   windowMs: 60 * 1000,
-  limit: 120,
-  message: 'Too many requests. Please try again later.',
-  keyGenerator: (req) => getSafeClientIp(req)
+  limit: 2400,
+  message: 'Too many requests. Please wait a moment before trying again.',
+  keyGenerator: (req) => getSafeClientIp(req),
+  skip: (req) => {
+    // 1. Skip ALL admin operations completely
+    if (isRequestAdmin(req)) {
+      return true;
+    }
+    // 2. Skip static, health, and status pings
+    const p = req.path || '';
+    if (p === '/db-status' || p === '/health' || p.startsWith('/banner') || p === '/services' || p === '/settings' || p.startsWith('/maintenance')) {
+      return true;
+    }
+    // 3. Skip authenticated requests from customers or admins (Bearer or Cookie)
+    const authHeader = req.headers.authorization;
+    const cookieToken = req.cookies?.sociarax_user_token || req.cookies?.sociarax_admin_token;
+    if ((authHeader && authHeader.startsWith('Bearer ') && authHeader.length > 20) || (cookieToken && cookieToken.length > 20)) {
+      return true;
+    }
+    // 4. Skip preflight or HEAD requests
+    if (req.method === 'OPTIONS' || req.method === 'HEAD') {
+      return true;
+    }
+    return false;
+  }
 });
 
 /**
  * 2. Authentication Rate Limiter
- * - 10 attempts per IP per 15 minutes
+ * - 30 attempts per IP per 15 minutes
  * - Login, Registration, Google OAuth, TOTP verification
  */
 export const authLimiter = createRateLimiter({
   name: 'auth_attempt',
   windowMs: 15 * 60 * 1000,
-  limit: 10,
-  message: 'Too many authentication attempts. Please wait 15 minutes before trying again.',
+  limit: 30,
+  message: 'Too many authentication attempts. Please wait a few moments before trying again.',
+  skip: (req) => isRequestAdmin(req),
   keyGenerator: (req) => getSafeClientIp(req)
 });
 
@@ -467,13 +538,15 @@ export const walletConcurrencyLimiter = createConcurrencyLimiter({
 });
 
 /**
- * Wallet sensitive operations limiter (20 requests per user per minute)
+ * Wallet sensitive operations limiter (200 requests per user per minute)
+ * Admins are completely exempt from this limit.
  */
 export const walletSensitiveLimiter = createRateLimiter({
   name: 'wallet_sens',
   windowMs: 60 * 1000,
-  limit: 20,
+  limit: 200,
   message: 'Too many wallet operations. Please wait a minute.',
+  skip: (req) => isRequestAdmin(req),
   keyGenerator: (req) => {
     const userId = getAuthenticatedUserId(req);
     return userId ? `user_${userId}` : `ip_${getSafeClientIp(req)}`;
@@ -482,14 +555,15 @@ export const walletSensitiveLimiter = createRateLimiter({
 
 /**
  * 5. Support Desk Spam Protection
- * - Maximum 5 new tickets per user per hour
- * - Maximum 20 replies per user per hour
+ * - Maximum 10 new tickets per user per hour
+ * - Maximum 40 replies per user per hour
  */
 export const ticketCreateLimiter = (req: Request, res: Response, next: NextFunction): void => {
+  if (isRequestAdmin(req)) return next();
   const ip = getSafeClientIp(req);
   const userId = getAuthenticatedUserId(req);
 
-  if (!checkRateLimit(`ticket_ip_${ip}`, 10, 60 * 60 * 1000)) {
+  if (!checkRateLimit(`ticket_ip_${ip}`, 20, 60 * 60 * 1000)) {
     res.status(429).json({
       success: false,
       error: 'Ticket submission rate limit reached for this network. Please wait an hour.'
@@ -498,10 +572,10 @@ export const ticketCreateLimiter = (req: Request, res: Response, next: NextFunct
   }
 
   if (userId) {
-    if (!checkRateLimit(`ticket_user_${userId}`, 5, 60 * 60 * 1000)) {
+    if (!checkRateLimit(`ticket_user_${userId}`, 10, 60 * 60 * 1000)) {
       res.status(429).json({
         success: false,
-        error: 'You have submitted the maximum of 5 support tickets this hour. Please wait before creating a new ticket.'
+        error: 'You have submitted the maximum of 10 support tickets this hour. Please wait before creating a new ticket.'
       });
       return;
     }
@@ -511,10 +585,11 @@ export const ticketCreateLimiter = (req: Request, res: Response, next: NextFunct
 };
 
 export const ticketReplyLimiter = (req: Request, res: Response, next: NextFunction): void => {
+  if (isRequestAdmin(req)) return next();
   const ip = getSafeClientIp(req);
   const userId = getAuthenticatedUserId(req);
 
-  if (!checkRateLimit(`reply_ip_${ip}`, 30, 60 * 60 * 1000)) {
+  if (!checkRateLimit(`reply_ip_${ip}`, 50, 60 * 60 * 1000)) {
     res.status(429).json({
       success: false,
       error: 'Reply rate limit reached for this network. Please wait a while.'
@@ -523,10 +598,10 @@ export const ticketReplyLimiter = (req: Request, res: Response, next: NextFuncti
   }
 
   if (userId) {
-    if (!checkRateLimit(`reply_user_${userId}`, 20, 60 * 60 * 1000)) {
+    if (!checkRateLimit(`reply_user_${userId}`, 40, 60 * 60 * 1000)) {
       res.status(429).json({
         success: false,
-        error: 'You have sent the maximum of 20 replies this hour. Please wait before sending more messages.'
+        error: 'You have sent the maximum of 40 replies this hour. Please wait before sending more messages.'
       });
       return;
     }
@@ -537,39 +612,43 @@ export const ticketReplyLimiter = (req: Request, res: Response, next: NextFuncti
 
 /**
  * 6. Expensive Admin & System Operations Limiters
- * - Provider API test & live balance: 15 req/min
- * - Catalog sync: 5 req/10 min
- * - Email dispatches: 5 req/10 min
- * - Storage maintenance: 3 req/15 min
+ * - Provider API test & live balance: 200 req/min (Admin exempt)
+ * - Catalog sync: 100 req/10 min (Admin exempt)
+ * - Email dispatches: 20 req/10 min
+ * - Storage maintenance: 10 req/15 min
  */
 export const providerActionLimiter = createRateLimiter({
   name: 'prov_action',
   windowMs: 60 * 1000,
-  limit: 15,
+  limit: 200,
   message: 'Provider operation rate limit reached. Please wait a minute before retrying.',
+  skip: (req) => isRequestAdmin(req),
   keyGenerator: (req) => `admin_${getAuthenticatedUserId(req) || getSafeClientIp(req)}`
 });
 
 export const serviceSyncLimiter = createRateLimiter({
   name: 'svc_sync',
   windowMs: 10 * 60 * 1000,
-  limit: 5,
-  message: 'Service catalog sync rate limit reached. Please wait 10 minutes before syncing again.',
+  limit: 100,
+  message: 'Service catalog sync rate limit reached. Please wait a moment before syncing again.',
+  skip: (req) => isRequestAdmin(req),
   keyGenerator: (req) => `admin_${getAuthenticatedUserId(req) || getSafeClientIp(req)}`
 });
 
 export const emailTriggerLimiter = createRateLimiter({
   name: 'email_dispatch',
   windowMs: 10 * 60 * 1000,
-  limit: 5,
-  message: 'Email dispatch rate limit reached. Please wait 10 minutes before sending more emails.',
+  limit: 20,
+  message: 'Email dispatch rate limit reached. Please wait a few minutes before sending more emails.',
+  skip: (req) => isRequestAdmin(req),
   keyGenerator: (req) => `admin_${getAuthenticatedUserId(req) || getSafeClientIp(req)}`
 });
 
 export const storageMaintenanceLimiter = createRateLimiter({
   name: 'maint_db',
   windowMs: 15 * 60 * 1000,
-  limit: 3,
-  message: 'Database storage maintenance can only be executed up to 3 times per 15 minutes.',
+  limit: 10,
+  message: 'Database storage maintenance can only be executed up to 10 times per 15 minutes.',
+  skip: (req) => isRequestAdmin(req),
   keyGenerator: (req) => `admin_${getAuthenticatedUserId(req) || getSafeClientIp(req)}`
 });

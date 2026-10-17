@@ -255,6 +255,24 @@ export async function syncFromCloudFirestore(): Promise<void> {
       store.orders = Array.from(orderMap.values()).sort((a, b) => Number(b.id) - Number(a.id));
     }
 
+    // 4. Sync api_providers
+    const provSnap = await db.collection('api_providers').get();
+    if (!provSnap.empty) {
+      const provMap = new Map<number, any>();
+      for (const p of store.api_providers) {
+        provMap.set(Number(p.id), p);
+      }
+      provSnap.forEach((doc) => {
+        const data = doc.data();
+        const numId = Number(data.id || doc.id);
+        if (numId) {
+          const existing = provMap.get(numId);
+          provMap.set(numId, { ...existing, ...data, id: numId });
+        }
+      });
+      store.api_providers = Array.from(provMap.values()).sort((a, b) => Number(a.id) - Number(b.id));
+    }
+
     saveSnapshotToDisk();
   } catch (err: any) {
     // Graceful handling of transient network delay
@@ -500,23 +518,23 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
       }
       if (isNaN(id)) {
         const first = Number(params[0]);
-        if (!isNaN(first) && store.api_providers.some(p => p.id === first)) {
+        if (!isNaN(first) && store.api_providers.some(p => Number(p.id) === first)) {
           id = first;
           whereParamIdx = 0;
         }
       }
       if (isNaN(id)) {
         const last = Number(params[params.length - 1]);
-        if (!isNaN(last) && store.api_providers.some(p => p.id === last)) {
+        if (!isNaN(last) && store.api_providers.some(p => Number(p.id) === last)) {
           id = last;
           whereParamIdx = params.length - 1;
         }
       }
       if (isNaN(id) && store.api_providers.length === 1) {
-        id = store.api_providers[0].id;
+        id = Number(store.api_providers[0].id);
       }
 
-      const prov = store.api_providers.find(p => p.id === id);
+      const prov = store.api_providers.find(p => Number(p.id) === Number(id));
       if (prov) {
         if (lowerSql.includes('balance = $1')) {
           prov.balance = String(params[0]);
@@ -529,31 +547,51 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
         } else if (lowerSql.includes('status = $1') && params.length === 2) {
           prov.status = String(params[0]);
         } else {
-          // Dynamic fields update from Edit Provider
-          for (let i = 0; i < params.length; i++) {
-            if (i === whereParamIdx) continue;
-            const val = params[i];
-            if (val === undefined || val === null) continue;
-            if (typeof val === 'string') {
-              if (val.startsWith('http://') || val.startsWith('https://')) {
-                prov.api_url = val;
-              } else if (val === 'active' || val === 'inactive') {
-                prov.status = val;
-              } else if (val === 'USD' || val === 'INR') {
-                prov.currency = val;
-              } else if (val.startsWith('••••')) {
-                prov.masked_key = val;
-              } else if (val.length > 25 && val.includes(':')) {
-                prov.api_key_encrypted = val;
-                prov.last_error = null; // Fresh API key resets previous connection error
-              } else if (['luvsmm', 'custom_v2', 'smm_panel'].includes(val.toLowerCase())) {
-                prov.adapter_type = val.toLowerCase();
-              } else if (!prov.api_url.includes(val) && val.length > 1) {
-                prov.name = val;
-              }
-            } else if (typeof val === 'number') {
-              prov.priority = val;
+          // Robust column-by-column parameter extraction
+          const nameMatch = lowerSql.match(/\bname\s*=\s*\$(\d+)/i);
+          if (nameMatch) {
+            const v = params[parseInt(nameMatch[1], 10) - 1];
+            if (v !== undefined && v !== null) prov.name = String(v).trim();
+          }
+          const urlMatch = lowerSql.match(/\bapi_url\s*=\s*\$(\d+)/i);
+          if (urlMatch) {
+            const v = params[parseInt(urlMatch[1], 10) - 1];
+            if (v !== undefined && v !== null) prov.api_url = String(v).trim();
+          }
+          const statusMatch = lowerSql.match(/\bstatus\s*=\s*\$(\d+)/i);
+          if (statusMatch) {
+            const v = params[parseInt(statusMatch[1], 10) - 1];
+            if (v !== undefined && v !== null) prov.status = String(v).toLowerCase();
+          }
+          const curMatch = lowerSql.match(/\bcurrency\s*=\s*\$(\d+)/i);
+          if (curMatch) {
+            const v = params[parseInt(curMatch[1], 10) - 1];
+            if (v !== undefined && v !== null) prov.currency = String(v).toUpperCase();
+          }
+          const adapterMatch = lowerSql.match(/\badapter_type\s*=\s*\$(\d+)/i);
+          if (adapterMatch) {
+            const v = params[parseInt(adapterMatch[1], 10) - 1];
+            if (v !== undefined && v !== null) prov.adapter_type = String(v).toLowerCase();
+          }
+          const encKeyMatch = lowerSql.match(/\bapi_key_encrypted\s*=\s*\$(\d+)/i);
+          if (encKeyMatch) {
+            const v = params[parseInt(encKeyMatch[1], 10) - 1];
+            if (v !== undefined && v !== null && String(v).length > 0) {
+              prov.api_key_encrypted = String(v);
+              prov.last_error = null;
             }
+          }
+          const maskedMatch = lowerSql.match(/\bmasked_key\s*=\s*\$(\d+)/i);
+          if (maskedMatch) {
+            const v = params[parseInt(maskedMatch[1], 10) - 1];
+            if (v !== undefined && v !== null && String(v).length > 0) {
+              prov.masked_key = String(v);
+            }
+          }
+          const priorityMatch = lowerSql.match(/\bpriority\s*=\s*\$(\d+)/i);
+          if (priorityMatch) {
+            const v = params[parseInt(priorityMatch[1], 10) - 1];
+            if (v !== undefined && v !== null) prov.priority = parseInt(String(v), 10) || 1;
           }
         }
         prov.updated_at = new Date().toISOString();
@@ -1169,21 +1207,105 @@ async function executeFirestoreQueryInternal(text: string, params: any[] = []): 
     }
 
     if (lowerSql.startsWith('update orders')) {
-      const id = Number(params[params.length - 1]);
+      // Find the order ID from WHERE id = $X or WHERE id = 123 or last param
+      let id = 0;
+      const whereMatch = lowerSql.match(/where\s+(?:o\.)?id\s*=\s*\$(\d+)/i);
+      if (whereMatch) {
+        const paramIdx = parseInt(whereMatch[1], 10) - 1;
+        id = Number(params[paramIdx]);
+      } else {
+        const litWhereMatch = lowerSql.match(/where\s+(?:o\.)?id\s*=\s*(\d+)/i);
+        if (litWhereMatch) {
+          id = Number(litWhereMatch[1]);
+        } else if (params && params.length > 0) {
+          id = Number(params[params.length - 1]);
+        }
+      }
+
       const ord = store.orders.find(o => o.id === id);
       if (ord) {
-        if (lowerSql.includes('status = $1')) {
-          ord.status = params[0];
-        } else if (lowerSql.includes('provider_order_id = $1')) {
-          ord.provider_order_id = params[0];
-          ord.provider_status = params[1];
-          ord.status = params[2];
+        // 1. provider_order_id
+        const pOrderIdMatch = lowerSql.match(/provider_order_id\s*=\s*\$(\d+)/i);
+        if (pOrderIdMatch) {
+          const val = params[parseInt(pOrderIdMatch[1], 10) - 1];
+          if (val !== undefined && val !== null) ord.provider_order_id = String(val);
         }
+
+        // 2. provider_status
+        if (lowerSql.includes("provider_status = 'processing'")) {
+          ord.provider_status = 'processing';
+        } else if (lowerSql.includes("provider_status = 'pending'")) {
+          ord.provider_status = 'pending';
+        } else if (lowerSql.includes("provider_status = 'completed'")) {
+          ord.provider_status = 'completed';
+        } else {
+          const pStatusMatch = lowerSql.match(/provider_status\s*=\s*\$(\d+)/i);
+          if (pStatusMatch) {
+            const val = params[parseInt(pStatusMatch[1], 10) - 1];
+            if (val !== undefined && val !== null && typeof val === 'string') {
+              ord.provider_status = val;
+            }
+          }
+        }
+
+        // 3. status
+        if (lowerSql.includes("status = 'processing'")) {
+          ord.status = 'processing';
+        } else if (lowerSql.includes("status = 'pending'")) {
+          ord.status = 'pending';
+        } else if (lowerSql.includes("status = 'in_progress'")) {
+          ord.status = 'in_progress';
+        } else if (lowerSql.includes("status = 'completed'")) {
+          ord.status = 'completed';
+        } else if (lowerSql.includes("status = 'failed'")) {
+          ord.status = 'failed';
+        } else if (lowerSql.includes("status = 'cancelled'")) {
+          ord.status = 'cancelled';
+        } else if (lowerSql.includes("status = 'refunded'")) {
+          ord.status = 'refunded';
+        } else {
+          const statusMatch = lowerSql.match(/\bstatus\s*=\s*\$(\d+)/i);
+          if (statusMatch) {
+            const val = params[parseInt(statusMatch[1], 10) - 1];
+            if (val !== undefined && val !== null && typeof val === 'string') {
+              ord.status = val.toLowerCase();
+            }
+          }
+        }
+
+        // 4. start_count & remains
+        const startCountMatch = lowerSql.match(/start_count\s*=\s*(?:coalesce\(\s*)?\$(\d+)/i);
+        if (startCountMatch) {
+          const val = params[parseInt(startCountMatch[1], 10) - 1];
+          if (val !== undefined && val !== null && !isNaN(Number(val))) {
+            ord.start_count = Number(val);
+          }
+        }
+        const remainsMatch = lowerSql.match(/remains\s*=\s*(?:coalesce\(\s*)?\$(\d+)/i);
+        if (remainsMatch) {
+          const val = params[parseInt(remainsMatch[1], 10) - 1];
+          if (val !== undefined && val !== null && !isNaN(Number(val))) {
+            ord.remains = Number(val);
+          }
+        }
+
+        // 5. provider_error
+        if (lowerSql.includes('provider_error = null')) {
+          ord.provider_error = null;
+        } else {
+          const pErrorMatch = lowerSql.match(/provider_error\s*=\s*\$(\d+)/i);
+          if (pErrorMatch) {
+            const val = params[parseInt(pErrorMatch[1], 10) - 1];
+            ord.provider_error = val ? String(val) : null;
+          }
+        }
+
         ord.updated_at = new Date().toISOString();
         syncDocToFirestore('orders', String(id), ord);
         saveSnapshotToDisk();
         return { rows: [ord], rowCount: 1 };
       }
+      return { rows: [], rowCount: 0 };
     }
   }
 

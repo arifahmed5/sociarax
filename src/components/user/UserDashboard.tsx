@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSociarax } from '../../context/SociaraxContext';
 import { getTheme, getButtonRadius } from '../../utils/theme';
@@ -10,15 +10,11 @@ import {
   CheckCircle2, 
   PlusCircle, 
   ArrowUpRight, 
-  Sparkles,
-  Zap,
-  TrendingUp,
-  ShieldCheck,
-  Megaphone,
+  Sparkles, 
+  Zap, 
+  Megaphone, 
   LogOut,
-  User,
-  Info,
-  AlertTriangle
+  X 
 } from 'lucide-react';
 
 interface UserDashboardProps {
@@ -28,73 +24,49 @@ interface UserDashboardProps {
 
 export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpenAuthModal }) => {
   const { user, logoutUser } = useAuth();
-  const { userOrders, formatCurrency, settings, services, maintenanceConfig } = useSociarax();
+  const { userOrders, formatCurrency, settings, services, maintenanceConfig, loadUserOrders } = useSociarax();
 
   const theme = getTheme(maintenanceConfig);
   const buttonRadius = getButtonRadius(maintenanceConfig);
 
-  // Metrics from real order data
+  // Initial load orders on dashboard mount (continuous live updates handled centrally by SociaraxContext)
+  React.useEffect(() => {
+    loadUserOrders();
+  }, [loadUserOrders]);
+
+  // Real-time metrics calculated from user's live order data
   const totalOrders = userOrders.length;
   const pendingOrders = userOrders.filter(o => o.status === 'pending' || o.status === 'processing' || o.status === 'in_progress').length;
   const completedOrders = userOrders.filter(o => o.status === 'completed').length;
   const recentOrders = userOrders.slice(0, 5);
 
-  const isOwnerOrAdmin = Boolean(
-    user?.role === 'admin'
-  );
-
-  const activeAnnouncement = (maintenanceConfig.announcementBannerActive && maintenanceConfig.announcementBannerText) 
-    ? maintenanceConfig.announcementBannerText 
-    : settings.announcement;
+  // Only display if explicitly enabled by admin in website customizer
+  const [isAnnouncementDismissed, setIsAnnouncementDismissed] = useState(false);
+  const activeAnnouncement = (!isAnnouncementDismissed && maintenanceConfig.announcementBannerActive && maintenanceConfig.announcementBannerText?.trim()) 
+    ? maintenanceConfig.announcementBannerText.trim() 
+    : null;
 
   return (
     <div className="space-y-6">
-      {/* Super Admin Quick-Access Banner */}
-      {isOwnerOrAdmin && (
-        <div className="bg-gradient-to-r from-rose-950/80 via-slate-900 to-indigo-950/80 border-2 border-rose-500/50 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl shadow-rose-950/30 animate-pulse-slow">
-          <div className="flex items-center gap-3.5 min-w-0 flex-1">
-            <div className="w-11 h-11 rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-lg shadow-rose-600/40 shrink-0">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                  Super Administrator Mode
-                </span>
-                <span className="text-xs text-slate-400">Account: <strong className="text-white font-mono">{user?.username}</strong></span>
-              </div>
-              <h2 className="text-base sm:text-lg font-bold text-white mt-0.5 truncate">
-                Full Management Access to SociaraX Backend
-              </h2>
-              <p className="text-xs text-slate-300 truncate">
-                Upstream Provider API Active • Live Services Synchronized • Provider Dispatch & Catalog Control
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
-            <button
-              onClick={() => onNavigate('admin_dashboard')}
-              className={`w-full sm:w-auto px-5 py-2.5 ${buttonRadius} bg-gradient-to-r from-rose-600 via-rose-500 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-rose-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap`}
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Open Admin Panel</span>
-              <ArrowUpRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Announcement Banner */}
+      {/* Announcement Banner (Only rendered when explicitly enabled by admin) */}
       {activeAnnouncement && (
-        <div className={`bg-gradient-to-r ${theme.brandGradient.replace('from-', 'from-slate-900 via-').replace('to-', 'to-slate-900')} border ${theme.cardBorder} rounded-2xl p-4 flex items-center gap-3 shadow-lg`}>
-          <div className={`w-9 h-9 rounded-xl ${theme.badgeBg} border ${theme.badgeBorder} flex items-center justify-center shrink-0 ${theme.badgeText}`}>
-            <Megaphone className="w-5 h-5" />
+        <div className={`bg-gradient-to-r ${theme.brandGradient.replace('from-', 'from-slate-900 via-').replace('to-', 'to-slate-900')} border ${theme.cardBorder} rounded-2xl p-4 flex items-center justify-between gap-3 shadow-lg`}>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className={`w-9 h-9 rounded-xl ${theme.badgeBg} border ${theme.badgeBorder} flex items-center justify-center shrink-0 ${theme.badgeText}`}>
+              <Megaphone className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs sm:text-sm text-slate-200">{activeAnnouncement}</div>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className={`text-xs font-semibold ${theme.activeTabText} uppercase tracking-wider`}>Announcement</div>
-            <div className="text-xs sm:text-sm text-slate-200 truncate">{activeAnnouncement}</div>
-          </div>
+          <button
+            onClick={() => setIsAnnouncementDismissed(true)}
+            className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer shrink-0"
+            aria-label="Dismiss banner"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -199,21 +171,21 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ onNavigate, onOpen
 
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5">
           <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium">Active / Pending</span>
+            <span className="text-xs font-medium">Pending Orders</span>
             <Clock className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-white font-mono">
+          <div className="text-xl sm:text-2xl font-bold text-amber-400 font-mono">
             {pendingOrders}
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">Currently processing</div>
+          <div className="text-[11px] text-slate-500 mt-1">Awaiting fulfillment</div>
         </div>
 
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5">
           <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium">Completed</span>
-            <CheckCircle2 className="w-4 h-4 text-purple-400" />
+            <span className="text-xs font-medium">Completed Orders</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-white font-mono">
+          <div className="text-xl sm:text-2xl font-bold text-emerald-400 font-mono">
             {completedOrders}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">Fulfilled successfully</div>

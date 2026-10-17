@@ -24,7 +24,7 @@ export const DEFAULT_MAINTENANCE_CONFIG: WebsiteMaintenanceConfig = {
   heroHeadline: 'Welcome to SociaraX.',
   heroSubtitle: 'Non-drop social media growth services, real-time automated order fulfillment, multi-gateway INR payments, and direct owner WhatsApp/Telegram support.',
   announcementBannerText: 'Automated instant delivery active across Instagram, YouTube, Telegram, Snapchat, Facebook & X with 100% Non-Drop Refill Guarantee.',
-  announcementBannerActive: true,
+  announcementBannerActive: false,
   announcementBannerType: 'info',
   buttonStyle: 'rounded-xl',
   telegramSupport: '@SociaraXSupport',
@@ -73,6 +73,7 @@ interface SociaraxContextType {
   placeOrder: (serviceId: number, link: string, quantity: number, comments?: string) => Promise<{ success: boolean; order?: any; error?: string }>;
   updateAdminOrderStatus: (orderId: number, newStatus: string, refund?: boolean) => Promise<{ success: boolean; error?: string }>;
   syncAdminOrderStatus: () => Promise<{ success: boolean; message?: string; error?: string }>;
+  syncUserOrders: () => Promise<{ success: boolean; message?: string; updatedCount?: number; error?: string }>;
 
   // Payments & Wallet
   userTransactions: WalletTransaction[];
@@ -211,7 +212,13 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
 
-      const res = await fetch(url, { ...options, headers });
+      let res = await fetch(url, { ...options, headers });
+      if (res.status === 429) {
+        // Transient throttle: Wait 1.2s and retry once transparently
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        res = await fetch(url, { ...options, headers });
+      }
+
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
         const text = await res.text();
@@ -387,7 +394,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // 3. User Orders
   const loadUserOrders = useCallback(async (status?: string, platform?: string, search?: string) => {
-    const token = userToken || localStorage.getItem('sociarax_user_token');
+    const token = userToken || (typeof window !== 'undefined' ? localStorage.getItem('sociarax_user_token') : null) || getEffectiveAdminToken();
     if (!token) {
       setIsOrdersLoading(false);
       return;
@@ -407,7 +414,9 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           ...ord,
           quantity: ord.quantity != null ? Number(ord.quantity) : 0,
           charge: ord.charge != null ? Number(ord.charge) : 0,
-          platform: resolvePlatform(ord)
+          platform: resolvePlatform(ord),
+          providerStatus: ord.providerStatus || undefined,
+          providerOrderId: ord.providerOrderId ? String(ord.providerOrderId) : undefined
         }));
         setUserOrders(normalized);
       }
@@ -416,7 +425,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setIsOrdersLoading(false);
     }
-  }, [userToken]);
+  }, [userToken, getEffectiveAdminToken]);
 
   const placeOrder = async (serviceId: number, link: string, quantity: number, comments?: string) => {
     try {
@@ -512,6 +521,24 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return { success: true, message: data.message };
       }
       return { success: false, error: data?.error || 'Sync failed' };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  const syncUserOrders = async () => {
+    try {
+      const token = userToken || (typeof window !== 'undefined' ? localStorage.getItem('sociarax_user_token') : null) || getEffectiveAdminToken();
+      if (!token) return { success: false, error: 'Please log in to sync orders' };
+      const data = await safeFetchJson('/api/orders/sync', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (data && data.success) {
+        await loadUserOrders();
+        return { success: true, message: data.message, updatedCount: data.updatedCount };
+      }
+      return { success: false, error: data?.error || 'Live sync failed' };
     } catch (err: any) {
       return { success: false, error: err.message };
     }
@@ -1021,11 +1048,23 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [refreshMaintenanceConfig, loadSettings, loadServices]);
 
   useEffect(() => {
-    if (userToken) {
+    const effectiveToken = userToken || (typeof window !== 'undefined' ? localStorage.getItem('sociarax_user_token') : null) || (user ? getEffectiveAdminToken() : null);
+    if (effectiveToken || user) {
       loadUserOrders();
       loadUserTransactions();
+
+      // Real-time Order & Wallet Sync Polling:
+      // Polls every 10s when active in browser so dashboard metrics and orders stay live without flooding the API
+      const pollTimer = setInterval(() => {
+        if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+          loadUserOrders();
+          loadUserTransactions();
+        }
+      }, 10000);
+
+      return () => clearInterval(pollTimer);
     }
-  }, [userToken, loadUserOrders, loadUserTransactions]);
+  }, [userToken, user, loadUserOrders, loadUserTransactions, getEffectiveAdminToken]);
 
   useEffect(() => {
     const effectiveToken = getEffectiveAdminToken();
@@ -1071,6 +1110,7 @@ export const SociaraxProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         placeOrder,
         updateAdminOrderStatus,
         syncAdminOrderStatus,
+        syncUserOrders,
 
         userTransactions,
         userDepositRequests,

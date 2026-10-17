@@ -104,6 +104,26 @@ export const Navigation: React.FC<NavigationProps> = ({
     user?.role === 'admin'
   );
 
+  const [logoClicks, setLogoClicks] = useState(0);
+  const [lastLogoClick, setLastLogoClick] = useState(0);
+
+  const handleLogoClick = () => {
+    const now = Date.now();
+    if (now - lastLogoClick < 1000) {
+      const nextCount = logoClicks + 1;
+      setLogoClicks(nextCount);
+      if (nextCount >= 5) {
+        setLogoClicks(0);
+        onOpenAdminAuth();
+        return;
+      }
+    } else {
+      setLogoClicks(1);
+    }
+    setLastLogoClick(now);
+    onTabChange(isAdminTab && admin ? 'admin_dashboard' : 'dashboard');
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-800">
       <div className="w-full max-w-7xl 2xl:max-w-[1700px] mx-auto px-2 sm:px-4 lg:px-6">
@@ -111,8 +131,8 @@ export const Navigation: React.FC<NavigationProps> = ({
           {/* Left: Brand Logo & Portal Switcher */}
           <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
             <div 
-              onClick={() => onTabChange(isAdminTab && admin ? 'admin_dashboard' : 'dashboard')}
-              className="flex items-center gap-1.5 sm:gap-2 cursor-pointer group shrink-0"
+              onClick={handleLogoClick}
+              className="flex items-center gap-1.5 sm:gap-2 cursor-pointer group shrink-0 select-none"
             >
               <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr ${theme.brandGradient} flex items-center justify-center shadow-md ${theme.brandGlow} group-hover:scale-105 transition-transform shrink-0`}>
                 <Zap className="w-4 h-4 text-white" />

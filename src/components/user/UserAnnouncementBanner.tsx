@@ -137,9 +137,6 @@ export const UserAnnouncementBanner: React.FC = () => {
                 <span className="text-xs sm:text-sm font-bold text-white group-hover:text-indigo-200 transition-colors truncate">
                   {getDisplayDomain(banner.targetUrl!)}
                 </span>
-                <span className="hidden sm:inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  Announcement
-                </span>
               </div>
               <p className="text-[11px] text-slate-400 group-hover:text-slate-300 transition-colors truncate">
                 {banner.targetUrl}
@@ -182,7 +179,7 @@ export const UserAnnouncementBanner: React.FC = () => {
       {/* Banner Image */}
       <img
         src={banner.imageUrl!}
-        alt="Announcement Banner"
+        alt=""
         onLoad={() => setImageLoaded(true)}
         onError={() => setImageError(true)}
         className={`w-full max-h-48 sm:max-h-60 md:max-h-72 object-cover object-center transition-all duration-300 ${

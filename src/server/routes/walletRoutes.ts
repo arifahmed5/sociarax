@@ -17,7 +17,7 @@ export const walletRouter = Router();
  * GET /api/wallet/transactions
  * User view of their own wallet ledger
  */
-walletRouter.get('/transactions', requireUserAuth, walletSensitiveLimiter, async (req: Request, res: Response): Promise<void> => {
+walletRouter.get('/transactions', requireUserAuth, async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
   const db = getDbPool();
   if (!db) {

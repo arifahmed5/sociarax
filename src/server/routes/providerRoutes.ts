@@ -288,7 +288,16 @@ providerRouter.post('/', requireAdminAuth, async (req: Request, res: Response): 
     return;
   }
 
-  const cleanKey = String(apiKey).trim();
+  const cleanKey = String(apiKey).replace(/[\r\n\t"']/g, '').trim();
+  if (!cleanKey) {
+    res.status(400).json({ success: false, error: 'Valid API Key is required.' });
+    return;
+  }
+  let cleanUrl = String(apiUrl).trim();
+  if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+    cleanUrl = `https://${cleanUrl}`;
+  }
+
   const masked = cleanKey.length > 4 ? `••••••••••••${cleanKey.slice(-4)}` : '••••••••••••';
   const encrypted = encryptSecret(cleanKey);
 
@@ -308,7 +317,7 @@ providerRouter.post('/', requireAdminAuth, async (req: Request, res: Response): 
     `, [
       name.trim(),
       adapterType.trim().toLowerCase(),
-      apiUrl.trim(),
+      cleanUrl,
       encrypted,
       masked,
       parseInt(String(priority), 10) || 1,
@@ -358,7 +367,11 @@ providerRouter.put('/:id', requireAdminAuth, async (req: Request, res: Response)
       updateKeyClause += `, adapter_type = $${params.length}`;
     }
     if (apiUrl) {
-      params.push(apiUrl.trim());
+      let cleanUrl = String(apiUrl).trim();
+      if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+        cleanUrl = `https://${cleanUrl}`;
+      }
+      params.push(cleanUrl);
       updateKeyClause += `, api_url = $${params.length}`;
     }
     if (status) {
@@ -374,15 +387,20 @@ providerRouter.put('/:id', requireAdminAuth, async (req: Request, res: Response)
       updateKeyClause += `, currency = $${params.length}`;
     }
     if (apiKey && String(apiKey).trim().length > 0 && !String(apiKey).includes('••••')) {
-      const cleanKey = String(apiKey).trim();
-      const masked = cleanKey.length > 4 ? `••••••••••••${cleanKey.slice(-4)}` : '••••••••••••';
-      const encrypted = encryptSecret(cleanKey);
+      const cleanKey = String(apiKey).replace(/[\r\n\t"']/g, '').trim();
+      if (cleanKey.length > 0) {
+        const masked = cleanKey.length > 4 ? `••••••••••••${cleanKey.slice(-4)}` : '••••••••••••';
+        const encrypted = encryptSecret(cleanKey);
 
-      params.push(encrypted);
-      updateKeyClause += `, api_key_encrypted = $${params.length}`;
+        params.push(encrypted);
+        updateKeyClause += `, api_key_encrypted = $${params.length}`;
 
-      params.push(masked);
-      updateKeyClause += `, masked_key = $${params.length}`;
+        params.push(masked);
+        updateKeyClause += `, masked_key = $${params.length}`;
+
+        // Clear previous last_error when new key is supplied
+        updateKeyClause += `, last_error = NULL`;
+      }
     }
 
     const query = `
@@ -398,7 +416,7 @@ providerRouter.put('/:id', requireAdminAuth, async (req: Request, res: Response)
       return;
     }
 
-    res.json({ success: true, provider: result.rows[0], message: 'Provider updated successfully' });
+    res.json({ success: true, provider: result.rows[0], message: 'Provider and API key updated successfully' });
   } catch (err: any) {
     console.error('[UPDATE PROVIDER ERROR]:', err);
     res.status(500).json({ success: false, error: 'Failed to update provider' });

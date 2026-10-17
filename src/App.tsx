@@ -43,11 +43,12 @@ const MainLayout: React.FC = () => {
 
   const theme = getTheme(maintenanceConfig);
 
-  // Stealth URL Shield: The Admin panel has NO public URL or hash route.
-  // Any attempt to type #admin, #admin_dashboard, or /admin is sanitized and stripped immediately.
+  // Stealth URL Shield & Secret Admin Trigger:
+  // If owner visits #admin or ?admin=true, secretly open admin auth modal and strip URL immediately.
   const sanitizeHash = (rawHash: string): string => {
     const clean = (rawHash || '').replace('#', '').trim().toLowerCase();
-    if (clean.includes('admin')) {
+    if (clean === 'admin' || clean === 'owner' || clean.includes('admin')) {
+      setIsAdminAuthOpen(true);
       if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
         window.history.replaceState(null, '', window.location.pathname);
       }
@@ -57,8 +58,14 @@ const MainLayout: React.FC = () => {
   };
 
   const [currentTab, setCurrentTab] = useState<string>(() => {
-    if (typeof window !== 'undefined' && window.location.hash) {
-      return sanitizeHash(window.location.hash);
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('admin') || urlParams.has('owner')) {
+        setIsAdminAuthOpen(true);
+      }
+      if (window.location.hash) {
+        return sanitizeHash(window.location.hash);
+      }
     }
     return 'dashboard';
   });
@@ -69,14 +76,28 @@ const MainLayout: React.FC = () => {
   const [reorderData, setReorderData] = useState<ReorderData | ReorderParams | null>(null);
   const [supportOrderId, setSupportOrderId] = useState<number | null>(null);
 
-  // Synchronize browser history / hash navigation with customer tabs only
+  // Synchronize browser history & Secret Shortcut (Ctrl+Shift+A) for admin access
   React.useEffect(() => {
     const handleHashChange = () => {
       const clean = sanitizeHash(window.location.hash);
       setCurrentTab(clean);
     };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Secret Admin Hotkey: Ctrl+Shift+A or Cmd+Shift+A
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        setIsAdminAuthOpen(true);
+      }
+    };
+
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const handleSelectServiceForOrder = (serviceId: number) => {
@@ -107,6 +128,8 @@ const MainLayout: React.FC = () => {
     admin || 
     user?.role === 'admin'
   );
+
+  const isAdminTab = currentTab?.startsWith('admin_') || false;
 
   const handleTabChange = (tab: string) => {
     if (tab?.startsWith('admin_')) {
@@ -207,10 +230,12 @@ const MainLayout: React.FC = () => {
         </div>
       )}
 
-      {/* DB Connection Health Banner */}
-      <div className="relative z-20">
-        <DbStatusBanner />
-      </div>
+      {/* DB Connection Health Banner (Admin Portal Only) */}
+      {isAdminTab && admin && (
+        <div className="relative z-20">
+          <DbStatusBanner />
+        </div>
+      )}
 
       {/* Primary Navigation */}
       <div className="relative z-30">
@@ -380,17 +405,8 @@ const MainLayout: React.FC = () => {
           <div className="flex items-center gap-3 text-slate-500">
             <div className="flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>256-Bit SSL Encrypted & TOTP Protected</span>
+              <span>256-Bit SSL Encrypted & Secure Infrastructure</span>
             </div>
-            
-            <button
-              onClick={() => setIsAdminAuthOpen(true)}
-              className="p-1 text-slate-700 hover:text-slate-400 transition-colors cursor-pointer"
-              title="Staff Access"
-              aria-label="Staff Access"
-            >
-              <Lock className="w-3 h-3" />
-            </button>
           </div>
         </div>
       </footer>

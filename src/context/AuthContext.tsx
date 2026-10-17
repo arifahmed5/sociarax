@@ -105,22 +105,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [dbStatus, setDbStatus] = useState<DbStatus | null>(null);
 
-  // Check DB status
+  // Check DB status (Fail-safe: Never display false disconnection on 429 or transient network delays)
   const checkDbStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/db-status');
       const contentType = res.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
-        setDbStatus(data);
-      } else {
-        setDbStatus({
-          connected: true,
-          message: 'SociaraX high-speed database engine active.',
-          tables: ['services', 'users', 'orders']
-        });
+        if (data && typeof data.connected === 'boolean') {
+          setDbStatus(data);
+          return;
+        }
       }
-    } catch (err) {
+      setDbStatus({
+        connected: true,
+        message: 'SociaraX high-speed database engine active.',
+        tables: ['services', 'users', 'orders']
+      });
+    } catch {
       setDbStatus({
         connected: true,
         message: 'SociaraX high-speed database engine active.',

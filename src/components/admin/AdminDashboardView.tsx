@@ -380,7 +380,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
       </div>
 
       {/* Operational Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
         <div 
           onClick={() => onNavigateAdmin('admin_orders')}
           className="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl hover:border-slate-700 transition-colors cursor-pointer"
@@ -390,21 +390,28 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
         </div>
         <div 
           onClick={() => onNavigateAdmin('admin_orders')}
-          className="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl hover:border-slate-700 transition-colors cursor-pointer"
+          className="bg-slate-900/80 border border-amber-500/30 bg-amber-950/10 p-4 rounded-2xl hover:border-amber-500/50 transition-colors cursor-pointer"
         >
-          <div className="text-xs text-slate-400 mb-1">Pending Orders</div>
-          <div className="text-xl font-bold text-amber-400 font-mono">{metrics.pendingOrders + metrics.processingOrders}</div>
+          <div className="text-xs text-amber-400 mb-1">API Pending</div>
+          <div className="text-xl font-bold text-amber-400 font-mono">{metrics.pendingOrders}</div>
         </div>
         <div 
           onClick={() => onNavigateAdmin('admin_orders')}
-          className="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl hover:border-slate-700 transition-colors cursor-pointer"
+          className="bg-slate-900/80 border border-indigo-500/30 bg-indigo-950/10 p-4 rounded-2xl hover:border-indigo-500/50 transition-colors cursor-pointer"
         >
-          <div className="text-xs text-slate-400 mb-1">Completed Orders</div>
+          <div className="text-xs text-indigo-300 mb-1">In Progress</div>
+          <div className="text-xl font-bold text-indigo-400 font-mono">{metrics.processingOrders}</div>
+        </div>
+        <div 
+          onClick={() => onNavigateAdmin('admin_orders')}
+          className="bg-slate-900/80 border border-emerald-500/30 bg-emerald-950/10 p-4 rounded-2xl hover:border-emerald-500/50 transition-colors cursor-pointer"
+        >
+          <div className="text-xs text-emerald-400 mb-1">Completed</div>
           <div className="text-xl font-bold text-emerald-400 font-mono">{metrics.completedOrders}</div>
         </div>
         <div 
           onClick={() => onNavigateAdmin('admin_users')}
-          className="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl hover:border-slate-700 transition-colors cursor-pointer"
+          className="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl hover:border-slate-700 transition-colors cursor-pointer col-span-2 sm:col-span-1"
         >
           <div className="text-xs text-slate-400 mb-1">Registered Users</div>
           <div className="text-xl font-bold text-indigo-400 font-mono">{metrics.totalUsers}</div>

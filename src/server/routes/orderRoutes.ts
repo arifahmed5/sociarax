@@ -287,13 +287,45 @@ orderRouter.post('/', requireUserAuth, orderSubmissionLimiter, orderConcurrencyL
 
           if (providerResult.success && providerResult.orderId) {
             providerOrderId = providerResult.orderId;
-            finalStatus = 'processing';
+            finalStatus = 'pending';
             
+            // Set initial state from provider dispatch as Pending (queued at provider API)
             await db.query(`
               UPDATE orders 
-              SET provider_order_id = $1, provider_status = 'processing', status = 'processing', updated_at = CURRENT_TIMESTAMP
-              WHERE id = $2
-            `, [String(providerOrderId), createdOrder.id]);
+              SET provider_order_id = $1, provider_status = $2, status = $3, updated_at = CURRENT_TIMESTAMP
+              WHERE id = $4
+            `, [String(providerOrderId), 'Pending', 'pending', createdOrder.id]);
+
+            // Query provider immediately for exact upstream status (e.g. 'Pending', 'Processing', 'In progress')
+            try {
+              const liveProvStatus = await providerInfo.adapter.getOrderStatus(providerInfo.apiUrl, providerInfo.apiKey, providerOrderId);
+              if (liveProvStatus && liveProvStatus.success && liveProvStatus.status) {
+                const raw = String(liveProvStatus.status).toLowerCase();
+                let mStatus = 'pending';
+                if (raw.includes('complet') || raw.includes('done') || raw.includes('success')) mStatus = 'completed';
+                else if (raw.includes('in progress') || raw.includes('inprogress') || raw.includes('in-progress')) mStatus = 'in_progress';
+                else if (raw.includes('process')) mStatus = 'processing';
+                else if (raw.includes('pend')) mStatus = 'pending';
+                else if (raw.includes('part')) mStatus = 'partial';
+                else if (raw.includes('cancel')) mStatus = 'cancelled';
+                else if (raw.includes('refund')) mStatus = 'refunded';
+                
+                finalStatus = mStatus;
+                await db.query(`
+                  UPDATE orders
+                  SET status = $1, provider_status = $2, start_count = COALESCE($3, start_count), remains = COALESCE($4, remains), updated_at = CURRENT_TIMESTAMP
+                  WHERE id = $5
+                `, [
+                  mStatus, 
+                  liveProvStatus.status, 
+                  liveProvStatus.start_count ? parseInt(String(liveProvStatus.start_count), 10) : null, 
+                  liveProvStatus.remains ? parseInt(String(liveProvStatus.remains), 10) : null, 
+                  createdOrder.id
+                ]);
+              }
+            } catch (initStatusErr: any) {
+              // Safe fallback is 'pending' (waiting in upstream queue)
+            }
           } else {
             // Provider failed: Perform safe automatic rollback & refund
             providerError = providerResult.error || 'Provider rejected order';
@@ -475,6 +507,46 @@ async function syncPendingOrdersHelper(db: any, filterUserId?: number): Promise<
               statusRes.remains ? parseInt(String(statusRes.remains), 10) : null,
               ord.id
             ]);
+
+            // If provider cancelled or refunded an order that was previously active, safely auto-refund customer wallet
+            if ((mappedStatus === 'cancelled' || mappedStatus === 'refunded') && ord.user_id) {
+              try {
+                const ordDetailsRes = await db.query('SELECT charge, status FROM orders WHERE id = $1', [ord.id]);
+                const ordCharge = parseFloat(ordDetailsRes.rows[0]?.charge || '0');
+                if (ordCharge > 0) {
+                  // Check if already refunded
+                  const existingRefund = await db.query(
+                    "SELECT id FROM wallet_transactions WHERE reference_type = 'order' AND reference_id = $1 AND type = 'REFUND'",
+                    [String(ord.id)]
+                  );
+                  if (existingRefund.rowCount === 0) {
+                    const uRes = await db.query('SELECT wallet_balance FROM users WHERE id = $1', [ord.user_id]);
+                    if (uRes.rowCount > 0) {
+                      const balBefore = parseFloat(uRes.rows[0].wallet_balance || '0');
+                      const balAfter = parseFloat((balBefore + ordCharge).toFixed(4));
+                      await db.query('UPDATE users SET wallet_balance = $1 WHERE id = $2', [balAfter, ord.user_id]);
+                      await db.query(`
+                        INSERT INTO wallet_transactions (
+                          user_id, type, amount, balance_before, balance_after, currency,
+                          reference_type, reference_id, description
+                        )
+                        VALUES ($1, 'REFUND', $2, $3, $4, 'INR', 'order', $5, $6)
+                      `, [
+                        ord.user_id,
+                        ordCharge,
+                        balBefore,
+                        balAfter,
+                        String(ord.id),
+                        `Auto-refund for Order #${ord.id} (Upstream provider: ${statusRes.status})`
+                      ]);
+                    }
+                  }
+                }
+              } catch (refundErr) {
+                console.error('[AUTO REFUND ERROR ON SYNC]:', refundErr);
+              }
+            }
+
             updated++;
           }
         }
@@ -491,7 +563,7 @@ async function syncPendingOrdersHelper(db: any, filterUserId?: number): Promise<
 
 /**
  * GET /api/orders
- * User order history (Sanitized - customer sees only SociaraX order data)
+ * User order history with real-time upstream provider status
  */
 orderRouter.get('/', requireUserAuth, async (req: Request, res: Response): Promise<void> => {
   const user = (req as any).user;
@@ -520,6 +592,8 @@ orderRouter.get('/', requireUserAuth, async (req: Request, res: Response): Promi
         o.quantity,
         o.charge,
         o.status,
+        o.provider_status,
+        o.provider_order_id,
         o.start_count,
         o.remains,
         o.created_at,
@@ -562,6 +636,8 @@ orderRouter.get('/', requireUserAuth, async (req: Request, res: Response): Promi
         quantity: row.quantity,
         charge: parseFloat(row.charge),
         status: row.status,
+        providerStatus: row.provider_status || undefined,
+        providerOrderId: row.provider_order_id || undefined,
         startCount: row.start_count,
         remains: row.remains,
         createdAt: row.created_at,
@@ -571,6 +647,29 @@ orderRouter.get('/', requireUserAuth, async (req: Request, res: Response): Promi
   } catch (err: any) {
     console.error('[USER ORDERS FETCH ERROR]:', err);
     res.status(500).json({ success: false, error: 'Failed to retrieve orders' });
+  }
+});
+
+/**
+ * POST /api/orders/sync
+ * Customer triggers on-demand live status verification with upstream API provider
+ */
+orderRouter.post('/sync', requireUserAuth, async (req: Request, res: Response): Promise<void> => {
+  const user = (req as any).user;
+  const db = getDbPool();
+  if (!db) {
+    res.status(503).json({ success: false, error: 'Database service unavailable' });
+    return;
+  }
+  try {
+    const updatedCount = await syncPendingOrdersHelper(db, user.id);
+    res.json({
+      success: true,
+      message: `Live API status sync complete. ${updatedCount} order(s) updated from upstream provider.`,
+      updatedCount
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to sync orders' });
   }
 });
 
@@ -947,4 +1046,34 @@ orderRouter.get('/admin/:id/verify-provider', requireAdminAuth, async (req: Requ
     res.status(500).json({ success: false, error: err.message || 'Error querying upstream provider API.' });
   }
 });
+
+// 24/7 Background Order Status Synchronizer:
+// Polls provider for active orders (pending, processing, in_progress) every 10s
+// and updates database, remains, start_count, and completed state automatically.
+const autoSyncOrdersInterval = setInterval(async () => {
+  try {
+    const db = getDbPool();
+    if (db) {
+      await syncPendingOrdersHelper(db);
+    }
+  } catch (syncErr: any) {
+    // quiet recovery
+  }
+}, 10000);
+if (autoSyncOrdersInterval && typeof autoSyncOrdersInterval.unref === 'function') {
+  autoSyncOrdersInterval.unref();
+}
+
+// Initial quick check 5s after boot
+const initialOrdersSyncTimeout = setTimeout(async () => {
+  try {
+    const db = getDbPool();
+    if (db) {
+      await syncPendingOrdersHelper(db);
+    }
+  } catch (_) {}
+}, 5000);
+if (initialOrdersSyncTimeout && typeof initialOrdersSyncTimeout.unref === 'function') {
+  initialOrdersSyncTimeout.unref();
+}
 

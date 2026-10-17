@@ -18,7 +18,9 @@ import {
   Power,
   Search,
   ListFilter,
-  Download
+  Download,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export const AdminProvidersView: React.FC = () => {
@@ -62,6 +64,7 @@ export const AdminProvidersView: React.FC = () => {
   const [apiKey, setApiKey] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [currency, setCurrency] = useState<'INR' | 'USD'>('USD');
+  const [showApiKey, setShowApiKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -134,11 +137,19 @@ export const AdminProvidersView: React.FC = () => {
     setFormError('');
     setIsSaving(true);
 
+    let cleanUrl = apiUrl.trim();
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      cleanUrl = `https://${cleanUrl}`;
+    }
+
+    const cleanKey = apiKey ? apiKey.replace(/[\r\n\t"']/g, '').trim() : '';
+
     if (editingProvider) {
       const res = await updateAdminProvider(editingProvider.id, {
-        name,
-        apiUrl,
-        apiKey: apiKey || undefined,
+        name: name.trim(),
+        adapterType: adapterType || 'luvsmm',
+        apiUrl: cleanUrl,
+        apiKey: cleanKey || undefined,
         status,
         currency
       });
@@ -146,27 +157,32 @@ export const AdminProvidersView: React.FC = () => {
       if (res.success) {
         setEditingProvider(null);
         setApiKey('');
+        setShowApiKey(false);
+        setSyncStatusMsg({ success: true, message: 'Provider and API Key updated successfully!' });
       } else {
         setFormError(res.error || 'Failed to update provider');
       }
     } else {
-      if (!apiKey) {
-        setFormError('API Key is required');
+      if (!cleanKey) {
+        setFormError('API Key is required. Please paste the API key.');
         setIsSaving(false);
         return;
       }
       const res = await createAdminProvider({
-        name,
-        adapterType,
-        apiUrl,
-        apiKey,
+        name: name.trim(),
+        adapterType: adapterType || 'luvsmm',
+        apiUrl: cleanUrl,
+        apiKey: cleanKey,
         status,
         currency
       });
       setIsSaving(false);
       if (res.success) {
         setIsAddModalOpen(false);
+        setEditingProvider(null);
         setApiKey('');
+        setShowApiKey(false);
+        setSyncStatusMsg({ success: true, message: 'API Provider added successfully!' });
       } else {
         setFormError(res.error || 'Failed to add provider');
       }
@@ -176,9 +192,10 @@ export const AdminProvidersView: React.FC = () => {
   const handleOpenEdit = (p: ApiProvider) => {
     setEditingProvider(p);
     setName(p.name);
-    setAdapterType(p.adapterType);
+    setAdapterType(p.adapterType || 'luvsmm');
     setApiUrl(p.apiUrl);
     setApiKey('');
+    setShowApiKey(false);
     setStatus(p.status);
     setCurrency(p.currency?.toUpperCase() === 'USD' ? 'USD' : 'INR');
     setFormError('');
@@ -218,7 +235,18 @@ export const AdminProvidersView: React.FC = () => {
             <RefreshCw className="w-4 h-4" />
           </button>
           <button
-            onClick={() => { setIsAddModalOpen(true); setFormError(''); }}
+            onClick={() => {
+              setEditingProvider(null);
+              setName('');
+              setAdapterType('luvsmm');
+              setApiUrl('');
+              setApiKey('');
+              setShowApiKey(false);
+              setStatus('active');
+              setCurrency('INR');
+              setFormError('');
+              setIsAddModalOpen(true);
+            }}
             className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -504,37 +532,57 @@ export const AdminProvidersView: React.FC = () => {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Luvsmm Main"
+                  placeholder="e.g. Luvsmm Main or SMM Provider"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500"
                 />
               </div>
 
               <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Adapter Engine</label>
+                <select
+                  value={adapterType}
+                  onChange={(e) => setAdapterType(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
+                >
+                  <option value="luvsmm">Standard SMM API v2 (Luvsmm / Peakerr / JAP Compatible)</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">API URL (Endpoint)</label>
                 <input
-                  type="url"
+                  type="text"
                   required
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
                   placeholder="https://luvsmm.com/api/v2"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
                 />
+                <p className="text-[11px] text-slate-400 mt-1">Full URL to provider API v2 (e.g. https://domain.com/api/v2)</p>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  API Key {editingProvider && '(Leave blank to keep existing encrypted key)'}
+                  API Key {editingProvider ? '(Paste new key to replace, or leave blank to keep current)' : '(Required)'}
                 </label>
                 <div className="relative">
-                  <Key className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <Key className="w-4 h-4 text-slate-500 absolute left-3 top-3 pointer-events-none" />
                   <input
-                    type="password"
+                    type={showApiKey ? "text" : "password"}
                     required={!editingProvider}
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Enter provider API key"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3.5 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
+                    placeholder={editingProvider ? "Leave blank to keep existing key or paste new key" : "Paste your provider API key"}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-10 py-2.5 text-sm text-white focus:border-indigo-500 font-mono"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    title={showApiKey ? "Hide API Key" : "Show API Key"}
+                  >
+                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 

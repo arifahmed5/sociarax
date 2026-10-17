@@ -147,6 +147,8 @@ export interface SociaraxOrder {
   quantity: number;
   charge: number;
   status: OrderStatus;
+  providerStatus?: string;
+  providerOrderId?: string;
   startCount?: number;
   remains?: number;
   createdAt: string;

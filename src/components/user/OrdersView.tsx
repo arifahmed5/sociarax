@@ -26,13 +26,14 @@ interface OrdersViewProps {
 }
 
 export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthModal, onReorder, onReport }) => {
-  const { userOrders, formatCurrency, isOrdersLoading, loadUserOrders } = useSociarax();
+  const { userOrders, formatCurrency, isOrdersLoading, loadUserOrders, syncUserOrders } = useSociarax();
   const { user, userToken } = useAuth();
   const isAuthenticated = Boolean(userToken || user || localStorage.getItem('sociarax_user_token'));
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
   // Report / Complain Modal State
   const [reportingOrder, setReportingOrder] = useState<SociaraxOrder | null>(null);
@@ -51,8 +52,19 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthMo
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await loadUserOrders();
-    setIsRefreshing(false);
+    setSyncNotice(null);
+    try {
+      const syncRes = await syncUserOrders();
+      await loadUserOrders();
+      if (syncRes.success) {
+        setSyncNotice('Orders updated successfully.');
+        setTimeout(() => setSyncNotice(null), 3000);
+      }
+    } catch {
+      await loadUserOrders();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleOpenReport = (ord: SociaraxOrder) => {
@@ -113,7 +125,20 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthMo
 
   const filteredOrders = useMemo(() => {
     return userOrders.filter(ord => {
-      const matchStatus = statusFilter === 'all' || (ord.status || '').toLowerCase() === statusFilter.toLowerCase();
+      let matchStatus = true;
+      const s = (ord.status || '').toLowerCase();
+      if (statusFilter === 'pending') {
+        matchStatus = s === 'pending';
+      } else if (statusFilter === 'processing') {
+        matchStatus = s === 'processing' || s === 'in_progress';
+      } else if (statusFilter === 'completed') {
+        matchStatus = s === 'completed';
+      } else if (statusFilter === 'cancelled') {
+        matchStatus = s === 'cancelled' || s === 'failed';
+      } else if (statusFilter === 'refunded') {
+        matchStatus = s === 'refunded';
+      }
+
       const q = searchQuery.toLowerCase().trim();
       const matchSearch = !q ||
         String(ord.id).includes(q) ||
@@ -181,23 +206,30 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthMo
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-1.5 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800">
               {[
-                { id: 'all', label: 'All' },
-                { id: 'pending', label: 'Pending' },
-                { id: 'processing', label: 'Processing' },
-                { id: 'completed', label: 'Completed' },
-                { id: 'cancelled', label: 'Cancelled' },
-                { id: 'refunded', label: 'Refunded' },
+                { id: 'all', label: 'All', count: userOrders.length },
+                { id: 'pending', label: 'Pending', count: userOrders.filter(o => o.status === 'pending').length },
+                { id: 'processing', label: 'In Progress', count: userOrders.filter(o => o.status === 'processing' || o.status === 'in_progress').length },
+                { id: 'completed', label: 'Completed', count: userOrders.filter(o => o.status === 'completed').length },
+                { id: 'cancelled', label: 'Cancelled', count: userOrders.filter(o => o.status === 'cancelled' || o.status === 'failed').length },
+                { id: 'refunded', label: 'Refunded', count: userOrders.filter(o => o.status === 'refunded').length },
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setStatusFilter(tab.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                     statusFilter === tab.id
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  {tab.label}
+                  <span>{tab.label}</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                    statusFilter === tab.id
+                      ? 'bg-indigo-700/80 text-white'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {tab.count}
+                  </span>
                 </button>
               ))}
             </div>
@@ -213,6 +245,16 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onNavigate, onOpenAuthMo
               />
             </div>
           </div>
+
+          {/* Refresh Notice */}
+          {syncNotice && (
+            <div className="bg-emerald-950/80 border border-emerald-500/40 rounded-2xl px-4 py-3 text-xs text-emerald-300 flex items-center justify-between shadow-lg animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{syncNotice}</span>
+              </div>
+            </div>
+          )}
 
           {/* Orders Table */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
